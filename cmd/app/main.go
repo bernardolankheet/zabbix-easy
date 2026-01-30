@@ -1041,7 +1041,48 @@ func generateZabbixReport(url, token string) (string, error) {
 	sort.Slice(procRows, func(i, j int) bool { return procRows[i].Vavg > procRows[j].Vavg })
 	// render
 	for _, pr := range procRows {
-		nameCell := `<td><span title="` + htmlpkg.EscapeString(pr.Desc) + `">` + pr.Friendly + `</span></td>`
+		nameCell := `<td style='position:relative;padding:0;'>` +
+		`<div style='display:flex;align-items:center;gap:4px;'>` +
+		`<span>` + pr.Friendly + `</span>` +
+		`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
+		`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:600px;white-space:nowrap;overflow-x:auto;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+		`</span>` +
+		`</div></td>`
+			// Adiciona JS/CSS para tooltip interrogação
+			html += `<style>
+			.info-icon:focus .info-tooltip,
+			.info-icon:hover .info-tooltip {
+				display: block;
+			}
+			.info-icon {
+				outline: none;
+			}
+			.info-tooltip {
+				transition: opacity 0.15s;
+				white-space: nowrap;
+				overflow-x: auto;
+				max-width: 600px;
+			}
+			</style>
+			<script>
+			function setupInfoTooltips(){
+			  document.querySelectorAll('.info-icon').forEach(function(icon){
+				if(icon._tooltipBound) return;
+				icon._tooltipBound = true;
+				icon.addEventListener('click',function(e){
+				  var tip = this.querySelector('.info-tooltip');
+				  if(tip){ tip.style.display = (tip.style.display==='block') ? 'none' : 'block'; }
+				  e.stopPropagation();
+				});
+			  });
+			}
+			setupInfoTooltips();
+			document.addEventListener('click',function(){
+			  document.querySelectorAll('.info-tooltip').forEach(function(tip){ tip.style.display='none'; });
+			});
+			// Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
+			</script>`
 		if pr.Err {
 			html += `<tr>` + nameCell + `<td colspan='4'>Erro ao obter dados</td></tr>`
 			continue
