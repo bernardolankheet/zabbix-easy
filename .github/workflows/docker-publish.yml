@@ -21,4 +21,3 @@ jobs:
       - name: Push to DockerHub
         run: |
           docker push bernardolankheet/zabbix-easy:latest
-          docker push bernardolankheet/zabbix-easy:$(date +%s)
