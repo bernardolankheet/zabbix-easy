@@ -1,0 +1,13 @@
+site_name: Zabbix Easy HealthCheck Report
+repo_url: https://github.com/seuusuario/zabbix-easy
+nav:
+  - Home: docs/index.md
+  - Instalação: docs/instalacao.md
+  - API: docs/api.md
+  - Docker: docs/docker.md
+  - Utilização: docs/utilizacao.md
+  - Contribuição: docs/contribuicao.md
+theme:
+  name: material
+plugins:
+  - search
