@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   go-app:
-    build: ./app
+    build: .
     container_name: go-zabbix-app
     ports:
       - "8080:8080"

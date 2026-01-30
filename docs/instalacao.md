@@ -9,9 +9,8 @@
 
 ```bash
 git clone https://github.com/seuusuario/zabbix-easy.git
-cd zabbix-easy
-# Para rodar tudo com Docker Compose
-sudo docker compose up --build -d
+cd zabbix-easy/go-report
+docker compose up --build -d
 ```
 
 Acesse a interface web em `http://localhost:8080`.

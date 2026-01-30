@@ -3,7 +3,7 @@
 ## Build manual da imagem
 
 ```bash
-docker build -t seuusuario/zabbix-easy:latest ./app
+docker build -t seuusuario/zabbix-easy:latest .
 ```
 
 ## Envio para Docker Hub

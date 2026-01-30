@@ -6,6 +6,7 @@ Este projeto é uma solução moderna e performática para geração de relatór
 - **Go Backend**: API, workers e lógica de coleta/processamento Zabbix
 - **RabbitMQ**: Orquestração de tarefas de coleta
 - **Postgres**: Armazenamento temporário dos dados coletados
+- **Web UI**: Interface para entrada de URL/token, barra de progresso e relatório pronto para impressão
 
 ## Como funciona
 1. O usuário informa a URL/token do Zabbix via Web UI
@@ -16,3 +17,7 @@ Este projeto é uma solução moderna e performática para geração de relatór
 ## Observações
 - Os dados no Postgres são temporários, usados apenas para geração do relatório
 - O sistema é escalável e pronto para ambientes com grande volume de dados
+
+---
+
+Personalize este README conforme evoluir o projeto.
