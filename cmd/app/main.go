@@ -698,40 +698,57 @@ func generateZabbixReport(url, token string) (string, error) {
 	// close Top tab after Top Errors and open Processos tab will be inserted later
 	html += `</div>` // end tab-top
 
-	// --- Processos e Threads Zabbix Server (Pollers + Internal) ---
-	html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
-	// Consulta os pollers (data collectors) e mostra value_min, value_avg, value_max e status (trend últimos 30 dias)
-	serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	if serverHost == "" {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for pollers")
-	} else {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
-	}
-	// build poller list conditionally based on Zabbix major version
-	pollerNames := []string{}
-	// pollers available in both 6 and 7
-	commonPollers := []string{
-		"poller",
-		"http poller",
-		"icmp pinger",
-		"ipmi poller",
-		"java poller",
-		"odbc poller",
-		"proxy poller",
-		"unreachable poller",
-		"preprocessing worker",
-		"preprocessing manager",
-		"vmware collector",
-	}
-	pollerNames = append(pollerNames, commonPollers...)
-	// pollers introduced / better represented in Zabbix 7
-	if majorV >= 7 {
-		pollerNames = append([]string{`agent poller`, `browser poller`, `http agent poller`, `snmp poller`}, pollerNames...)
-	} else {
-		// for Zabbix 6, include SNMP trapper as separate component if desired (kept out of pollers)
-	}
-	html += `<h3>Pollers (Data Collectors)</h3>`
-	html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as metricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor, porem eles tambem podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers, quando degradado, no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos 30 dias: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
+	       // --- Processos e Threads Zabbix Server (Pollers + Internal) ---
+	       // Get CHECKTRENDTIME as string for display (default "30")
+	       checkTrendStr := os.Getenv("CHECKTRENDTIME")
+	       if checkTrendStr == "" { checkTrendStr = "30d" }
+	       // Extract numeric part (days/hours/minutes)
+	       checkTrendDisplay := "30 dias"
+	       if len(checkTrendStr) > 1 {
+		       unit := checkTrendStr[len(checkTrendStr)-1]
+		       numPart := checkTrendStr[:len(checkTrendStr)-1]
+		       if unit == 'd' {
+			       checkTrendDisplay = numPart + " dias"
+		       } else if unit == 'h' {
+			       checkTrendDisplay = numPart + " horas"
+		       } else if unit == 'm' {
+			       checkTrendDisplay = numPart + " minutos"
+		       } else {
+			       checkTrendDisplay = checkTrendStr + " (minutos)"
+		       }
+	       }
+	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
+	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
+	       if serverHost == "" {
+		       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for pollers")
+	       } else {
+		       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
+	       }
+	       // build poller list conditionally based on Zabbix major version
+	       pollerNames := []string{}
+	       // pollers available in both 6 and 7
+	       commonPollers := []string{
+		       "poller",
+		       "http poller",
+		       "icmp pinger",
+		       "ipmi poller",
+		       "java poller",
+		       "odbc poller",
+		       "proxy poller",
+		       "unreachable poller",
+		       "preprocessing worker",
+		       "preprocessing manager",
+		       "vmware collector",
+	       }
+	       pollerNames = append(pollerNames, commonPollers...)
+	       // pollers introduced / better represented in Zabbix 7
+	       if majorV >= 7 {
+		       pollerNames = append([]string{`agent poller`, `browser poller`, `http agent poller`, `snmp poller`}, pollerNames...)
+	       } else {
+		       // for Zabbix 6, include SNMP trapper as separate component if desired (kept out of pollers)
+	       }
+	       html += `<h3>Pollers (Data Collectors)</h3>`
+	       html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as metricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor, porem eles tambem podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers, quando degradado, no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Poller</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	type pollRow struct{
 		Friendly string
@@ -862,19 +879,61 @@ func generateZabbixReport(url, token string) (string, error) {
 		return pollRows[i].Vavg > pollRows[j].Vavg
 	})
 	// render
-	for _, pr := range pollRows {
-		if pr.Err {
-			html += `<tr><td><span title="` + htmlpkg.EscapeString(pr.Desc) + `">` + pr.Friendly + `</span></td><td colspan='4'>Erro ao obter dados</td></tr>`
-			continue
-		}
-		if pr.Disabled {
-			dm := "Processo não habilitado"
-			if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
-			html += `<tr><td><span title="` + htmlpkg.EscapeString(pr.Desc) + `">` + pr.Friendly + `</span></td><td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + htmlpkg.EscapeString(dm) + `</td></tr>`
-			continue
-		}
-		html += `<tr><td><span title="` + htmlpkg.EscapeString(pr.Desc) + `">` + pr.Friendly + `</span></td><td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
-	}
+	       for _, pr := range pollRows {
+		       nameCell := `<td style='position:relative;padding:0;'>` +
+		       `<div style='display:flex;align-items:center;gap:4px;'>` +
+		       `<span>` + pr.Friendly + `</span>` +
+		       `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
+		       `<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+		       `<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:600px;white-space:nowrap;overflow-x:auto;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+		       `</span>` +
+		       `</div></td>`
+		       // Adiciona JS/CSS para tooltip interrogação (apenas uma vez, mas seguro repetir)
+		       html += `<style>
+		       .info-icon:focus .info-tooltip,
+		       .info-icon:hover .info-tooltip {
+			       display: block;
+		       }
+		       .info-icon {
+			       outline: none;
+		       }
+		       .info-tooltip {
+			       transition: opacity 0.15s;
+			       white-space: nowrap;
+			       overflow-x: auto;
+			       max-width: 600px;
+		       }
+		       </style>
+		       <script>
+		       function setupInfoTooltips(){
+			 document.querySelectorAll('.info-icon').forEach(function(icon){
+			       if(icon._tooltipBound) return;
+			       icon._tooltipBound = true;
+			       icon.addEventListener('click',function(e){
+				 var tip = this.querySelector('.info-tooltip');
+				 if(tip){ tip.style.display = (tip.style.display==='block') ? 'none' : 'block'; }
+				 e.stopPropagation();
+			       });
+			 });
+		       }
+		       setupInfoTooltips();
+		       document.addEventListener('click',function(){
+			 document.querySelectorAll('.info-tooltip').forEach(function(tip){ tip.style.display='none'; });
+		       });
+		       // Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
+		       </script>`
+		       if pr.Err {
+			       html += `<tr>` + nameCell + `<td colspan='4'>Erro ao obter dados</td></tr>`
+			       continue
+		       }
+		       if pr.Disabled {
+			       dm := "Processo não habilitado"
+			       if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
+			       html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + htmlpkg.EscapeString(dm) + `</td></tr>`
+			       continue
+		       }
+		       html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
+	       }
 	html += `</tbody></table></div>`
 	// Procura chave de processo no Zabbix server e pega últimos trend stats (now-30d .. now)
 	serverHost = os.Getenv("ZABBIX_SERVER_HOSTID")
@@ -909,7 +968,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"ha manager",
 	}
 	html += `<h3>Internal Process</h3>`
-	html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de process dos processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos 30 dias: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
+	html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de process dos processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	// procDesc moved above to avoid undefined reference
 	type procRow struct{
@@ -1509,6 +1568,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		}
 		// only render subtopic if any async poller is disabled
 		if agentDisabled || snmpDisabled || httpAgentDisabled {
+			html += `<div style='margin-left:6px;'>`
 			html += `<h5>Pollers Assíncronos</h5>`
 			html += `<div class='como-corrigir'>Os processos de Poller Síncrono foram substituídos por processos de Poller Assíncrono, o que melhora significativamente a velocidade e escalabilidade da coleta de métricas, especialmente para verificações de agentes SNMP, HTTP e Agent Poller.</div>`
 			if agentDisabled {
@@ -1520,6 +1580,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			if httpAgentDisabled {
 				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do Zabbix:</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
 			}
+			html += `</div>`
 		}
 	}
 	// prepare numeric disabled count
