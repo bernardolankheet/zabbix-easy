@@ -48,6 +48,9 @@ function checkProgress(taskId, progress) {
     fetch('/api/progress/' + taskId)
         .then(res => res.json())
         .then(data => {
+            if (data.progress_msg) {
+                document.getElementById('progress-text').textContent = data.progress_msg;
+            }
             if (data.status === 'done') {
                 document.querySelector('.progress').style.width = '100%';
                 fetch('/api/report/' + taskId)
@@ -324,6 +327,11 @@ function checkProgress(taskId, progress) {
                 progress = Math.min(progress + 20, 90);
                 document.querySelector('.progress').style.width = progress + '%';
                 setTimeout(function() { checkProgress(taskId, progress); }, 800);
+            } else if (data.status === 'error') {
+                document.getElementById('progress-bar').style.display = 'none';
+                // if backend provided a report (HTML), show it (e.g. Token Invalido), otherwise fallback
+                document.getElementById('report-area').innerHTML = data.report || '<div style="color:red;">Erro ao processar tarefa.</div>';
+                document.getElementById('report-area').style.display = 'block';
             } else {
                 document.getElementById('progress-bar').style.display = 'none';
                 document.getElementById('report-area').innerHTML = '<div style="color:red;">Erro ao processar tarefa.</div>';

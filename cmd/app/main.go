@@ -33,32 +33,32 @@ func parseCheckTrendEnv() {
 	unit := v[n-1]
 	numPart := v[:n-1]
 	// if unit is digit (no unit supplied), treat whole as minutes
-	if unit >= '0' && unit <= '9' {
-		// entire string is numeric -> minutes
-		if val, err := strconv.Atoi(v); err == nil {
-			checkTrendDurationSeconds = int64(val) * 60
-			log.Printf("[DEBUG] CHECKTRENDTIME parsed as %d minutes", val)
-			return
-		}
-		log.Printf("[WARN] CHECKTRENDTIME invalid: %s", v)
-		return
-	}
+	       if unit >= '0' && unit <= '9' {
+		       // entire string is numeric -> minutes
+		       if val, err := strconv.Atoi(v); err == nil {
+			       checkTrendDurationSeconds = int64(val) * 60
+			       log.Printf("[DEBUG] CHECKTRENDTIME parsed as %d minutes", val)
+			       return
+		       }
+		       log.Printf("[WARN] CHECKTRENDTIME invalid: %s", v)
+		       return
+	       }
 	val, err := strconv.Atoi(numPart)
 	if err != nil {
 		log.Printf("[WARN] CHECKTRENDTIME invalid number: %s", v)
 		return
 	}
-	switch unit {
-	case 'd':
-		checkTrendDurationSeconds = int64(val) * 24 * 60 * 60
-	case 'h':
-		checkTrendDurationSeconds = int64(val) * 60 * 60
-	case 'm':
-		checkTrendDurationSeconds = int64(val) * 60
-	default:
-		log.Printf("[WARN] CHECKTRENDTIME invalid unit '%c' in %s", unit, v)
-		return
-	}
+	       switch unit {
+	       case 'd':
+		       checkTrendDurationSeconds = int64(val) * 24 * 60 * 60
+	       case 'h':
+		       checkTrendDurationSeconds = int64(val) * 60 * 60
+	       case 'm':
+		       checkTrendDurationSeconds = int64(val) * 60
+	       default:
+		       log.Printf("[WARN] CHECKTRENDTIME invalid unit '%c' in %s", unit, v)
+		       return
+	       }
 	log.Printf("[DEBUG] CHECKTRENDTIME set to %s -> %d seconds", v, checkTrendDurationSeconds)
 
 }
@@ -68,6 +68,9 @@ var httpClient *http.Client
 
 // Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
 var itemLookupCache sync.Map
+
+// Optional progress callback used to send textual progress updates back to caller
+var progressCb func(string)
 
 func initHttpClient() {
 	if httpClient != nil {
@@ -248,12 +251,14 @@ func generateZabbixReport(url, token string) (string, error) {
 		nItensNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
 	// 1. Usuários
+	if progressCb != nil { progressCb("Coletando informações de Usuários...") }
 	userResp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{ "output": "userid" })
 	if err != nil { return "", err }
 	users := userResp["result"].([]interface{})
 	nUsers := len(users)
 
 	// 2. NVPS (Required server performance, new values per second)
+	if progressCb != nil { progressCb("Coletando informações de NVPS (Required performance)...") }
 	// Flow: item.get with hostid + key_ -> if exists, history.get(last) using item's value_type
 	nvps := "N/A"
 	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
@@ -304,6 +309,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// 3. Hosts
+	if progressCb != nil { progressCb("Coletando informações de Hosts...") }
 
     
 	hostsResp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{ "output": "hostid" })
@@ -322,6 +328,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	nDisabledHosts := len(disabledHosts)
 
 	// 3.1 Templates (contagem)
+	if progressCb != nil { progressCb("Coletando informações de Templates...") }
 	templatesCount := "N/A"
 	templatesCountResp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{
 		"countOutput": true,
@@ -331,6 +338,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// 3.2 Itens (total / habilitados / desabilitados / não suportados)
+	if progressCb != nil { progressCb("Coletando informações de Itens (contagens)...") }
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
 	nItemsDisabled := "-"
@@ -359,6 +367,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// 4. Itens não suportados
+	if progressCb != nil { progressCb("Coletando itens não suportados...") }
 	itemsResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": []string{"itemid","name","templateid","error","key_"},
 		"filter": map[string]interface{}{ "state": 1 },
@@ -699,7 +708,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>` // end tab-top
 
 	       // --- Processos e Threads Zabbix Server (Pollers + Internal) ---
-	       // Get CHECKTRENDTIME as string for display (default "30")
+		if progressCb != nil { progressCb("Coletando informações de Pollers e Processos internos...") }
+		// Get CHECKTRENDTIME as string for display (default "30")
 	       checkTrendStr := os.Getenv("CHECKTRENDTIME")
 	       if checkTrendStr == "" { checkTrendStr = "30d" }
 	       // Extract numeric part (days/hours/minutes)
@@ -1161,6 +1171,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>` // end tab-processos
 
 	// --- Items tab (Itens não suportados + Intervalo de Coleta) ---
+	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Itens não suportados...") }
 	html += `<div id='tab-items' class='tab-panel' style='display:none;'>`
 	// --- Itens não suportados (nova categoria) ---
 	// Choose the frontend path depending on Zabbix major version (>=7 use zabbix.php, older use items.php)
@@ -1652,67 +1663,84 @@ func main() {
 
 
 	       // In-memory task store (substitua por Postgres depois)
-	       type Task struct {
-		       ID     string
-		       Status string // "pending", "processing", "done", "error"
-		       Report string
-	       }
-	       var tasks = make(map[string]*Task)
+		       type Task struct {
+			       ID     string
+			       Status string // "pending", "processing", "done", "error"
+			       Report string
+			       ProgressMsg string // mensagem de progresso
+		       }
+		       var tasks = make(map[string]*Task)
 
-	r.POST("/api/start", func(c *gin.Context) {
-		type Req struct {
-			ZabbixURL   string `json:"zabbix_url"`
-			ZabbixToken string `json:"zabbix_token"`
-		}
-		var req Req
-		if err := c.ShouldBindJSON(&req); err != nil {
-			log.Printf("[ERROR] Dados inválidos recebidos: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
-			return
-		}
-		log.Printf("[DEBUG] Requisição recebida: url=%s, token=%s", req.ZabbixURL, req.ZabbixToken)
-		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
-		tasks[id] = &Task{ID: id, Status: "processing"}
-		go func(taskID string, url, token string) {
-			log.Printf("[DEBUG] Iniciando tarefa: %s", taskID)
-			report, err := generateZabbixReport(url, token)
-			if err != nil {
-				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
-				tasks[taskID].Status = "error"
-				// Friendly message for invalid token
-				if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
-					tasks[taskID].Report = "<div style='color:red;'>Token Invalido</div>"
-				} else {
-					tasks[taskID].Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
-				}
-				return
+	       r.POST("/api/start", func(c *gin.Context) {
+		       type Req struct {
+			       ZabbixURL   string `json:"zabbix_url"`
+			       ZabbixToken string `json:"zabbix_token"`
+		       }
+		       var req Req
+		       if err := c.ShouldBindJSON(&req); err != nil {
+			       log.Printf("[ERROR] Dados inválidos recebidos: %v", err)
+			       c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+			       return
+		       }
+		       log.Printf("[DEBUG] Requisição recebida: url=%s, token=%s", req.ZabbixURL, req.ZabbixToken)
+		       id := fmt.Sprintf("task-%d", time.Now().UnixNano())
+		       tasks[id] = &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."}
+		       go func(taskID string, url, token string) {
+			       setProgress := func(msg string) {
+				       if t, ok := tasks[taskID]; ok { t.ProgressMsg = msg }
+			       }
+			       setProgress("Detectando versão do Zabbix...")
+			       report, err := generateZabbixReportWithProgress(url, token, setProgress)
+			       if err != nil {
+				       log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
+				       tasks[taskID].Status = "error"
+				       if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
+					       tasks[taskID].Report = "<div style='color:red;'>Token Invalido</div>"
+				       } else {
+					       tasks[taskID].Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
+				       }
+				       return
+			       }
+			       log.Printf("[DEBUG] Tarefa %s concluída", taskID)
+			       tasks[taskID].Status = "done"
+			       tasks[taskID].Report = report
+			       tasks[taskID].ProgressMsg = "Relatório gerado." // final
+		       }(id, req.ZabbixURL, req.ZabbixToken)
+			       c.JSON(http.StatusOK, gin.H{"task_id": id})
+			       })
+
+				r.GET("/api/progress/:id", func(c *gin.Context) {
+					id := c.Param("id")
+					task, ok := tasks[id]
+					if !ok {
+						c.JSON(http.StatusNotFound, gin.H{"error": "Tarefa não encontrada"})
+						return
+					}
+					// Include the optional report HTML so callers can show a meaningful error message
+					c.JSON(http.StatusOK, gin.H{"status": task.Status, "progress_msg": task.ProgressMsg, "report": task.Report})
+				})
+
+			       r.GET("/api/report/:id", func(c *gin.Context) {
+				       id := c.Param("id")
+				       task, ok := tasks[id]
+				       if !ok || task.Status != "done" {
+					       c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não disponível"})
+					       return
+				       }
+				       c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
+			       })
+
+			       r.Run(":8080")
 			}
-			log.Printf("[DEBUG] Tarefa %s concluída", taskID)
-			tasks[taskID].Status = "done"
-			tasks[taskID].Report = report
-		}(id, req.ZabbixURL, req.ZabbixToken)
-		c.JSON(http.StatusOK, gin.H{"task_id": id})
-	})
 
-	       r.GET("/api/progress/:id", func(c *gin.Context) {
-		       id := c.Param("id")
-		       task, ok := tasks[id]
-		       if !ok {
-			       c.JSON(http.StatusNotFound, gin.H{"error": "Tarefa não encontrada"})
-			       return
-		       }
-		       c.JSON(http.StatusOK, gin.H{"status": task.Status})
-	       })
-
-	       r.GET("/api/report/:id", func(c *gin.Context) {
-		       id := c.Param("id")
-		       task, ok := tasks[id]
-		       if !ok || task.Status != "done" {
-			       c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não disponível"})
-			       return
-		       }
-		       c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
-	       })
-
-	r.Run(":8080")
-}
+			// Wrapper for progress reporting
+			func generateZabbixReportWithProgress(url, token string, setProgress func(string)) (string, error) {
+				// install callback for use inside generateZabbixReport
+				progressCb = setProgress
+				// ensure we clear callback when finished
+				defer func(){ progressCb = nil }()
+				// initial message
+				if progressCb != nil { progressCb("Detectando versão do Zabbix...") }
+				// Call the original report generator which will call progressCb at key points
+				return generateZabbixReport(url, token)
+			}
