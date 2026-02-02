@@ -600,7 +600,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"lld worker": `Parâmetro "LLDWorkers": workers do LLD que executam regras de descoberta e geram itens/dispositivos; dimensione conforme a frequência e quantidade de regras LLD.`,
 		"odbc poller": `Parâmetro "ODBCPollers": poller responsável por consultas ODBC/DB para coleta de métricas; aumente se houver muitos checks dependentes de ODBC.`,
 		"poller": `Parâmetro "StartPollers": processadores de coleta padrão para itens passivos; afeta throughput geral de coleta.`,
-		"preprocessing manager": `Parâmetro "PreprocessingManager": gerencia tarefas de pré-processamento de dados (regexp, transformação); aumente para reduzir filas em pipelines de processamento.`,
+		"preprocessing manager": `Parâmetro "PreprocessingManager": gerencia tarefas de pré-processamento de dados (regexp, transform) antes de serem salvo em banco de dados; aumente para reduzir filas de processamento.`,
 		"preprocessing worker": `Parâmetro "PreprocessingWorkers": threads que executam transformações/preprocessamento de valores antes de armazenamento ou avaliação de triggers.`,
 		"proxy poller": `Parâmetro "ProxyPollers": pollers para proxies remotos que agregam dados de agentes/proxies; ajuste para balancear carga de proxies.`,
 		"proxy group manager": `Parâmetro "ProxyGroupManager": gerencia balanceamento e alta disponibilidade entre proxies; dimensione se usar múltiplos proxies para redundância.`,
@@ -921,7 +921,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		       `<span>` + pr.Friendly + `</span>` +
 		       `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 		       `<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-		       `<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:600px;white-space:nowrap;overflow-x:auto;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+			`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:520px;white-space:normal;overflow:visible;word-break:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
 		       `</span>` +
 		       `</div></td>`
 		       // Adiciona JS/CSS para tooltip interrogação (apenas uma vez, mas seguro repetir)
@@ -933,12 +933,13 @@ func generateZabbixReport(url, token string) (string, error) {
 		       .info-icon {
 			       outline: none;
 		       }
-		       .info-tooltip {
-			       transition: opacity 0.15s;
-			       white-space: nowrap;
-			       overflow-x: auto;
-			       max-width: 600px;
-		       }
+			\.info-tooltip {
+				transition: opacity 0.15s;
+				white-space: normal;
+				overflow: visible;
+				max-width: 520px;
+				word-break: break-word;
+			}
 		       </style>
 		       <script>
 		       function setupInfoTooltips(){
@@ -1141,7 +1142,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		`<span>` + pr.Friendly + `</span>` +
 		`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 		`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:600px;white-space:nowrap;overflow-x:auto;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:520px;white-space:normal;overflow:visible;word-break:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
 		`</span>` +
 		`</div></td>`
 			// Adiciona JS/CSS para tooltip interrogação
@@ -1153,11 +1154,12 @@ func generateZabbixReport(url, token string) (string, error) {
 			.info-icon {
 				outline: none;
 			}
-			.info-tooltip {
+			\.info-tooltip {
 				transition: opacity 0.15s;
-				white-space: nowrap;
-				overflow-x: auto;
-				max-width: 600px;
+				white-space: normal;
+				overflow: visible;
+				max-width: 520px;
+				word-break: break-word;
 			}
 			</style>
 			<script>
