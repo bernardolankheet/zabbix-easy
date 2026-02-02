@@ -1611,13 +1611,13 @@ func generateZabbixReport(url, token string) (string, error) {
 			html += `<h5>Pollers Assíncronos</h5>`
 			html += `<div class='como-corrigir'>Os processos de Poller Síncrono foram substituídos por processos de Poller Assíncrono, o que melhora significativamente a velocidade e escalabilidade da coleta de métricas, especialmente para verificações de agentes SNMP, HTTP e Agent Poller.</div>`
 			if agentDisabled {
-				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
 			}
 			if snmpDisabled {
-				html += `<p><strong>Habilitar "Snmp Poller" no arquivo de configuração do zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de SNMP, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "Snmp Poller" no arquivo de configuração do zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de SNMP, novidade do Zabbix 7.</p>`
 			}
 			if httpAgentDisabled {
-				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
 			}
 			html += `</div>`
 		}
