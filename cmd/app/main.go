@@ -207,6 +207,27 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 	return nil, nil
 }
 
+// getProxyCount returns the total number of proxies configured in Zabbix (countOutput)
+func getProxyCount(apiUrl, token string) (int, error) {
+	params := map[string]interface{}{
+		"output": "extend",
+		"countOutput": true,
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "proxy.get", params)
+	if err != nil { return 0, err }
+	if r, ok := resp["result"]; ok {
+		switch v := r.(type) {
+		case float64:
+			return int(v), nil
+		case int:
+			return v, nil
+		default:
+			if v2, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil { return v2, nil }
+		}
+	}
+	return 0, nil
+}
+
 func generateZabbixReport(url, token string) (string, error) {
 		nItensNaoSuportados := "-"
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
@@ -538,6 +559,11 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<tr><td>Número de templates</td><td>` + templatesCount + `</td><td></td></tr>`
 	// Itens
 	html += `<tr><td>Número de itens (habilitados/desabilitados/não suportados)</td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItensNaoSuportados + `</td></tr>`
+	// Proxys
+	if progressCb != nil { progressCb("Coletando informações de Proxys...") }
+	proxyCount := 0
+	if pc, perr := getProxyCount(apiUrl, token); perr == nil { proxyCount = pc } else { log.Printf("[ERROR] proxy.get failed: %v", perr) }
+	html += `<tr><td>Número de Proxys</td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
 	// Usuários
 	html += `<tr><td>Número de usuários</td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
 	// NVPS
@@ -1583,13 +1609,13 @@ func generateZabbixReport(url, token string) (string, error) {
 			html += `<h5>Pollers Assíncronos</h5>`
 			html += `<div class='como-corrigir'>Os processos de Poller Síncrono foram substituídos por processos de Poller Assíncrono, o que melhora significativamente a velocidade e escalabilidade da coleta de métricas, especialmente para verificações de agentes SNMP, HTTP e Agent Poller.</div>`
 			if agentDisabled {
-				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração do Zabbix:</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
 			}
 			if snmpDisabled {
-				html += `<p><strong>Habilitar "Snmp Poller" no arquivo de configuração do Zabbix:</strong> Processo Asynchronous para verificações de SNMP, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "Snmp Poller" no arquivo de configuração do zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de SNMP, novidade do Zabbix 7.</p>`
 			}
 			if httpAgentDisabled {
-				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do Zabbix:</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
+				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do zabbix_server.conf (Se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
 			}
 			html += `</div>`
 		}
