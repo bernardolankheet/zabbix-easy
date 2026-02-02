@@ -34,15 +34,23 @@ label {
     font-weight: bold;
 }
 
-input[type=text], input[type=password] {
+#zabbix-form {
+    max-width: 820px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+#zabbix-form input[type=text],
+#zabbix-form input[type=password] {
     width: 100%;
     padding: 10px;
     margin-top: 6px;
     border: 1px solid #ccc;
     border-radius: 5px;
+    box-sizing: border-box;
 }
 
-button {
+#zabbix-form button {
     margin-top: 22px;
     width: 100%;
     padding: 12px;
@@ -55,7 +63,7 @@ button {
     transition: background 0.2s;
 }
 
-button:hover {
+#zabbix-form button:hover {
     background: #1a6dc2;
 }
 
@@ -86,19 +94,22 @@ button:hover {
     line-height: 32px;
 }
 
-.password-wrapper {
+.password-wrapper { box-sizing: border-box; }
+
+#zabbix-form .password-wrapper {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.password-wrapper input[type=password], .password-wrapper input[type=text] {
+#zabbix-form .password-wrapper input[type=password],
+#zabbix-form .password-wrapper input[type=text] {
     width: 100%;
     padding-right: 38px;
     box-sizing: border-box;
 }
 
-.toggle-eye {
+#zabbix-form .toggle-eye {
     position: absolute;
     right: 10px;
     top: 50%;
@@ -114,11 +125,11 @@ button:hover {
     outline: none;
 }
 
-.toggle-eye:focus {
+#zabbix-form .toggle-eye:focus {
     outline: 2px solid #2d8cf0;
 }
 
-.toggle-eye svg {
+#zabbix-form .toggle-eye svg {
     display: block;
 }
 
