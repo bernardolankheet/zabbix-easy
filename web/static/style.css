@@ -5,6 +5,22 @@ body {
     margin: 0;
 }
 
+body.show-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+body.show-login .container.full-width {
+    max-width: 900px;
+    width: calc(100% - 80px);
+    margin: 0;
+    padding: 28px;
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(12,20,28,0.12);
+}
+
 .container {
     width: calc(100% - 32px);
     max-width: 1200px;

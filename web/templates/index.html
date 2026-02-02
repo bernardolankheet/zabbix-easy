@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="show-login">
     <div class="container full-width">
         <div class="page-header">
             <h1>ZBX-Easy</h1>
         </div>
         <form id="zabbix-form">
             <label for="zabbix_url">URL do Zabbix:</label>
-            <input type="text" id="zabbix_url" name="zabbix_url" placeholder="zabbix.exemplo.com.br ou IP" required>
+            <input type="text" id="zabbix_url" name="zabbix_url" placeholder="http://zabbix.com ou http://IP" required>
             <label for="zabbix_token">Token de Autenticação:</label>
             <div class="password-wrapper">
                 <input type="password" id="zabbix_token" name="zabbix_token" placeholder="Token API" required>

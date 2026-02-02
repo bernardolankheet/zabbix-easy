@@ -59,7 +59,6 @@ function checkProgress(taskId, progress) {
                         document.getElementById('progress-bar').style.display = 'none';
                         const reportArea = document.getElementById('report-area');
                         reportArea.style.display = 'block';
-                        // Build a modern two-column layout: left = report content, right = recommendations
                         const container = document.createElement('div');
                         container.className = 'report-layout';
 
@@ -134,6 +133,8 @@ function checkProgress(taskId, progress) {
                         // hide the input form (url/token) when report is displayed
                         const form = document.getElementById('zabbix-form');
                         if (form) form.style.display = 'none';
+                        // remove the login-only layout class so report uses full layout
+                        try { document.body.classList.remove('show-login'); } catch(e) {}
 
                         // Execute any scripts included in the inserted HTML (fallback) and initialize gauges
                         (function executeInsertedScripts(container){
