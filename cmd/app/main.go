@@ -512,16 +512,47 @@ func generateZabbixReport(url, token string) (string, error) {
 	topErrors := sortMap(errorCounter)
 	if len(topErrors) > topN { topErrors = topErrors[:topN] }
 
-	// Descrições
+	// Descrições (textos exibidos nas view-boxes)
 	descTemplates := "Revise os templates com maior número de itens problemáticos. Verifique se estão atualizados, compatíveis com a versão do Zabbix e se os itens monitorados ainda fazem sentido para o ambiente. Considere simplificar ou dividir templates muito grandes."
 	descHosts := "Analise os hosts com mais erros. Verifique conectividade, permissões, agentes instalados e se o host está ativo. Corrija configurações específicas ou remova hosts obsoletos do monitoramento."
 	descItens := "Itens recorrentes podem indicar falhas de configuração, incompatibilidade ou ausência de recursos no host. Revise a chave do item, parâmetros, dependências externas (scripts, drivers, diretórios) e ajuste o template conforme necessário."
 	descErros := "Para cada tipo de erro, consulte a documentação do Zabbix e do sistema operacional/serviço monitorado. Corrija chaves inválidas, permissões, dependências, drivers ou scripts ausentes. Ajuste preprocessamento e tipos de dados conforme o erro apresentado. Para itens SNMP, verifique se o firmware do equipamento está atualizado, valide o OID utilizado e confirme se a comunidade SNMP está correta e configurada no dispositivo."
 	descDetalhamento := "Analise cada item e erro detalhado. Acesse o link para editar o item diretamente no Zabbix, revise a configuração, ajuste parâmetros e valide se o item é realmente necessário."
-	descNaoSuportados := "Os itens não suportados, são aquele que estão ativos, porém no momento de efetuar a coleta houve um erro. Esses itens continuam consumindo os processos do Zabbix desnecessariamente. Clique no Link e analise caso a caso para correção. Itens que não são mais necessários, devem ser removidos para otimizar o desempenho do Zabbix."
+	descNaoSuportados := "Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta houve um erro. Esses itens continuam consumindo os processos do Zabbix desnecessariamente. Clique no link e analise caso a caso para correção. Itens que não são mais necessários devem ser removidos para otimizar o desempenho do Zabbix."
 
 	// --- HTML moderno ---
 	html := `<div class='zabbix-report-modern'>`
+		// Global tooltip CSS/JS (single copy) - info-icon + info-tooltip
+		html += `<style>
+		.info-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;cursor:pointer;margin-left:6px;position:relative}
+		.info-icon svg{display:block}
+		.info-tooltip{display:none;position:absolute;z-index:40;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:8px 12px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.12);font-size:13px;min-width:360px;max-width:auto;white-space:normal;word-break:normal;overflow-wrap:break-word}
+		.info-icon:focus .info-tooltip, .info-icon:hover .info-tooltip{display:block}
+		</style>
+		<script>
+		function setupInfoTooltips(){
+			document.querySelectorAll('.info-icon').forEach(function(icon){
+				if(icon._tooltipBound) return; icon._tooltipBound = true;
+				icon.addEventListener('click', function(e){
+					var tip = this.querySelector('.info-tooltip');
+					if(tip){ tip.style.display = (tip.style.display==='block') ? 'none' : 'block'; }
+					e.stopPropagation();
+				});
+			});
+		}
+		document.addEventListener('click', function(){ document.querySelectorAll('.info-tooltip').forEach(function(t){ t.style.display='none'; }); });
+		// call once now and again after dynamic inserts
+		setTimeout(setupInfoTooltips, 10);
+		</script>`
+
+		// helper to render headings with info icon and tooltip
+		titleWithInfo := func(tag, title, tip string) string {
+				// build SVG question-circle and tooltip content
+				sv := `<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>`
+			tipEsc := htmlpkg.EscapeString(tip) // Escape the tooltip text for HTML
+				// place tooltip inside the icon span so positioning is relative
+				return fmt.Sprintf("<%s>%s <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(title), sv, tipEsc, tag)
+		}
 	// compute ambiente and version for header
 	ambienteUrl := url
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
@@ -544,6 +575,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div class='tabs-container'>`
 	html += `<button class='tab-btn active' data-tab='tab-resumo'>Resumo do Ambiente</button>`
 	html += `<button class='tab-btn' data-tab='tab-processos'>Processos e Threads Zabbix Server</button>`
+	html += `<button class='tab-btn' data-tab='tab-proxys'>Processos e Threads Zabbix Proxys</button>`
 	html += `<button class='tab-btn' data-tab='tab-top'>Top Templates/Itens</button>`
 	html += `<button class='tab-btn' data-tab='tab-items'>Items e LLDs</button>`
 	html += `<button class='tab-btn' data-tab='tab-templates'>Templates</button>`
@@ -669,8 +701,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	// --- Top Templates/Itens tab ---
 	html += `<div id='tab-top' class='tab-panel' style='display:none;'>`
 	// Top Templates Ofensores
-	html += `<h3>Top Templates Ofensores</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descTemplates + `</div>`
+	html += titleWithInfo("h3", "Top Templates Ofensores", "Como corrigir: " + descTemplates)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
@@ -680,8 +711,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Top Hosts Ofensores (com template mais recorrente)
-	html += `<h3>Top Hosts Ofensores</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descHosts + `</div>`
+	html += titleWithInfo("h3", "Top Hosts Ofensores", "Como corrigir: " + descHosts)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Host</th><th>Template Mais Ofensor</th><th>Quantidade de Erros</th></tr></thead><tbody>`
 	for _, host := range topHosts {
 		// Descobrir o template mais recorrente para o host
@@ -701,8 +731,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Top Itens Problemáticos
-	html += `<h3>Top Itens Problemáticos</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descItens + `</div>`
+	html += titleWithInfo("h3", "Top Itens Problemáticos", "Como corrigir: " + descItens)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
 	for _, item := range topItems {
 		parts := strings.SplitN(item.Key, "|", 2)
@@ -716,8 +745,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Tipos de Erro Mais Comuns
-	html += `<h3>Tipos de Erro Mais Comuns</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descErros + `</div>`
+	html += titleWithInfo("h3", "Tipos de Erro Mais Comuns", "Como corrigir: " + descErros)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Mensagem de Erro</th><th>Template</th><th>Ocorrências</th></tr></thead><tbody>`
 	for _, errRow := range topErrors {
 		parts := strings.SplitN(errRow.Key, "|", 2)
@@ -783,8 +811,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	       } else {
 		       // for Zabbix 6, include SNMP trapper as separate component if desired (kept out of pollers)
 	       }
-	       html += `<h3>Pollers (Data Collectors)</h3>`
-	       html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as metricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor, porem eles tambem podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers, quando degradado, no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
+		html += titleWithInfo("h3", "Pollers (Data Collectors)", `Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as métricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor; porém eles também podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers no arquivo zabbix_server.conf quando houver degradação. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
+		// (legend moved into tooltip; remove duplicate visible .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Poller</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	type pollRow struct{
 		Friendly string
@@ -921,7 +949,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		       `<span>` + pr.Friendly + `</span>` +
 		       `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 		       `<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-			`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:520px;white-space:normal;overflow:visible;word-break:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+			`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
 		       `</span>` +
 		       `</div></td>`
 		       // Adiciona JS/CSS para tooltip interrogação (apenas uma vez, mas seguro repetir)
@@ -934,12 +962,13 @@ func generateZabbixReport(url, token string) (string, error) {
 			       outline: none;
 		       }
 			\.info-tooltip {
-				transition: opacity 0.15s;
-				white-space: normal;
-				overflow: visible;
-				max-width: 520px;
-				word-break: break-word;
-			}
+							transition: opacity 0.15s;
+							white-space: normal;
+							overflow: visible;
+							max-width: 520px;
+							word-break: normal;
+							overflow-wrap: break-word;
+						}
 		       </style>
 		       <script>
 		       function setupInfoTooltips(){
@@ -1004,8 +1033,8 @@ func generateZabbixReport(url, token string) (string, error) {
 		"vmware collector",
 		"ha manager",
 	}
-	html += `<h3>Internal Process</h3>`
-	html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de process dos processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.</div>`
+	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
+	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	// procDesc moved above to avoid undefined reference
 	type procRow struct{
@@ -1142,7 +1171,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		`<span>` + pr.Friendly + `</span>` +
 		`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 		`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:180px;max-width:520px;white-space:normal;overflow:visible;word-break:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
 		`</span>` +
 		`</div></td>`
 			// Adiciona JS/CSS para tooltip interrogação
@@ -1155,12 +1184,13 @@ func generateZabbixReport(url, token string) (string, error) {
 				outline: none;
 			}
 			\.info-tooltip {
-				transition: opacity 0.15s;
-				white-space: normal;
-				overflow: visible;
-				max-width: 520px;
-				word-break: break-word;
-			}
+							transition: opacity 0.15s;
+							white-space: normal;
+							overflow: visible;
+							max-width: 520px;
+							word-break: normal;
+							overflow-wrap: break-word;
+						}
 			</style>
 			<script>
 			function setupInfoTooltips(){
@@ -1197,6 +1227,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	// close processos tab
 	html += `</tbody></table></div>`
 	html += `</div>` // end tab-processos
+
+	// --- Proxys tab (Processos e Threads Zabbix Proxys) ---
+	html += `<div id='tab-proxys' class='tab-panel' style='display:none;'>`
+	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys", "Os Zabbix Proxys possuem processos próprios que coletam e encaminham dados ao servidor. Verifique conexões, filas e consumo de recursos por proxy. Use a página de Proxies no frontend para detalhes por proxy.")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Parâmetro</th><th>Valor</th><th>Link</th></tr></thead><tbody>`
+	html += `<tr><td>Número de Proxys</td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td><a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir</a></td></tr>`
+	html += `</tbody></table></div>`
+	html += `</div>` // end tab-proxys
 
 	// --- Items tab (Itens não suportados + Intervalo de Coleta) ---
 	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Itens não suportados...") }
@@ -1241,18 +1279,17 @@ func generateZabbixReport(url, token string) (string, error) {
 	itemsNoTplLink := ambienteUrl + "/" + itemsNoTplPath
 
 	unsupportedLink := ambienteUrl + "/" + itemsPath
-	html += `<h3>Items sem Template</h3>`
+	html += titleWithInfo("h3", "Items sem Template", "Item sem template não afeta performance de Processos do Zabbix, porem para melhor organização é importante um item ter template e não ser criado a nivel de Host.")
 	if itemsNoTplCount > 0 {
-		html += `<div class='como-corrigir'>Item sem template não afeta performance de Processos do Zabbix, porem para melhor organização é importante um item ter template e não ser criado a nivel de Host.</div>`
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Descrição</th><th>Quantidade</th><th>Link</th></tr></thead><tbody>`
 		html += `<tr><td>Itens sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank'>Abrir</a></td></tr>`
 		html += `</tbody></table></div>`
 	} else {
-		html += `<div class='como-corrigir'>Nenhum item criado diretamente em hosts sem template detectado.</div>`
+		html += ``
 	}
 
-	html += `<h3>Itens não suportados</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descNaoSuportados + `</div>`
+	html += titleWithInfo("h3", "Itens não suportados", "Como corrigir: " + descNaoSuportados)
+	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Tipo de Item</th><th>Total</th><th>Não suportados</th><th>Link</th></tr></thead><tbody>`
 
 	// Define item types to query (type code -> label)
@@ -1423,8 +1460,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// renderiza a seção de Intervalo de Coleta
-	html += `<div style='background:#fff3b0;padding:10px;border-radius:6px;margin-bottom:8px;'>As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper. Intervalos Verificados 1, 10, 30, 60.</div>`
-	html += `<h3>Intervalo de Coleta:</h3>`
+	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
+	html += titleWithInfo("h3", "Intervalo de Coleta:", "As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper. Intervalos Verificados 1, 10, 30, 60.")
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Intervalo (s)</th><th>Quantidade de itens</th><th>Link</th></tr></thead><tbody>`
 	for _, r := range intervalRows {
 		if r.Count == 0 {
@@ -1481,7 +1518,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// renderiza a seção de Regras de LLD (Intervalo de Coleta)
-	html += `<h3>Regras de LLD (Discovery rules) - Intervalo de Coleta:</h3>`
+	html += titleWithInfo("h3", "Regras de LLD (Discovery rules) - Intervalo de Coleta:", "As métricas de monitoramento serão coletadas com base no intervalo de coleta definido na regra LLD; quanto menor o intervalo, maior o consumo de CPU/memória e crescimento do banco. Verifique se intervalos muito curtos são realmente necessários.")
+	// legend moved into tooltip via titleWithInfo
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Intervalo (s)</th><th>Quantidade de regras</th><th>Link</th></tr></thead><tbody>`
 	for _, r := range lldRows {
 		if r.Count == 0 {
@@ -1523,7 +1561,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	lldPerLink := ambienteUrl + "/" + lldPerPath
 
 	if lldNotSupCnt > 0 {
-		html += `<h3>Regras de LLD (Discovery rules) - Not Supported</h3>`
+		html += titleWithInfo("h3", "Regras de LLD (Discovery rules) - Not Supported", "Regras não suportadas são aquelas que apresentam erro ao executar a coleta. Essas regras continuam consumindo processos do Zabbix desnecessariamente; valide os erros e corrija ou desative regras inválidas.")
+		// legend moved into tooltip via titleWithInfo
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Descrição</th><th>Quantidade</th><th>Link</th></tr></thead><tbody>`
 		html += `<tr><td>Regras de descoberta com status de erro</td><td>` + fmt.Sprintf("%d", lldNotSupCnt) + `</td><td><a href='` + lldPerLink + `' target='_blank'>Abrir</a></td></tr>`
 		html += `</tbody></table></div>`
@@ -1535,8 +1574,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// --- Templates tab ---
 	html += `<div id='tab-templates' class='tab-panel' style='display:none;'>`
 	// Detalhamento dos Principais Templates
-	html += `<h3>Detalhamento dos Principais Templates</h3>`
-	html += `<div class='como-corrigir'>Como corrigir: ` + descDetalhamento + `</div>`
+	html += titleWithInfo("h3", "Detalhamento dos Principais Templates", descDetalhamento)
+		// legend moved into tooltip via titleWithInfo
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
@@ -1554,7 +1593,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
-	html += `<h3>Recomendações</h3>`
+	html += titleWithInfo("h3", "Recomendações", "Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.")
 	html += `<div style='background:#e8f5e9;padding:10px;border-radius:6px;margin-bottom:8px;'>Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.</div>`
 
 	// --- Recomendações dinâmicas ---
@@ -1574,7 +1613,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	sort.Slice(attention, func(i, j int) bool { return attention[i].Vavg > attention[j].Vavg })
 
 	html += `<h4>Processos e Threads</h4>`
-	html += `<div class='como-corrigir'>Pollers/internal processes: aumentar pollers/process se utilização média for maior que 60, conforme a necessidade, aumente gradativamente e avalie a performance.</div>`
+	// legend moved into tooltip via titleWithInfo
 	if len(attention) == 0 {
 		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
 	} else {
@@ -1609,7 +1648,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		if agentDisabled || snmpDisabled || httpAgentDisabled {
 			html += `<div style='margin-left:6px;'>`
 			html += `<h5>Pollers Assíncronos</h5>`
-			html += `<div class='como-corrigir'>Os processos de Poller Síncrono foram substituídos por processos de Poller Assíncrono, o que melhora significativamente a velocidade e escalabilidade da coleta de métricas, especialmente para verificações de agentes SNMP, HTTP e Agent Poller.</div>`
+			// legend moved into tooltip via titleWithInfo
 			if agentDisabled {
 				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
 			}
