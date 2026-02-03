@@ -228,6 +228,26 @@ func getProxyCount(apiUrl, token string) (int, error) {
 	return 0, nil
 }
 
+// getProxies returns the list of proxies with full details (output extend)
+func getProxies(apiUrl, token string) ([]map[string]interface{}, error) {
+	params := map[string]interface{}{
+		"output": "extend",
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "proxy.get", params)
+	if err != nil { return nil, err }
+	if r, ok := resp["result"]; ok {
+		arr, _ := r.([]interface{})
+		out := []map[string]interface{}{}
+		for _, it := range arr {
+			if m, ok := it.(map[string]interface{}); ok {
+				out = append(out, m)
+			}
+		}
+		return out, nil
+	}
+	return nil, nil
+}
+
 func generateZabbixReport(url, token string) (string, error) {
 		nItensNaoSuportados := "-"
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
@@ -574,8 +594,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>`
 	html += `<div class='tabs-container'>`
 	html += `<button class='tab-btn active' data-tab='tab-resumo'>Resumo do Ambiente</button>`
-	html += `<button class='tab-btn' data-tab='tab-processos'>Processos e Threads Zabbix Server</button>`
-	html += `<button class='tab-btn' data-tab='tab-proxys'>Processos e Threads Zabbix Proxys</button>`
+	html += `<button class='tab-btn' data-tab='tab-processos'>Zabbix Server</button>`
+	html += `<button class='tab-btn' data-tab='tab-proxys'>Zabbix Proxys</button>`
 	html += `<button class='tab-btn' data-tab='tab-top'>Top Templates/Itens</button>`
 	html += `<button class='tab-btn' data-tab='tab-items'>Items e LLDs</button>`
 	html += `<button class='tab-btn' data-tab='tab-templates'>Templates</button>`
@@ -594,7 +614,10 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Proxys
 	if progressCb != nil { progressCb("Coletando informações de Proxys...") }
 	proxyCount := 0
+	var proxies []map[string]interface{}
 	if pc, perr := getProxyCount(apiUrl, token); perr == nil { proxyCount = pc } else { log.Printf("[ERROR] proxy.get failed: %v", perr) }
+	// fetch full proxy list to render names and types
+	if plist, perr2 := getProxies(apiUrl, token); perr2 == nil && plist != nil { proxies = plist } else if perr2 != nil { log.Printf("[ERROR] proxy.get (list) failed: %v", perr2) }
 	html += `<tr><td>Número de Proxys</td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
 	// Usuários
 	html += `<tr><td>Número de usuários</td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
@@ -1228,12 +1251,60 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 	html += `</div>` // end tab-processos
 
-	// --- Proxys tab (Processos e Threads Zabbix Proxys) ---
+	// --- Proxys tab (Zabbix Proxys) ---
 	html += `<div id='tab-proxys' class='tab-panel' style='display:none;'>`
-	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys", "Os Zabbix Proxys possuem processos próprios que coletam e encaminham dados ao servidor. Verifique conexões, filas e consumo de recursos por proxy. Use a página de Proxies no frontend para detalhes por proxy.")
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Parâmetro</th><th>Valor</th><th>Link</th></tr></thead><tbody>`
-	html += `<tr><td>Número de Proxys</td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td><a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir</a></td></tr>`
+	html += titleWithInfo("h3", "Sumário Zabbix Proxys", "De preferencia para proxys Ativos. Proxys Passivos podem ser usados, em casos especificos, requer que o Zabbix Server consiga iniciar conexões com o Proxy. Verifique se os proxys estão atualizados e configurados corretamente.")
+	// Small summary table for proxies (active / passive / total) placed above details
+	active := 0
+	passive := 0
+	total := 0
+	if len(proxies) > 0 {
+		for _, p := range proxies {
+			if majorV >= 7 {
+				om := fmt.Sprintf("%v", p["operating_mode"])
+				if om == "0" { active++ } else if om == "1" { passive++ }
+			} else {
+				st := fmt.Sprintf("%v", p["status"])
+				if st == "5" { active++ } else if st == "6" { passive++ }
+			}
+		}
+		total = len(proxies)
+	} else {
+		// if proxies not available, fall back to proxyCount for total
+		total = proxyCount
+	}
+	// render small table above the proxys details
+	html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Descrição</th><th>Quantidade</th></tr></thead><tbody>`
+	html += `<tr><td>Proxys Ativos</td><td>` + fmt.Sprintf("%d", active) + `</td></tr>`
+	html += `<tr><td>Proxys Passivos</td><td>` + fmt.Sprintf("%d", passive) + `</td></tr>`
+	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir lista de Proxys</a></td></tr>`
 	html += `</tbody></table></div>`
+
+	// Proxys details table (list)
+	if len(proxies) > 0 {
+		html += `<h4>Proxys</h4>`
+		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th></tr></thead><tbody>`
+		for _, p := range proxies {
+			name := fmt.Sprintf("%v", p["name"])
+			if name == "<nil>" || name == "" { name = fmt.Sprintf("%v", p["host"]) }
+			proxyid := fmt.Sprintf("%v", p["proxyid"])
+			tipo := "Desconhecido"
+			if majorV >= 7 {
+				om := fmt.Sprintf("%v", p["operating_mode"])
+				if om == "0" { tipo = "Active" } else if om == "1" { tipo = "Passive" } else { tipo = om }
+			} else {
+				st := fmt.Sprintf("%v", p["status"])
+				if st == "5" { tipo = "Active" } else if st == "6" { tipo = "Passive" } else { tipo = st }
+			}
+			html += `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td></tr>`
+		}
+		html += `</tbody></table></div>`
+	} else {
+		html += `<div class='como-corrigir'>Nenhum proxy configurado ou informação indisponível.</div>`
+	}
+
+	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys", "Os Zabbix Proxys possuem processos próprios que coletam e encaminham dados ao servidor. Verifique conexões, filas e consumo de recursos por proxy. Use a página de Proxies no frontend para detalhes por proxy.")
+
 	html += `</div>` // end tab-proxys
 
 	// --- Items tab (Itens não suportados + Intervalo de Coleta) ---
