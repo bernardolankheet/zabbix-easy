@@ -383,17 +383,23 @@ func generateZabbixReport(url, token string) (string, error) {
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
 	nItemsDisabled := "-"
-	// total de itens
+	// total de itens (usar params estendidos: output extend, countOutput, templated false, webitems true)
 	itemsTotalResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+		"output": "extend",
 		"countOutput": true,
+		"templated": false,
+		"webitems": true,
 	})
 	if err == nil {
 		nItemsTotal = fmt.Sprintf("%v", itemsTotalResp["result"])
 	}
-	// itens habilitados
+	// itens habilitados (usar params mais completos: monitored, templated, webitems, filter status/state)
 	itemsEnabledResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"countOutput": true,
-		"filter": map[string]interface{}{ "status": 0 },
+		"monitored": true,
+		"templated": false,
+		"webitems": true,
+		"filter": map[string]interface{}{ "status": 0, "state": 0 },
 	})
 	if err == nil {
 		nItemsEnabled = fmt.Sprintf("%v", itemsEnabledResp["result"])
@@ -834,8 +840,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	       } else {
 		       // for Zabbix 6, include SNMP trapper as separate component if desired (kept out of pollers)
 	       }
-		html += titleWithInfo("h3", "Pollers (Data Collectors)", `Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as métricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor; porém eles também podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers no arquivo zabbix_server.conf quando houver degradação. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
-		// (legend moved into tooltip; remove duplicate visible .como-corrigir)
+		html += titleWithInfo("h3", "Pollers (Data Collectors)", `Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as métricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor; porém eles também podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers no arquivo zabbix_server.conf quando houver degradação. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)		
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Poller</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	type pollRow struct{
 		Friendly string
@@ -1057,9 +1062,8 @@ func generateZabbixReport(url, token string) (string, error) {
 		"ha manager",
 	}
 	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
-	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
-	// procDesc moved above to avoid undefined reference
+	// procDesc
 	type procRow struct{
 		Friendly string
 		Desc string
@@ -1283,7 +1287,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Proxys details table (list)
 	if len(proxies) > 0 {
 		html += `<h4>Proxys</h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:50%'><col style='width:12%'><col style='width:12%'><col style='width:12%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th></tr></thead><tbody>`
 		for _, p := range proxies {
 			name := fmt.Sprintf("%v", p["name"])
 			if name == "<nil>" || name == "" { name = fmt.Sprintf("%v", p["host"]) }
@@ -1296,7 +1300,92 @@ func generateZabbixReport(url, token string) (string, error) {
 				st := fmt.Sprintf("%v", p["status"])
 				if st == "5" { tipo = "Active" } else if st == "6" { tipo = "Passive" } else { tipo = st }
 			}
-			html += `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td></tr>`
+
+			// Preparar valores por proxy
+			queueVal := "-"
+			itemsUnsupportedVal := "-"
+			totalItemsVal := "-"
+
+			// Chamada item.get por proxy (mantém a lista de keys pesquisadas; usamos output extend para obter lastvalue)
+			paramsItems := map[string]interface{}{
+				"search": map[string]interface{}{"key_": []string{
+					"*items_unsupported*",
+					"*configuration syncer*",
+					"*queue,10m*",
+					"*data sender*",
+					"*availability manager*",
+					"*agent poller*",
+					"*browser poller*",
+					"*discovery manager*",
+					"*discovery worker*",
+					"*history syncer*",
+					"*housekeeper*",
+					"*http agent poller*",
+					"*http poller*",
+					"*icmp pinger*",
+					"*internal poller*",
+					"*ipmi manager*",
+					"*ipmi poller*",
+					"*java poller*",
+					"*odbc poller*",
+					"*poller*",
+					"*preprocessing manager*",
+					"*preprocessing worker*",
+					"*self-monitoring*",
+					"*snmp poller*",
+					"*snmp trapper*",
+					"*task manager*",
+					"*trapper*",
+					"*unreachable poller*",
+					"*vmware collector*",
+				}},
+				"searchWildcardsEnabled": true,
+				"searchByAny": true,
+				"monitored": true,
+				"proxyids": proxyid,
+				"output": "extend",
+			}
+
+			if respItems, ierr := zabbixApiRequest(apiUrl, token, "item.get", paramsItems); ierr == nil {
+				if r, ok := respItems["result"]; ok {
+					if arr, ok2 := r.([]interface{}); ok2 {
+						for _, it := range arr {
+							if m, mok := it.(map[string]interface{}); mok {
+								key := fmt.Sprintf("%v", m["key_"])
+								if strings.Contains(key, "queue,10m") || strings.HasPrefix(key, "zabbix[queue,10m") {
+									if lv, lok := m["lastvalue"]; lok {
+										queueVal = fmt.Sprintf("%v", lv)
+									}
+								}
+								if strings.Contains(key, "items_unsupported") || key == "zabbix[items_unsupported]" {
+									if lv, lok := m["lastvalue"]; lok {
+										itemsUnsupportedVal = fmt.Sprintf("%v", lv)
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				log.Printf("[DEBUG] item.get for proxy %s failed: %v", proxyid, ierr)
+			}
+
+			// Chamada separada para total de itens por proxy (countOutput)
+			paramsTotal := map[string]interface{}{
+				"output": "extend",
+				"templated": false,
+				"countOutput": true,
+				"proxyids": proxyid,
+			}
+			if respTotal, terr := zabbixApiRequest(apiUrl, token, "item.get", paramsTotal); terr == nil {
+				if r, ok := respTotal["result"]; ok {
+					totalItemsVal = fmt.Sprintf("%v", r)
+				}
+			} else {
+				log.Printf("[DEBUG] item.get (total) for proxy %s failed: %v", proxyid, terr)
+			}
+
+			html += `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td></tr>`
 		}
 		html += `</tbody></table></div>`
 	} else {
@@ -1360,7 +1449,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	html += titleWithInfo("h3", "Itens não suportados", "Como corrigir: " + descNaoSuportados)
-	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
+	// (legend use .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Tipo de Item</th><th>Total</th><th>Não suportados</th><th>Link</th></tr></thead><tbody>`
 
 	// Define item types to query (type code -> label)
@@ -1531,7 +1620,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// renderiza a seção de Intervalo de Coleta
-	// (legend moved into tooltip; remove duplicate visible .como-corrigir)
+	// (legend use .como-corrigir)
 	html += titleWithInfo("h3", "Intervalo de Coleta:", "As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper. Intervalos Verificados 1, 10, 30, 60.")
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Intervalo (s)</th><th>Quantidade de itens</th><th>Link</th></tr></thead><tbody>`
 	for _, r := range intervalRows {

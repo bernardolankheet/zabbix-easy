@@ -21,3 +21,10 @@ Este projeto é uma solução moderna e performática para geração de relatór
 ---
 
 Personalize este README conforme evoluir o projeto.
+
+
+
+Falta:
+
+1) correcao total de itens, total de itens desabilitados.
+- Adicionar contagem de itens corrigidos no relatório final
