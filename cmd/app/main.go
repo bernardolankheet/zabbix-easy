@@ -1258,18 +1258,30 @@ func generateZabbixReport(url, token string) (string, error) {
 	// --- Proxys tab (Zabbix Proxys) ---
 	html += `<div id='tab-proxys' class='tab-panel' style='display:none;'>`
 	html += titleWithInfo("h3", "Sumário Zabbix Proxys", "De preferencia para proxys Ativos. Proxys Passivos podem ser usados, em casos especificos, requer que o Zabbix Server consiga iniciar conexões com o Proxy. Verifique se os proxys estão atualizados e configurados corretamente.")
-	// Small summary table for proxies (active / passive / total) placed above details
+	// Small summary table for proxies (unknown / offline / active / passive / total) placed above details
+	unknown := 0
+	offline := 0
 	active := 0
 	passive := 0
 	total := 0
 	if len(proxies) > 0 {
 		for _, p := range proxies {
+			// Prefer 'state' (newer API) but fall back to 'status' when absent
+			stVal := fmt.Sprintf("%v", p["state"])
+			stAlt := fmt.Sprintf("%v", p["status"])
+			if stVal == "" { stVal = stAlt }
+			// count status-based categories (0=Unknown, 1=Offline)
+			if stVal == "0" { unknown++ }
+			if stVal == "1" { offline++ }
+
+			// determine active/passive depending on Zabbix major version
 			if majorV >= 7 {
 				om := fmt.Sprintf("%v", p["operating_mode"])
 				if om == "0" { active++ } else if om == "1" { passive++ }
 			} else {
-				st := fmt.Sprintf("%v", p["status"])
-				if st == "5" { active++ } else if st == "6" { passive++ }
+				// older Zabbix used different status codes for proxy running state
+				st2 := fmt.Sprintf("%v", p["status"])
+				if st2 == "5" { active++ } else if st2 == "6" { passive++ }
 			}
 		}
 		total = len(proxies)
@@ -1277,18 +1289,31 @@ func generateZabbixReport(url, token string) (string, error) {
 		// if proxies not available, fall back to proxyCount for total
 		total = proxyCount
 	}
-	// render small table above the proxys details
+	// render small table above the proxys details (ordered as requested)
 	html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Descrição</th><th>Quantidade</th></tr></thead><tbody>`
+	html += `<tr><td>Proxys Unknown</td><td>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
+	html += `<tr><td>Proxys Offline</td><td>` + fmt.Sprintf("%d", offline) + `</td></tr>`
 	html += `<tr><td>Proxys Ativos</td><td>` + fmt.Sprintf("%d", active) + `</td></tr>`
 	html += `<tr><td>Proxys Passivos</td><td>` + fmt.Sprintf("%d", passive) + `</td></tr>`
 	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir lista de Proxys</a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// Proxys details table (list)
+	// show only communicating proxies (state == 2) in the details list
+	visibleProxies := []map[string]interface{}{}
 	if len(proxies) > 0 {
+		for _, p := range proxies {
+			st := fmt.Sprintf("%v", p["state"])
+			if st == "" { st = fmt.Sprintf("%v", p["status"]) }
+			if st == "2" {
+				visibleProxies = append(visibleProxies, p)
+			}
+		}
+	}
+	if len(visibleProxies) > 0 {
 		html += `<h4>Proxys</h4>`
 		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:50%'><col style='width:12%'><col style='width:12%'><col style='width:12%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th></tr></thead><tbody>`
-		for _, p := range proxies {
+		for _, p := range visibleProxies {
 			name := fmt.Sprintf("%v", p["name"])
 			if name == "<nil>" || name == "" { name = fmt.Sprintf("%v", p["host"]) }
 			proxyid := fmt.Sprintf("%v", p["proxyid"])

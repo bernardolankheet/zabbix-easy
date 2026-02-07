@@ -26,5 +26,9 @@ Personalize este README conforme evoluir o projeto.
 
 Falta:
 
-1) correcao total de itens, total de itens desabilitados.
+1) total de itens desabilitados.
 - Adicionar contagem de itens corrigidos no relatório final
+
+
+Proxys mostram apenas os que estao comunicando, state=2
+Contagem de proxys com status =1 e =0
