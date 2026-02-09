@@ -101,6 +101,32 @@ Abaixo estão listadas as principais chamadas feitas pelo backend Go à API do Z
     { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }
     ```
 
+### 9. proxy.get
+- **Descrição:** Busca proxies cadastrados, por estado (ativo/passivo), status (online/offline), etc.
+- **Parâmetros:**
+  - Todos os proxies: `{ "output": "proxyid" }`
+  - Ativos: `{ "output": "proxyid", "filter": { "state": 2 } }`
+  - Passivos: `{ "output": "proxyid", "filter": { "state": 1 } }`
+  - Online: `{ "output": "proxyid", "filter": { "status": 0 } }`
+  - Offline: `{ "output": "proxyid", "filter": { "status": 1 } }`
+
+## Top Erros
+  Verifica os tops erros de itens, triggers e LLD rules, ordenados por número de falhas.
+
+  Chamada API usada para coletar os itens com erro (itens "não suportados"):
+
+  Parâmetros: item.get com
+  output: ["itemid","name","templateid","error","key_"]
+  filter: { "state": 1 }
+  webitems: 1
+  selectHosts: ["name","hostid"]
+  inherited: true
+  Como errorCounter é preenchido:
+
+  O código itera cada item retornado, extrai templateid, name, error e host.
+  Incrementa o mapa errorCounter com a chave formada por itemError + "|" + tplId, onde itemError é o texto do erro e tplId é o ID do template (ou "no_template" se não houver).
+  topErrors é percorrido para gerar a tabela de "Tipos de Erro Mais Comuns".
+
 ---
 
 Essas chamadas são feitas dinamicamente conforme a versão do Zabbix e os dados do ambiente. Consulte o código para detalhes de parâmetros opcionais e lógica de fallback.

@@ -258,8 +258,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		apiUrl += "api_jsonrpc.php"
 	}
 
-	// Detect Zabbix API version early (apiinfo.version)
-	// Use an empty auth when querying version so detection works even with invalid token
+	// get Zabbix API version (apiinfo.version)
 	zabbixVersion := ""
 	verResp, err := zabbixApiRequest(apiUrl, "", "apiinfo.version", []interface{}{})
 	if err == nil {
@@ -267,7 +266,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			zabbixVersion = fmt.Sprintf("%v", r)
 		}
 	}
-	// parse major/minor
+	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
 	minorV := 0
 	if zabbixVersion != "" {
@@ -281,7 +280,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 	// minorV may be used elsewhere; avoid unused variable compile error
 	_ = minorV
-	// Consulta quantidade de itens não suportados
+	// get em Consulta quantidade de itens não suportados
 	itensNaoSuportadosResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": "extend",
 		"filter": map[string]interface{}{ "state": 1, "status": 0 },
@@ -291,14 +290,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	if err == nil {
 		nItensNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
-	// 1. Usuários
+	// get Usuários
 	if progressCb != nil { progressCb("Coletando informações de Usuários...") }
 	userResp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{ "output": "userid" })
 	if err != nil { return "", err }
 	users := userResp["result"].([]interface{})
 	nUsers := len(users)
 
-	// 2. NVPS (Required server performance, new values per second)
+	// get NVPS (Required server performance, new values per second) utilizando a chave zabbix[requiredperformance] 
 	if progressCb != nil { progressCb("Coletando informações de NVPS (Required performance)...") }
 	// Flow: item.get with hostid + key_ -> if exists, history.get(last) using item's value_type
 	nvps := "N/A"
@@ -349,7 +348,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		nvps = "Erro ao procurar item"
 	}
 
-	// 3. Hosts
+	//get Hosts
 	if progressCb != nil { progressCb("Coletando informações de Hosts...") }
 
     
@@ -368,7 +367,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	if err == nil { disabledHosts = disabledResp["result"].([]interface{}) }
 	nDisabledHosts := len(disabledHosts)
 
-	// 3.1 Templates (contagem)
+	// get templates
 	if progressCb != nil { progressCb("Coletando informações de Templates...") }
 	templatesCount := "N/A"
 	templatesCountResp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{
@@ -378,12 +377,11 @@ func generateZabbixReport(url, token string) (string, error) {
 		templatesCount = fmt.Sprintf("%v", templatesCountResp["result"])
 	}
 
-	// 3.2 Itens (total / habilitados / desabilitados / não suportados)
+	// get total de itens
 	if progressCb != nil { progressCb("Coletando informações de Itens (contagens)...") }
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
-	nItemsDisabled := "-"
-	// total de itens (usar params estendidos: output extend, countOutput, templated false, webitems true)
+	nItemsDisabled := "-"	
 	itemsTotalResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": "extend",
 		"countOutput": true,
@@ -393,7 +391,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	if err == nil {
 		nItemsTotal = fmt.Sprintf("%v", itemsTotalResp["result"])
 	}
-	// itens habilitados (usar params mais completos: monitored, templated, webitems, filter status/state)
+	// get em itens habilitados 
 	itemsEnabledResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"countOutput": true,
 		"monitored": true,
@@ -404,16 +402,18 @@ func generateZabbixReport(url, token string) (string, error) {
 	if err == nil {
 		nItemsEnabled = fmt.Sprintf("%v", itemsEnabledResp["result"])
 	}
-	// itens desabilitados
+	// get em itens desabilitados
 	itemsDisabledResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"countOutput": true,
+		"templated": false,
+		"webitems": true,
 		"filter": map[string]interface{}{ "status": 1 },
 	})
 	if err == nil {
 		nItemsDisabled = fmt.Sprintf("%v", itemsDisabledResp["result"])
 	}
 
-	// 4. Itens não suportados
+	// get em Itens não suportados por host ID
 	if progressCb != nil { progressCb("Coletando itens não suportados...") }
 	itemsResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": []string{"itemid","name","templateid","error","key_"},
@@ -425,8 +425,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	items := []interface{}{}
 	if err == nil { items = itemsResp["result"].([]interface{}) }
 
-	// Buscar nome do template real de cada item (usar templateid como chave, conforme script Python)
-	// Primeiro crio a lista única de templateids (fake) retornados nos itens não suportados
+	// Buscar nome do template real de cada item (usar templateid como chave)
+	// Primeiro crio a lista única de templateids, para retornados nos itens não suportados
 	templateFakeSet := map[string]struct{}{}
 	for _, i := range items {
 		item := i.(map[string]interface{})
@@ -739,7 +739,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 	html += `</tbody></table></div>`
 
-	// Top Hosts Ofensores (com template mais recorrente)
+	// Montar o Top Hosts Ofensores (com template mais recorrente com itens problemáticos para cada host)
 	html += titleWithInfo("h3", "Top Hosts Ofensores", "Como corrigir: " + descHosts)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Host</th><th>Template Mais Ofensor</th><th>Quantidade de Erros</th></tr></thead><tbody>`
 	for _, host := range topHosts {
@@ -1264,6 +1264,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	active := 0
 	passive := 0
 	total := 0
+    unknownNames := []string{}
+    offlineNames := []string{}
 	if len(proxies) > 0 {
 		for _, p := range proxies {
 			// Prefer 'state' (newer API) but fall back to 'status' when absent
@@ -1271,8 +1273,8 @@ func generateZabbixReport(url, token string) (string, error) {
 			stAlt := fmt.Sprintf("%v", p["status"])
 			if stVal == "" { stVal = stAlt }
 			// count status-based categories (0=Unknown, 1=Offline)
-			if stVal == "0" { unknown++ }
-			if stVal == "1" { offline++ }
+			if stVal == "0" { unknown++; unknownNames = append(unknownNames, fmt.Sprintf("%v", p["name"])) }
+			if stVal == "1" { offline++; offlineNames = append(offlineNames, fmt.Sprintf("%v", p["name"])) }
 
 			// determine active/passive depending on Zabbix major version
 			if majorV >= 7 {
@@ -1797,7 +1799,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// sort by Vavg desc
 	sort.Slice(attention, func(i, j int) bool { return attention[i].Vavg > attention[j].Vavg })
 
-	html += `<h4>Processos e Threads</h4>`
+	html += `<h4>Zabbix Server</h4>`
+	html += `<h5>Processos e Threads</h5>`
 	// legend moved into tooltip via titleWithInfo
 	if len(attention) == 0 {
 		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
@@ -1807,45 +1810,36 @@ func generateZabbixReport(url, token string) (string, error) {
 			html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 		}
 		html += `</ol>`
+	}	
+
+	// Recomendações específicas para Proxys (mostrar apenas se houver Unknown ou Offline)
+	if unknown > 0 || offline > 0 {
+		html += `<h4>Zabbix Proxys</h4>`
+		html += `<h5>State Proxys</h5>`
+		if unknown > 0 {
+			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
+				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
+				"Confirme versões e compatibilidade (campo version no registro do proxy)."
+			html += `<p>Foram detectados ` + fmt.Sprintf("%d", unknown) + ` proxys com status ` + titleWithInfo("span", "Unknown", tipUnknown) + `</p>`
+			// list proxy names
+			html += `<ul>`
+			for _, n := range unknownNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
+			html += `</ul>`
+		}
+		if offline > 0 {
+			tipOffline := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
+				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
+				"Confirme versões e compatibilidade (campo version no registro do proxy)."
+			html += `<p>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
+			// list proxy names
+			html += `<ul>`
+			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
+			html += `</ul>`
+		}
+		// breve separador
+		html += `<div style='height:8px'></div>`
 	}
 
-	// 2) Items: report counts already collected (itemsNoTplCount, unsupportedVal, intervalRows, lldRows, nItemsDisabled)
-	// Additional process-specific recommendations for Zabbix 7+: Pollers Assíncronos subtopic
-	if majorV >= 7 {
-		agentDisabled := false
-		snmpDisabled := false
-		httpAgentDisabled := false
-		for _, pr := range pollRows {
-			if pr.Disabled && pr.DisabledMsg == "Processo não habilitado" {
-				lower := strings.ToLower(pr.Friendly)
-				if strings.Contains(lower, "agent poller") {
-					agentDisabled = true
-				}
-				if strings.Contains(lower, "snmp poller") || strings.Contains(lower, "snmp") {
-					snmpDisabled = true
-				}
-				if strings.Contains(lower, "http agent") || strings.Contains(lower, "http agent poller") || strings.Contains(lower, "http") {
-					httpAgentDisabled = true
-				}
-			}
-		}
-		// only render subtopic if any async poller is disabled
-		if agentDisabled || snmpDisabled || httpAgentDisabled {
-			html += `<div style='margin-left:6px;'>`
-			html += `<h5>Pollers Assíncronos</h5>`
-			// legend moved into tooltip via titleWithInfo
-			if agentDisabled {
-				html += `<p><strong>Habilitar "Agent Poller" no arquivo de configuração zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações passivas, novidade do Zabbix 7.</p>`
-			}
-			if snmpDisabled {
-				html += `<p><strong>Habilitar "Snmp Poller" no arquivo de configuração do zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de SNMP, novidade do Zabbix 7.</p>`
-			}
-			if httpAgentDisabled {
-				html += `<p><strong>Habilitar "HTTP Agent Poller" no arquivo de configuração do zabbix_server.conf (se utilizado proxys, altera no zabbix_proxy.conf):</strong> Processo Asynchronous para verificações de HTTP, novidade do Zabbix 7.</p>`
-			}
-			html += `</div>`
-		}
-	}
 	// prepare numeric disabled count
 	disabledCount := 0
 	if nItemsDisabled != "-" {
