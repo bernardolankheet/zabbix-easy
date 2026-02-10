@@ -378,7 +378,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// get total de itens
-	if progressCb != nil { progressCb("Coletando informações de Itens (contagens)...") }
+	if progressCb != nil { progressCb("Coletando informações de Itens...") }
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
 	nItemsDisabled := "-"	
@@ -648,7 +648,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"escalator": `Parâmetro "Escalator": processo de escalonamento de ações automatizadas (ex.: escalonamento de alertas); relevante em regras de escalonamento complexas.`,
 		"ha manager": `Parâmetro "HAManager": gerencia recursos de alta disponibilidade entre servidores Zabbix em cluster; ajuste quando usar HA e notar latência na sincronização.`,
 		"history poller": `Parâmetro "StartPollers": pollers que coletam dados calculados ou requerem conexão com o banco; aumente se cálculo de itens estiver atrasado.`,
-		"history syncer": `Parâmetro "HistorySyncer": escritor de histórico que persiste dados de itens no banco de dados; dimensione para reduzir gargalos de gravação.`,
+		"history syncer": `Parâmetro "HistorySyncer": escritor de histórico que persiste dados de itens no banco de dados; Controlado pelo StartDBSyncer, normalmente é 1 DBSyncer para cada 1000 Nvps`,
 		"housekeeper": `Parâmetro "HousekeeperFrequency": remove dados históricos antigos e limpa tabelas; aumente se limpeza estiver lenta e o banco ficar grande. Possui total relação com o Banco de Dados, se é particionado ou não.`,
 		"http agent poller": `Parâmetro "StartHTTPPollers": poller assíncrono para checagens HTTP com threads de trabalho; aumente para maior concorrência em sondagens web.`,
 		"http poller": `Parâmetro "StartHTTPPollers": poller para monitoramento HTTP síncrono; ajuste conforme volume de web checks.`,
@@ -675,7 +675,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"timer": `Parâmetro "Timer": responsável pelo agendamento de tarefas periódicas e manutenção; ajuste se agendamentos estiverem atrasados.`,
 		"trapper": `Parâmetro "StartTrappers": processo que recebe itens ativos, traps e comunicação de proxies; dimensione para aumentar ingestão de dados ativos.`,
 		"trigger housekeeper": `Parâmetro "TriggerHousekeeper": remove problemas/triggers órfãos ou deletados; aumente se houver acúmulo de entradas a limpar.`,
-		"unreachable poller": `Parâmetro "StartPollersUnreachable": poller específico para hosts considerados inatingíveis; aumente para acelerar rechecagens desses hosts.`,
+		"unreachable poller": `Parâmetro "StartPollersUnreachable": poller específico para hosts considerados inatingíveis; hosts sem comunicação. Os parâmetros UnreachableDelay e UnreachablePeriod podem ser utilizados para verificar se o host está com comunicação e retirar desta fila. Queda massiva de hosts, pode afetar este poller.`,
 		"vmware collector": `Parâmetro "StartVMwareCollectors": coletor para integrações VMware responsável por consultar APIs VMware; aumente para maior paralelismo em ambientes virtualizados grandes.`,
 	}
 
@@ -1871,6 +1871,47 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div style='margin-left:6px;'>`
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
+
+	// Recomendacoes de Templates
+	html += titleWithInfo("h4", "Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
+	// Top templates para revisão (Top N)
+	html += `<h4>Templates para revisão</h4>`	
+	if len(topTemplates) == 0 {
+		html += `<p>Nenhum template problemático identificado.</p>`
+	} else {
+		html += `<ul>`
+		cnt := 0
+		for _, t := range topTemplates {
+			if cnt >= 10 { break }
+			name := templateNames[t.Key]
+			if name == "" { name = t.Key }
+			html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
+			cnt++
+		}
+		html += `</ul>`
+	}
+
+	// lista de Erros Mais Comuns
+	html += `<h5>Erros Mais Comuns</h5>`
+	if len(topErrors) == 0 {
+		html += `<p>Nenhum erro identificado.</p>`
+	} else {
+		html += `<ul>`
+		cnt2 := 0
+		for _, e := range topErrors {
+			if cnt2 >= 10 { break }
+			// formando keys e erros
+			parts := strings.SplitN(e.Key, "|", 2)
+			errMsg := parts[0]
+			tplId := ""
+			if len(parts) > 1 { tplId = parts[1] }
+			tplName := templateNames[tplId]
+			if tplName == "" { tplName = tplId }
+			html += `<li>` + htmlpkg.EscapeString(errMsg) + ` - ` + htmlpkg.EscapeString(tplName) + `</li>`
+			cnt2++
+		}
+		html += `</ul>`
+	}
 	html += `</div>`
 
 	// small JS to handle tab switching (keeps markup simple and UX clean)

@@ -13,7 +13,7 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=zabbix_report
       - MAX_CCONCURRENT=13
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      #- RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
       - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
       #- ZABBIX_SERVER_HOSTID=23423
       - APP_DEBUG=1 # Habilita logs de debug da API do Zabbix
