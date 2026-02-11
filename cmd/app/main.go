@@ -13,6 +13,7 @@ import (
 	"io"
 	"strconv"
 	"sort"
+	neturl "net/url"
 	"sync"
 	"os"
 )
@@ -252,6 +253,11 @@ func generateZabbixReport(url, token string) (string, error) {
 		nItensNaoSuportados := "-"
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
 	apiUrl := url
+	// compute frontend base URL (ambienteUrl) early so links can be built
+	ambienteUrl := url
+	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
+		ambienteUrl = ambienteUrl[:len(ambienteUrl)-len("/api_jsonrpc.php")]
+	}
 	if apiUrl[len(apiUrl)-1] != '/' {
 		apiUrl += "/api_jsonrpc.php"
 	} else {
@@ -486,7 +492,15 @@ func generateZabbixReport(url, token string) (string, error) {
 			itemHostName = fmt.Sprintf("%v", host["name"])
 			itemHostId = fmt.Sprintf("%v", host["hostid"])
 		}
-		urlEdit := url + "/items.php?form=update&hostid=" + itemHostId + "&itemid=" + itemId + "&context=host"
+		// Inclui as urls na guia de templates, para utilizar como link de acesso rápido para análise e correção dos itens. O link é construído de forma diferente para Zabbix 7 (item.list com filtros com context host) e Zabbix 6 (items.php com hostid+itemid).
+		urlEdit := ""
+		if majorV >= 7 {
+			escItem := neturl.QueryEscape(itemName)
+			perPath := fmt.Sprintf("zabbix.php?action=item.list&context=host&filter_hostids%%5B%%5D=%s&filter_name=%s&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_set=1", itemHostId, escItem)
+			urlEdit = ambienteUrl + "/" + perPath
+		} else {
+			urlEdit = url + "/items.php?form=update&hostid=" + itemHostId + "&itemid=" + itemId + "&context=host"
+		}
 		// usar templateid (tplId) como chave e recuperar o nome do cache
 		templateName := cacheTemplateItems[tplId]
 		if templateName == "" {
@@ -579,11 +593,8 @@ func generateZabbixReport(url, token string) (string, error) {
 				// place tooltip inside the icon span so positioning is relative
 				return fmt.Sprintf("<%s>%s <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(title), sv, tipEsc, tag)
 		}
-	// compute ambiente and version for header
-	ambienteUrl := url
-	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
-		ambienteUrl = ambienteUrl[:len(ambienteUrl)-len("/api_jsonrpc.php")]
-	}
+	// compute ambiente and version for header (ambienteUrl precomputed above)
+	// ambienteUrl is already set near the top of the function to avoid undefined usage
 	verLabel := "N/A"
 	if zabbixVersion != "" { verLabel = zabbixVersion }
 
@@ -602,9 +613,9 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<button class='tab-btn active' data-tab='tab-resumo'>Resumo do Ambiente</button>`
 	html += `<button class='tab-btn' data-tab='tab-processos'>Zabbix Server</button>`
 	html += `<button class='tab-btn' data-tab='tab-proxys'>Zabbix Proxys</button>`
-	html += `<button class='tab-btn' data-tab='tab-top'>Top Templates/Itens</button>`
 	html += `<button class='tab-btn' data-tab='tab-items'>Items e LLDs</button>`
 	html += `<button class='tab-btn' data-tab='tab-templates'>Templates</button>`
+	html += `<button class='tab-btn' data-tab='tab-top'>Top Hosts/Templates/Itens</button>`	
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes'>Recomendações</button>`
 	html += `</div>`
 
@@ -1759,19 +1770,24 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Busca items do tipo Texto (value_type = 4) com intervalo de coleta menor ou igual a 300s
 	html += titleWithInfo("h3", "Items Texto com Historico", "Itens do tipo Texto, tem um custo elevado espaço em disco em Banco de Dados, com intervalo de checagem baixo, há muita retenção de informação. Esta coleta verifica items do tipo Texto, com History(1h, 1d, 7d ou 31d) e Intervalo de Coleta menor que 5m (não há validade de preprocessamento).")
 
+	// request host linkage for items so we can fetch templates in one call
 	paramsTextItems := map[string]interface{}{
-		"output":    []string{"name", "itemid", "delay"},
-		"templated": true,
+		"output":      []string{"name", "itemid", "delay"},
+		"templated":   true,
 		"filter": map[string]interface{}{
 			"value_type": 4,
 			"delay":      []interface{}{30, 60, 120, 300},
 			"history":    []interface{}{"1h", "1d", "7d", "31d"},
 		},
-		"sortfield": "name",
+		"sortfield":  "name",
+		// include hosts info for each item
+		"selectHosts": []string{"hostid"},
 	}
 
-	textRows := []struct{ Name string; ItemID string; Delay string }{}
+	type textRowT struct{ Template string; Name string; ItemID string; Delay string; HostID string }
+	textRows := []textRowT{}
 	textCount := 0
+	hostIDSet := map[string]bool{}
 	if respText, errText := zabbixApiRequest(apiUrl, token, "item.get", paramsTextItems); errText == nil {
 		if r, ok := respText["result"]; ok {
 			if arr, ok2 := r.([]interface{}); ok2 {
@@ -1781,7 +1797,18 @@ func generateZabbixReport(url, token string) (string, error) {
 						itemid := fmt.Sprintf("%v", m["itemid"])
 						delay := fmt.Sprintf("%v", m["delay"])
 						if delay == "" { delay = "-" }
-						textRows = append(textRows, struct{ Name string; ItemID string; Delay string }{Name: name, ItemID: itemid, Delay: delay})
+
+						hostid := ""
+						if hostsRaw, okh := m["hosts"]; okh {
+							if hostsArr, okha := hostsRaw.([]interface{}); okha && len(hostsArr) > 0 {
+								if h0, okh0 := hostsArr[0].(map[string]interface{}); okh0 {
+									hostid = fmt.Sprintf("%v", h0["hostid"])
+								}
+							}
+						}
+						if hostid != "" { hostIDSet[hostid] = true }
+
+						textRows = append(textRows, textRowT{Template: "", Name: name, ItemID: itemid, Delay: delay, HostID: hostid})
 						textCount++
 					}
 				}
@@ -1789,14 +1816,87 @@ func generateZabbixReport(url, token string) (string, error) {
 		}
 	}
 
+	// Busca template por hostid para mapear quais templates
+	hostIDs := []interface{}{}
+	for hid := range hostIDSet { hostIDs = append(hostIDs, hid) }
+	hostToTemplates := map[string][]string{}
+	templateIDToName := map[string]string{}
+	if len(hostIDs) > 0 {
+		paramsTpl := map[string]interface{}{
+			"output": []string{"templateid", "name"},
+			"filter": map[string]interface{}{"hostid": hostIDs},
+			// include hosts so we can map which template belongs to which host
+			"selectHosts": []string{"hostid"},
+		}
+		if respTpl, errTpl := zabbixApiRequest(apiUrl, token, "template.get", paramsTpl); errTpl == nil {
+			if rtpl, ok := respTpl["result"]; ok {
+				if arrTpl, ok2 := rtpl.([]interface{}); ok2 {
+					for _, tt := range arrTpl {
+						if tm, okm := tt.(map[string]interface{}); okm {
+							tname := fmt.Sprintf("%v", tm["name"])
+							tid := fmt.Sprintf("%v", tm["templateid"])
+							if tid != "" {
+								templateIDToName[tid] = tname
+							}
+							if hostsRaw, okh := tm["hosts"]; okh {
+								if hostsArr, okha := hostsRaw.([]interface{}); okha {
+									for _, hr := range hostsArr {
+										if hm, okhm := hr.(map[string]interface{}); okhm {
+											hid := fmt.Sprintf("%v", hm["hostid"])
+											hostToTemplates[hid] = append(hostToTemplates[hid], tname)
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if textCount > 0 {
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Nome do Item</th><th>ItemID</th><th>Intervalo de Checagem (s)</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Nome do Item</th><th>ItemID</th><th>Intervalo de Checagem (s)</th><th>Link</th></tr></thead><tbody>`
 		for _, tr := range textRows {
-			html += `<tr><td>` + htmlpkg.EscapeString(tr.Name) + `</td><td>` + tr.ItemID + `</td><td>` + tr.Delay + `</td></tr>`
+			tplNames := hostToTemplates[tr.HostID]
+			tplCell := "-"
+			tplID := ""
+			if len(tplNames) > 0 {
+				tplCell = htmlpkg.EscapeString(strings.Join(tplNames, ", "))
+				// try to find templateid by matching name
+				for id, nm := range templateIDToName {
+					for _, tn := range tplNames {
+						if nm == tn {
+							tplID = id
+							break
+						}
+					}
+					if tplID != "" { break }
+				}
+			} else {
+				// fallback: if templateid equals hostid, try templateIDToName
+				if name, ok := templateIDToName[tr.HostID]; ok {
+					tplCell = htmlpkg.EscapeString(name)
+					tplID = tr.HostID
+				}
+			}
+
+			// build link to open item list in frontend (filter_hostids = templateid, filter_name = item name)
+			linkHTML := "-"
+			if tplID != "" {
+				escName := neturl.QueryEscape(tr.Name)
+				if majorV >= 7 {
+					perPath := fmt.Sprintf("zabbix.php?action=item.list&context=template&filter_hostids%%5B%%5D=%s&filter_name=%s&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_set=1", tplID, escName)
+					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank'>Abrir</a>"
+				} else {
+					perPath := fmt.Sprintf("items.php?context=template&filter_hostids%%5B%%5D=%s&filter_name=%s&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_set=1", tplID, escName)
+					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank'>Abrir</a>"
+				}
+			}
+
+			html += `<tr><td>` + tplCell + `</td><td>` + htmlpkg.EscapeString(tr.Name) + `</td><td>` + tr.ItemID + `</td><td>` + tr.Delay + `</td><td>` + linkHTML + `</td></tr>`
 		}
 		html += `</tbody></table></div>`
-
-		// recommendation moved to Recomendações section
 	}
 
 	// close items tab
