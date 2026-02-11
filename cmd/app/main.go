@@ -1755,6 +1755,50 @@ func generateZabbixReport(url, token string) (string, error) {
 		html += `</tbody></table></div>`
 	}
 
+	// --- Items Texto com Histórico ---
+	// Busca items do tipo Texto (value_type = 4) com intervalo de coleta menor ou igual a 300s
+	html += titleWithInfo("h3", "Items Texto com Historico", "Itens do tipo Texto, tem um custo elevado espaço em disco em Banco de Dados, com intervalo de checagem baixo, há muita retenção de informação. Esta coleta verifica items do tipo Texto, com History(1h, 1d, 7d ou 31d) e Intervalo de Coleta menor que 5m (não há validade de preprocessamento).")
+
+	paramsTextItems := map[string]interface{}{
+		"output":    []string{"name", "itemid", "delay"},
+		"templated": true,
+		"filter": map[string]interface{}{
+			"value_type": 4,
+			"delay":      []interface{}{30, 60, 120, 300},
+			"history":    []interface{}{"1h", "1d", "7d", "31d"},
+		},
+		"sortfield": "name",
+	}
+
+	textRows := []struct{ Name string; ItemID string; Delay string }{}
+	textCount := 0
+	if respText, errText := zabbixApiRequest(apiUrl, token, "item.get", paramsTextItems); errText == nil {
+		if r, ok := respText["result"]; ok {
+			if arr, ok2 := r.([]interface{}); ok2 {
+				for _, it := range arr {
+					if m, okm := it.(map[string]interface{}); okm {
+						name := fmt.Sprintf("%v", m["name"])
+						itemid := fmt.Sprintf("%v", m["itemid"])
+						delay := fmt.Sprintf("%v", m["delay"])
+						if delay == "" { delay = "-" }
+						textRows = append(textRows, struct{ Name string; ItemID string; Delay string }{Name: name, ItemID: itemid, Delay: delay})
+						textCount++
+					}
+				}
+			}
+		}
+	}
+
+	if textCount > 0 {
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Nome do Item</th><th>ItemID</th><th>Intervalo de Checagem (s)</th></tr></thead><tbody>`
+		for _, tr := range textRows {
+			html += `<tr><td>` + htmlpkg.EscapeString(tr.Name) + `</td><td>` + tr.ItemID + `</td><td>` + tr.Delay + `</td></tr>`
+		}
+		html += `</tbody></table></div>`
+
+		// recommendation moved to Recomendações section
+	}
+
 	// close items tab
 	html += `</div>` // end tab-items
 
@@ -1864,18 +1908,24 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens desabilitados não consomem os processos do Zabbix, entretanto é necessário avaliar por qual motivo esses itens foram desabilitados, qual o impacto para o monitoramento e ao serviço monitorado.</p>`
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", itemsLe60) + ` Itens com Intervalo de Coleta menor ou igual a 60s:</strong> As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper, é interessante avaliar a necessidade.</p>`
 	// LLD explanatory paragraph removed from Items tab to avoid duplication; kept in Recomendações
-	html += `</div>`	
+	// --- Items Texto recommendation (moved here) ---
+	if textCount > 0 {
+		html += `<p><strong>Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
+	}
+	html += `</div>`
 
 	// --- Regras de LLD (tópico separado nas Recomendações) ---
 	html += `<h4>Regras de LLD</h4>`
 	html += `<div style='margin-left:6px;'>`
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
 	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
+	html += `</div>`
 
 	// Recomendacoes de Templates
 	html += titleWithInfo("h4", "Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
 	// Top templates para revisão (Top N)
-	html += `<h4>Templates para revisão</h4>`	
+	html += `<div style='margin-left:6px;'>`
+	html += `<h4>Templates para revisão</h4>`
 	if len(topTemplates) == 0 {
 		html += `<p>Nenhum template problemático identificado.</p>`
 	} else {
@@ -1912,6 +1962,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		}
 		html += `</ul>`
 	}
+	html += `</div>`
 	html += `</div>`
 
 	// small JS to handle tab switching (keeps markup simple and UX clean)
