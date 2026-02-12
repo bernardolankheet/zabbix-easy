@@ -258,6 +258,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
 		ambienteUrl = ambienteUrl[:len(ambienteUrl)-len("/api_jsonrpc.php")]
 	}
+	// Concurrency limit for parallel API calls (can be configured with env MAX_CCONCURRENT)
+	maxConcurrent := 6
+	if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
+	}
+	log.Printf("[DEBUG] MAX_CCONCURRENT=%d", maxConcurrent)
+	// semaphore channel used to bound concurrent API requests across sections
+	sem := make(chan struct{}, maxConcurrent)
 	if apiUrl[len(apiUrl)-1] != '/' {
 		apiUrl += "/api_jsonrpc.php"
 	} else {
@@ -867,43 +875,63 @@ func generateZabbixReport(url, token string) (string, error) {
 		DisabledMsg string
 		Err bool
 	}
+	// Parallelize poller collection using shared semaphore `sem`
 	pollRows := []pollRow{}
-	for _, name := range pollerNames {
-		baseName := strings.ToLower(strings.TrimSpace(name))
-		desc := procDesc[baseName]
-		if desc == "" { desc = "Poller process" }
-		words := strings.Fields(name)
-		for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
-		friendly := strings.Join(words, " ")
+	type pollRes struct{ Idx int; Row pollRow }
+	resultsPoll := make(chan pollRes, len(pollerNames))
+	var wgPoll sync.WaitGroup
+	for idx, name := range pollerNames {
+		idx, name := idx, name
+		wgPoll.Add(1)
+		go func() {
+			defer wgPoll.Done()
+			sem <- struct{}{}
+			defer func(){ <-sem }()
 
-		pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
+			baseName := strings.ToLower(strings.TrimSpace(name))
+			desc := procDesc[baseName]
+			if desc == "" { desc = "Poller process" }
+			words := strings.Fields(name)
+			for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
+			friendly := strings.Join(words, " ")
 
-		key := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
-		item, ierr := getItemByKey(apiUrl, token, key, serverHost)
-		if ierr != nil {
-			pr.Err = true
-			pollRows = append(pollRows, pr)
-			continue
-		}
-		if item == nil {
-			pr.Disabled = true
-			if serverHost != "" {
-				// verify whether the host id actually exists in Zabbix
-				hostExists := false
-				hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
-				if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
-					if rr, ok := hresp["result"]; ok {
-						if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
-							hostExists = true
+			pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
+
+			key := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
+			item, ierr := getItemByKey(apiUrl, token, key, serverHost)
+			if ierr != nil {
+				pr.Err = true
+				resultsPoll <- pollRes{Idx: idx, Row: pr}
+				return
+			}
+			if item == nil {
+				pr.Disabled = true
+				if serverHost != "" {
+					hostExists := false
+					hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
+					if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
+						if rr, ok := hresp["result"]; ok {
+							if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
+								hostExists = true
+							}
 						}
 					}
-				}
-				if !hostExists {
-					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+					if !hostExists {
+						pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+					} else {
+						if majorV < 7 {
+							switch strings.ToLower(strings.TrimSpace(name)) {
+							case "agent poller", "browser poller", "http agent poller", "snmp poller":
+								pr.DisabledMsg = "Não existe nesta versão do Zabbix"
+							default:
+								pr.DisabledMsg = "Processo não habilitado"
+							}
+						} else {
+							pr.DisabledMsg = "Processo não habilitado"
+						}
+					}
 				} else {
-					// host exists but item not found: either not enabled or not present in this Zabbix version
 					if majorV < 7 {
-						// version-specific pollers that may not exist in older versions
 						switch strings.ToLower(strings.TrimSpace(name)) {
 						case "agent poller", "browser poller", "http agent poller", "snmp poller":
 							pr.DisabledMsg = "Não existe nesta versão do Zabbix"
@@ -914,69 +942,60 @@ func generateZabbixReport(url, token string) (string, error) {
 						pr.DisabledMsg = "Processo não habilitado"
 					}
 				}
-			} else {
-				// no serverHost provided: decide based on version/known names
-				if majorV < 7 {
-					switch strings.ToLower(strings.TrimSpace(name)) {
-					case "agent poller", "browser poller", "http agent poller", "snmp poller":
-						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-					default:
-						pr.DisabledMsg = "Processo não habilitado"
-					}
-				} else {
-					pr.DisabledMsg = "Processo não habilitado"
+				resultsPoll <- pollRes{Idx: idx, Row: pr}
+				return
+			}
+			itemid := fmt.Sprintf("%v", item["itemid"])
+			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
+			if terr != nil {
+				pr.Err = true
+				resultsPoll <- pollRes{Idx: idx, Row: pr}
+				return
+			}
+			if trend == nil {
+				pr.Disabled = true
+				pr.DisabledMsg = "Processo não habilitado"
+				resultsPoll <- pollRes{Idx: idx, Row: pr}
+				return
+			}
+			parseVal := func(k string) float64 {
+				if v, ok := trend[k]; ok {
+					s := fmt.Sprintf("%v", v)
+					if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
 				}
+				return -1
 			}
-			pollRows = append(pollRows, pr)
-			continue
-		}
-		itemid := fmt.Sprintf("%v", item["itemid"])
-		trend, terr := getLastTrend(apiUrl, token, itemid, 30)
-		if terr != nil {
-			pr.Err = true
-			pollRows = append(pollRows, pr)
-			continue
-		}
-		if trend == nil {
-			pr.Disabled = true
-			// item exists but no trend data -> likely not enabled
-			pr.DisabledMsg = "Processo não habilitado"
-			pollRows = append(pollRows, pr)
-			continue
-		}
-		parseVal := func(k string) float64 {
-			if v, ok := trend[k]; ok {
-				s := fmt.Sprintf("%v", v)
-				if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
+			vmin := parseVal("value_min")
+			vavg := parseVal("value_avg")
+			vmax := parseVal("value_max")
+			pr.Vmax = vmax
+			pr.Vavg = vavg
+			fmtVal := func(f float64) string {
+				if f < 0 { return "-" }
+				return fmt.Sprintf("%.2f%%", f)
 			}
-			return -1
-		}
-		vmin := parseVal("value_min")
-		vavg := parseVal("value_avg")
-		vmax := parseVal("value_max")
-		pr.Vmax = vmax
-		pr.Vavg = vavg
-		fmtVal := func(f float64) string {
-			if f < 0 { return "-" }
-			return fmt.Sprintf("%.2f%%", f)
-		}
-		pr.Smin = fmtVal(vmin)
-		pr.Savg = fmtVal(vavg)
-		pr.Smax = fmtVal(vmax)
-		if vavg >= 0 {
-			// Two-state logic: OK if vavg < 49.9%, otherwise Atenção
-			if vavg < 49.9 {
-				pr.StatusText = "OK"
-				pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
+			pr.Smin = fmtVal(vmin)
+			pr.Savg = fmtVal(vavg)
+			pr.Smax = fmtVal(vmax)
+			if vavg >= 0 {
+				if vavg < 49.9 {
+					pr.StatusText = "OK"
+					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				} else {
+					pr.StatusText = "Atenção"
+					pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				}
 			} else {
-				pr.StatusText = "Atenção"
-				pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				pr.StatusText = "-"
 			}
-		} else {
-			pr.StatusText = "-"
-		}
-		pollRows = append(pollRows, pr)
+			resultsPoll <- pollRes{Idx: idx, Row: pr}
+		}()
 	}
+	wgPoll.Wait()
+	close(resultsPoll)
+	tempPoll := make(map[int]pollRow)
+	for r := range resultsPoll { tempPoll[r.Idx] = r.Row }
+	for i := 0; i < len(pollerNames); i++ { if v, ok := tempPoll[i]; ok { pollRows = append(pollRows, v) } }
 	// sort by Vavg desc (items with -1 go last)
 	sort.Slice(pollRows, func(i, j int) bool {
 		return pollRows[i].Vavg > pollRows[j].Vavg
@@ -1090,43 +1109,64 @@ func generateZabbixReport(url, token string) (string, error) {
 		Err bool
 	}
 	procRows := []procRow{}
-	for _, name := range procNames {
-		// friendly name (title case), with special-case for LLD
-		words := strings.Fields(strings.TrimSpace(name))
-		for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
-		if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
-		friendly := strings.Join(words, " ") + " Internal Processes"
+	// Parallelize internal process lookups/trends using shared semaphore
+	type procResult struct{ idx int; pr procRow }
+	results := make(chan procResult, len(procNames))
+	var pwg sync.WaitGroup
+	for i, name := range procNames {
+		i := i; name := name
+		pwg.Add(1)
+		go func() {
+			defer pwg.Done()
+			sem <- struct{}{}
+			defer func(){ <-sem }()
 
-		baseName := strings.ToLower(strings.TrimSpace(name))
-		desc := procDesc[baseName]
-		if desc == "" { desc = "Internal process" }
+			// friendly name (title case), with special-case for LLD
+			words := strings.Fields(strings.TrimSpace(name))
+			for wi, w := range words { words[wi] = strings.Title(strings.TrimSpace(w)) }
+			if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
+			friendly := strings.Join(words, " ") + " Internal Processes"
 
-		pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
+			baseName := strings.ToLower(strings.TrimSpace(name))
+			desc := procDesc[baseName]
+			if desc == "" { desc = "Internal process" }
 
-		pk := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
-		item, ierr := getItemByKey(apiUrl, token, pk, serverHost)
-		if ierr != nil {
-			pr.Err = true
-			procRows = append(procRows, pr)
-			continue
-		}
-		if item == nil {
-			pr.Disabled = true
-			if serverHost != "" {
-				// verify whether the host id actually exists in Zabbix
-				hostExists := false
-				hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
-				if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
-					if rr, ok := hresp["result"]; ok {
-						if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
-							hostExists = true
+			pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
+
+			pk := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
+			item, ierr := getItemByKey(apiUrl, token, pk, serverHost)
+			if ierr != nil {
+				pr.Err = true
+				results <- procResult{idx: i, pr: pr}
+				return
+			}
+			if item == nil {
+				pr.Disabled = true
+				if serverHost != "" {
+					hostExists := false
+					hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
+					if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
+						if rr, ok := hresp["result"]; ok {
+							if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
+								hostExists = true
+							}
 						}
 					}
-				}
-				if !hostExists {
-					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+					if !hostExists {
+						pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+					} else {
+						if majorV < 7 {
+							n := strings.ToLower(strings.TrimSpace(name))
+							if n == "lld manager" || n == "lld worker" {
+								pr.DisabledMsg = "Não existe nesta versão do Zabbix"
+							} else {
+								pr.DisabledMsg = "Processo não habilitado"
+							}
+						} else {
+							pr.DisabledMsg = "Processo não habilitado"
+						}
+					}
 				} else {
-					// host exists but item not found: either not enabled or not present in this Zabbix version
 					if majorV < 7 {
 						n := strings.ToLower(strings.TrimSpace(name))
 						if n == "lld manager" || n == "lld worker" {
@@ -1138,68 +1178,64 @@ func generateZabbixReport(url, token string) (string, error) {
 						pr.DisabledMsg = "Processo não habilitado"
 					}
 				}
-			} else {
-				if majorV < 7 {
-					n := strings.ToLower(strings.TrimSpace(name))
-					if n == "lld manager" || n == "lld worker" {
-						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-					} else {
-						pr.DisabledMsg = "Processo não habilitado"
-					}
-				} else {
-					pr.DisabledMsg = "Processo não habilitado"
+				results <- procResult{idx: i, pr: pr}
+				return
+			}
+			itemid := fmt.Sprintf("%v", item["itemid"])
+			log.Printf("[DEBUG] Found internal process item: key=%s itemid=%s hostid=%v", pk, itemid, item["hostid"])
+			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
+			if terr != nil {
+				pr.Err = true
+				results <- procResult{idx: i, pr: pr}
+				return
+			}
+			if trend == nil {
+				pr.Disabled = true
+				pr.DisabledMsg = "Processo não habilitado"
+				results <- procResult{idx: i, pr: pr}
+				return
+			}
+			parseVal := func(k string) float64 {
+				if v, ok := trend[k]; ok {
+					s := fmt.Sprintf("%v", v)
+					if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
 				}
+				return -1
 			}
-			procRows = append(procRows, pr)
-			continue
-		}
-		itemid := fmt.Sprintf("%v", item["itemid"])
-		log.Printf("[DEBUG] Found internal process item: key=%s itemid=%s hostid=%v", pk, itemid, item["hostid"])
-		trend, terr := getLastTrend(apiUrl, token, itemid, 30)
-		if terr != nil {
-			pr.Err = true
-			procRows = append(procRows, pr)
-			continue
-		}
-		if trend == nil {
-			pr.Disabled = true
-			pr.DisabledMsg = "Processo não habilitado"
-			procRows = append(procRows, pr)
-			continue
-		}
-		parseVal := func(k string) float64 {
-			if v, ok := trend[k]; ok {
-				s := fmt.Sprintf("%v", v)
-				if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
+			vmin := parseVal("value_min")
+			vavg := parseVal("value_avg")
+			vmax := parseVal("value_max")
+			pr.Vmax = vmax
+			pr.Vavg = vavg
+			fmtVal := func(f float64) string {
+				if f < 0 { return "-" }
+				return fmt.Sprintf("%.2f%%", f)
 			}
-			return -1
-		}
-		vmin := parseVal("value_min")
-		vavg := parseVal("value_avg")
-		vmax := parseVal("value_max")
-		pr.Vmax = vmax
-		pr.Vavg = vavg
-		fmtVal := func(f float64) string {
-			if f < 0 { return "-" }
-			return fmt.Sprintf("%.2f%%", f)
-		}
-		pr.Smin = fmtVal(vmin)
-		pr.Savg = fmtVal(vavg)
-		pr.Smax = fmtVal(vmax)
-		if vavg >= 0 {
-			// Two-state logic: OK if vavg < 49.9%, otherwise Atenção
-			if vavg < 49.9 {
-				pr.StatusText = "OK"
-				pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
+			pr.Smin = fmtVal(vmin)
+			pr.Savg = fmtVal(vavg)
+			pr.Smax = fmtVal(vmax)
+			if vavg >= 0 {
+				if vavg < 49.9 {
+					pr.StatusText = "OK"
+					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				} else {
+					pr.StatusText = "Atenção"
+					pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				}
 			} else {
-				pr.StatusText = "Atenção"
-				pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
+				pr.StatusText = "-"
 			}
-		} else {
-			pr.StatusText = "-"
-		}
-		procRows = append(procRows, pr)
+			results <- procResult{idx: i, pr: pr}
+		}()
 	}
+	pwg.Wait()
+	close(results)
+	// collect in original order
+	tempMap := make(map[int]procRow)
+	idxs := []int{}
+	for r := range results { tempMap[r.idx] = r.pr; idxs = append(idxs, r.idx) }
+	sort.Ints(idxs)
+	for _, ii := range idxs { procRows = append(procRows, tempMap[ii]) }
 	// sort by Vmax desc
 	sort.Slice(procRows, func(i, j int) bool { return procRows[i].Vavg > procRows[j].Vavg })
 	// render
@@ -1326,105 +1362,101 @@ func generateZabbixReport(url, token string) (string, error) {
 	if len(visibleProxies) > 0 {
 		html += `<h4>Proxys</h4>`
 		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:50%'><col style='width:12%'><col style='width:12%'><col style='width:12%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th></tr></thead><tbody>`
-		for _, p := range visibleProxies {
-			name := fmt.Sprintf("%v", p["name"])
-			if name == "<nil>" || name == "" { name = fmt.Sprintf("%v", p["host"]) }
-			proxyid := fmt.Sprintf("%v", p["proxyid"])
-			tipo := "Desconhecido"
-			if majorV >= 7 {
-				om := fmt.Sprintf("%v", p["operating_mode"])
-				if om == "0" { tipo = "Active" } else if om == "1" { tipo = "Passive" } else { tipo = om }
-			} else {
-				st := fmt.Sprintf("%v", p["status"])
-				if st == "5" { tipo = "Active" } else if st == "6" { tipo = "Passive" } else { tipo = st }
-			}
+			// parallelize per-proxy item calls to improve throughput
+			type proxyRow struct{ idx int; html string }
+			resultsP := make(chan proxyRow, len(visibleProxies))
+			var pwg sync.WaitGroup
+			for i, p := range visibleProxies {
+				p := p
+				i := i
+				pwg.Add(1)
+				go func() {
+					defer pwg.Done()
+					sem <- struct{}{}
+					defer func(){ <-sem }()
 
-			// Preparar valores por proxy
-			queueVal := "-"
-			itemsUnsupportedVal := "-"
-			totalItemsVal := "-"
+					name := fmt.Sprintf("%v", p["name"])
+					if name == "<nil>" || name == "" { name = fmt.Sprintf("%v", p["host"]) }
+					proxyid := fmt.Sprintf("%v", p["proxyid"])
+					tipo := "Desconhecido"
+					if majorV >= 7 {
+						om := fmt.Sprintf("%v", p["operating_mode"])
+						if om == "0" { tipo = "Active" } else if om == "1" { tipo = "Passive" } else { tipo = om }
+					} else {
+						st := fmt.Sprintf("%v", p["status"])
+						if st == "5" { tipo = "Active" } else if st == "6" { tipo = "Passive" } else { tipo = st }
+					}
 
-			// Chamada item.get por proxy (mantém a lista de keys pesquisadas; usamos output extend para obter lastvalue)
-			paramsItems := map[string]interface{}{
-				"search": map[string]interface{}{"key_": []string{
-					"*items_unsupported*",
-					"*configuration syncer*",
-					"*queue,10m*",
-					"*data sender*",
-					"*availability manager*",
-					"*agent poller*",
-					"*browser poller*",
-					"*discovery manager*",
-					"*discovery worker*",
-					"*history syncer*",
-					"*housekeeper*",
-					"*http agent poller*",
-					"*http poller*",
-					"*icmp pinger*",
-					"*internal poller*",
-					"*ipmi manager*",
-					"*ipmi poller*",
-					"*java poller*",
-					"*odbc poller*",
-					"*poller*",
-					"*preprocessing manager*",
-					"*preprocessing worker*",
-					"*self-monitoring*",
-					"*snmp poller*",
-					"*snmp trapper*",
-					"*task manager*",
-					"*trapper*",
-					"*unreachable poller*",
-					"*vmware collector*",
-				}},
-				"searchWildcardsEnabled": true,
-				"searchByAny": true,
-				"monitored": true,
-				"proxyids": proxyid,
-				"output": "extend",
-			}
+					queueVal := "-"
+					itemsUnsupportedVal := "-"
+					totalItemsVal := "-"
 
-			if respItems, ierr := zabbixApiRequest(apiUrl, token, "item.get", paramsItems); ierr == nil {
-				if r, ok := respItems["result"]; ok {
-					if arr, ok2 := r.([]interface{}); ok2 {
-						for _, it := range arr {
-							if m, mok := it.(map[string]interface{}); mok {
-								key := fmt.Sprintf("%v", m["key_"])
-								if strings.Contains(key, "queue,10m") || strings.HasPrefix(key, "zabbix[queue,10m") {
-									if lv, lok := m["lastvalue"]; lok {
-										queueVal = fmt.Sprintf("%v", lv)
-									}
-								}
-								if strings.Contains(key, "items_unsupported") || key == "zabbix[items_unsupported]" {
-									if lv, lok := m["lastvalue"]; lok {
-										itemsUnsupportedVal = fmt.Sprintf("%v", lv)
+					paramsItems := map[string]interface{}{
+						"search": map[string]interface{}{"key_": []string{
+							"*items_unsupported*", "*configuration syncer*", "*queue,10m*", "*data sender*", "*availability manager*",
+							"*agent poller*", "*browser poller*", "*discovery manager*", "*discovery worker*", "*history syncer*",
+							"*housekeeper*", "*http agent poller*", "*http poller*", "*icmp pinger*", "*internal poller*",
+							"*ipmi manager*", "*ipmi poller*", "*java poller*", "*odbc poller*", "*poller*", "*preprocessing manager*",
+							"*preprocessing worker*", "*self-monitoring*", "*snmp poller*", "*snmp trapper*", "*task manager*",
+							"*trapper*", "*unreachable poller*", "*vmware collector*",
+						}},
+						"searchWildcardsEnabled": true,
+						"searchByAny": true,
+						"monitored": true,
+						"proxyids": proxyid,
+						"output": "extend",
+					}
+
+					if respItems, ierr := zabbixApiRequest(apiUrl, token, "item.get", paramsItems); ierr == nil {
+						if r, ok := respItems["result"]; ok {
+							if arr, ok2 := r.([]interface{}); ok2 {
+								for _, it := range arr {
+									if m, mok := it.(map[string]interface{}); mok {
+										key := fmt.Sprintf("%v", m["key_"])
+										if strings.Contains(key, "queue,10m") || strings.HasPrefix(key, "zabbix[queue,10m") {
+											if lv, lok := m["lastvalue"]; lok {
+												queueVal = fmt.Sprintf("%v", lv)
+											}
+										}
+										if strings.Contains(key, "items_unsupported") || key == "zabbix[items_unsupported]" {
+											if lv, lok := m["lastvalue"]; lok {
+												itemsUnsupportedVal = fmt.Sprintf("%v", lv)
+											}
+										}
 									}
 								}
 							}
 						}
+					} else {
+						log.Printf("[DEBUG] item.get for proxy %s failed: %v", proxyid, ierr)
 					}
-				}
-			} else {
-				log.Printf("[DEBUG] item.get for proxy %s failed: %v", proxyid, ierr)
-			}
 
-			// Chamada separada para total de itens por proxy (countOutput)
-			paramsTotal := map[string]interface{}{
-				"output": "extend",
-				"templated": false,
-				"countOutput": true,
-				"proxyids": proxyid,
-			}
-			if respTotal, terr := zabbixApiRequest(apiUrl, token, "item.get", paramsTotal); terr == nil {
-				if r, ok := respTotal["result"]; ok {
-					totalItemsVal = fmt.Sprintf("%v", r)
-				}
-			} else {
-				log.Printf("[DEBUG] item.get (total) for proxy %s failed: %v", proxyid, terr)
-			}
+					paramsTotal := map[string]interface{}{
+						"output": "extend",
+						"templated": false,
+						"countOutput": true,
+						"proxyids": proxyid,
+					}
+					if respTotal, terr := zabbixApiRequest(apiUrl, token, "item.get", paramsTotal); terr == nil {
+						if r, ok := respTotal["result"]; ok {
+							totalItemsVal = fmt.Sprintf("%v", r)
+						}
+					} else {
+						log.Printf("[DEBUG] item.get (total) for proxy %s failed: %v", proxyid, terr)
+					}
 
-			html += `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td></tr>`
-		}
+					rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td></tr>`
+					resultsP <- proxyRow{idx: i, html: rowHTML}
+				}()
+			}
+			pwg.Wait()
+			close(resultsP)
+			// preserve original ordering
+			rowsMap := make(map[int]string)
+			idxs := []int{}
+			for pr := range resultsP { rowsMap[pr.idx] = pr.html; idxs = append(idxs, pr.idx) }
+			sort.Ints(idxs)
+			for _, ii := range idxs { html += rowsMap[ii] }
 		html += `</tbody></table></div>`
 	} else {
 		html += `<div class='como-corrigir'>Nenhum proxy configurado ou informação indisponível.</div>`
@@ -1522,12 +1554,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	// collect rows so we can sort by unsupported count
 	type rowT struct{ Label string; Total int; Unsup int; Link string }
 
-	// concurrency-limited worker pool (configurable via env MAX_CCONCURRENT)
-	maxConcurrent := 6
-	if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
-	}
-	sem := make(chan struct{}, maxConcurrent)
+	// use semaphore defined at function top to limit concurrency
 	var wg sync.WaitGroup
 	resultsCh := make(chan rowT, len(types))
 
