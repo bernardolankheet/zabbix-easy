@@ -1970,8 +1970,10 @@ func generateZabbixReport(url, token string) (string, error) {
 	// sort by Vavg desc
 	sort.Slice(attention, func(i, j int) bool { return attention[i].Vavg > attention[j].Vavg })
 
-	html += `<h4>Zabbix Server</h4>`
-	html += `<h5>Processos e Threads</h5>`
+	html += `<h4>1) Zabbix Server</h4>`
+	html += `<h5>1.1) Sugestões zabbix_server.conf:</h5>`
+	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", os.Getenv("CHECKTRENDTIME"), checkTrendDisplay)
+	html += titleWithInfo("h5", "1.1.1) Customizar Processos e Threads", tipProc)
 	// legend moved into tooltip via titleWithInfo
 	if len(attention) == 0 {
 		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
@@ -1983,10 +1985,47 @@ func generateZabbixReport(url, token string) (string, error) {
 		html += `</ol>`
 	}	
 
+	// Sugestão: Pollers Assíncronos (mostrar somente se algum não estiver habilitado)
+	asyncNames := []string{"Agent Poller", "HTTP Agent Poller", "SNMP Poller"}
+	missingAsync := []string{}
+	// build a normalized map of poller friendly name (lowercase) -> pollRow for lookup
+	pollMap := map[string]pollRow{}
+	for _, pr := range pollRows {
+		key := strings.ToLower(strings.TrimSpace(pr.Friendly))
+		pollMap[key] = pr
+	}
+	for _, an := range asyncNames {
+		norm := strings.ToLower(strings.TrimSpace(an))
+		if pr, ok := pollMap[norm]; ok {
+			// include only if disabled and DisabledMsg is non-empty
+			if pr.Disabled && strings.TrimSpace(pr.DisabledMsg) != "" {
+				missingAsync = append(missingAsync, an)
+			}
+		}
+		// do not include pollers that are not present in pollRows
+	}
+	if len(missingAsync) > 0 {
+		tip := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
+		html += titleWithInfo("h6", "1.1.2) Utilizar Pollers Assíncronos:", tip)
+		html += `<div style='margin-left:6px;'><ul>`
+		// descriptions for each async poller shown as info-tooltips
+		descs := map[string]string{
+			"Agent Poller": "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
+			"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
+			"SNMP Poller": "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
+		}
+		for _, n := range missingAsync {
+			d := descs[n]
+			if d == "" { d = "" }
+			html += `<li>` + titleWithInfo("span", n, d) + `</li>`
+		}
+		html += `</ul></div>`
+	}
+
 	// Recomendações específicas para Proxys (mostrar apenas se houver Unknown ou Offline)
 	if unknown > 0 || offline > 0 {
-		html += `<h4>Zabbix Proxys</h4>`
-		html += `<h5>State Proxys</h5>`
+		html += `<h4>2) Zabbix Proxys</h4>`
+		html += `<h5>2.2) Status Proxys</h5>`
 		if unknown > 0 {
 			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
@@ -2028,31 +2067,31 @@ func generateZabbixReport(url, token string) (string, error) {
 	lldLe300 := 0
 	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Count } }
 
-	html += `<h4>Items</h4>`
+	html += `<h4>3) Items</h4>`
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` Itens sem Template:</strong> validar a necessidade de criação de template para estes itens, não impacta diretamente na performance do Zabbix, porem é útil para organização e reutilização dos itens.</p>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` Itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta/processar a métrica apresentou algum erro. Esses itens continuam consumindo os processos desnecessariamente do Zabbix, causando consumo de recursos de hardware.</p>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens desabilitados não consomem os processos do Zabbix, entretanto é necessário avaliar por qual motivo esses itens foram desabilitados, qual o impacto para o monitoramento e ao serviço monitorado.</p>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", itemsLe60) + ` Itens com Intervalo de Coleta menor ou igual a 60s:</strong> As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper, é interessante avaliar a necessidade.</p>`
+	html += `<p><strong>3.1) Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` Itens sem Template:</strong> validar a necessidade de criação de template para estes itens, não impacta diretamente na performance do Zabbix, porem é útil para organização e reutilização dos itens.</p>`
+	html += `<p><strong>3.2)Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` Itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta/processar a métrica apresentou algum erro. Esses itens continuam consumindo os processos desnecessariamente do Zabbix, causando consumo de recursos de hardware.</p>`
+	html += `<p><strong>3.3) Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens desabilitados não consomem os processos do Zabbix, entretanto é necessário avaliar por qual motivo esses itens foram desabilitados, qual o impacto para o monitoramento e ao serviço monitorado.</p>`
+	html += `<p><strong>3.4) Existem ` + fmt.Sprintf("%d", itemsLe60) + ` Itens com Intervalo de Coleta menor ou igual a 60s:</strong> As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper, é interessante avaliar a necessidade.</p>`
 	// LLD explanatory paragraph removed from Items tab to avoid duplication; kept in Recomendações
 	// --- Items Texto recommendation (moved here) ---
 	if textCount > 0 {
-		html += `<p><strong>Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
+		html += `<p><strong>3.5) Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
 	}
 	html += `</div>`
 
 	// --- Regras de LLD (tópico separado nas Recomendações) ---
-	html += `<h4>Regras de LLD</h4>`
+	html += `<h4>4) Regras de LLD</h4>`
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
-	html += `<p><strong>Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
+	html += `<p><strong>4.1) Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
+	html += `<p><strong>4.2) Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
 	html += `</div>`
 
 	// Recomendacoes de Templates
-	html += titleWithInfo("h4", "Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
+	html += titleWithInfo("h4", "5) Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
 	// Top templates para revisão (Top N)
 	html += `<div style='margin-left:6px;'>`
-	html += `<h4>Templates para revisão</h4>`
+	html += `<h4>5.1) Templates para revisão</h4>`
 	if len(topTemplates) == 0 {
 		html += `<p>Nenhum template problemático identificado.</p>`
 	} else {
@@ -2069,7 +2108,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// lista de Erros Mais Comuns
-	html += `<h5>Erros Mais Comuns</h5>`
+	html += `<h5>5.2) Erros Mais Comuns</h5>`
 	if len(topErrors) == 0 {
 		html += `<p>Nenhum erro identificado.</p>`
 	} else {
