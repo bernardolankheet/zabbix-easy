@@ -1952,10 +1952,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
 	html += titleWithInfo("h3", "Recomendações", "Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.")
-	html += `<div style='background:#e8f5e9;padding:10px;border-radius:6px;margin-bottom:8px;'>Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.</div>`
 
-	// --- Recomendações dinâmicas ---
-	// 1) Processos e Threads: combine pollers + internal processes with status Atenção
+	// precompute aggregates needed by the KPI/cards (attention list, interval/LDD small-interval counts)
 	attention := []struct{ Name string; Vavg float64 }{}
 	for _, pr := range pollRows {
 		if pr.StatusText == "Atenção" && pr.Vavg >= 0 {
@@ -1967,10 +1965,67 @@ func generateZabbixReport(url, token string) (string, error) {
 			attention = append(attention, struct{ Name string; Vavg float64 }{pr.Friendly, pr.Vavg})
 		}
 	}
-	// sort by Vavg desc
 	sort.Slice(attention, func(i, j int) bool { return attention[i].Vavg > attention[j].Vavg })
 
-	html += `<h4>1) Zabbix Server</h4>`
+	// items with interval <= 60s (sum 1,10,30,60)
+	itemsLe60 := 0
+	for _, r := range intervalRows { if r.Interval <= 60 { itemsLe60 += r.Count } }
+	// LLD rules with interval <= 300s (sum 1,10,30,60,300)
+	lldLe300 := 0
+	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Count } }
+
+	// --- Recommendations KPI row + lightweight cards (modern layout, anchors scroll to sections) ---
+	// KPI numbers (computed after attention and interval aggregates are available)
+	attentionCount := len(attention)
+	proxyOfflineCount := offline
+	proxyUnknownCount := unknown
+	unsupportedCount := unsupportedVal
+	textItemsCount := textCount
+
+	// number of templates shown in "Templates para revisão" (cap to topN)
+	templatesShown := len(topTemplates)
+	if templatesShown > topN { templatesShown = topN }
+
+	html += `<style>
+.rec-kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.kpi{min-width:150px;padding:12px;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.04);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start}
+.kpi .kpi-num{font-weight:700;font-size:20px}
+.kpi .kpi-label{font-size:12px;color:#334155}
+.kpi-warn{border-left:4px solid #ffcc00}
+.kpi-crit{border-left:4px solid #ff6666}
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}
+.rec-card{background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04)}
+.rec-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.status-badge{padding:4px 8px;border-radius:999px;font-weight:600;font-size:12px}
+.status-badge.ok{background:#e6ffef;color:#065f46}
+.status-badge.warn{background:#fff7e6;color:#b26b00}
+.status-badge.crit{background:#fff1f0;color:#b02a2a}
+.rec-toggle{background:#eef2ff;border:0;padding:6px 8px;border-radius:6px;cursor:pointer}
+</style>`
+	html += `<div class='rec-grid'>` +
+		`<div id='card-server' class='rec-card'><div class='rec-card-header'><strong>Zabbix Server</strong><span class='status-badge ` + func() string { if attentionCount>0 { return "warn" } ; return "ok" }() + `'>` + fmt.Sprintf("%d Processos e Threads", attentionCount) + `</span></div><div class='rec-card-body'><!-- server content below --></div></div>` +
+		`<div id='card-proxys' class='rec-card'><div class='rec-card-header'><strong>Zabbix Proxys</strong><span class='status-badge ` + func() string { if proxyOfflineCount>0 || proxyUnknownCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d/%d", proxyOfflineCount, proxyUnknownCount) + `</span></div><div class='rec-card-body'><!-- proxy content below --></div></div>` +
+		`<div id='card-items' class='rec-card'><div class='rec-card-header'><strong>Items</strong><span class='status-badge ` + func() string { if unsupportedCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d não suportados", unsupportedCount) + `</span></div><div class='rec-card-body'><!-- items content below --></div></div>` +
+		`<div id='card-lld' class='rec-card'><div class='rec-card-header'><strong>Regras de LLD</strong><span class='status-badge ok'>` + fmt.Sprintf("%d curto intervalo", lldLe300) + `</span></div><div class='rec-card-body'><!-- lld content below --></div></div>` +
+		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong>Templates</strong><span class='status-badge ok'>` + fmt.Sprintf("%d", templatesShown) + `</span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
+	`</div>`
+	html += `<div class='rec-kpis'>`
+	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Process/Pollers com AVG alto</div></div>`
+	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
+	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
+	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Itens não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Itens Não Suportados</div></div>`
+	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Itens Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Itens Texto c/ Histórico</div></div>`
+	html += `</div>`	
+
+	html += `<script>
+document.querySelectorAll('.rec-kpis .kpi').forEach(k=>k.addEventListener('click',function(){var t=this.getAttribute('data-target');if(!t)return;var el=document.querySelector(t);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}));
+// ensure our info tooltips still work after possible dynamic toggles
+setTimeout(setupInfoTooltips,50);
+</script>`
+
+	// Recomendações dinâmicas (uses precomputed aggregates above)
+
+	html += `<h4 id='card-server'>1) Zabbix Server</h4>`
 	html += `<h5>1.1) Sugestões zabbix_server.conf:</h5>`
 	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", os.Getenv("CHECKTRENDTIME"), checkTrendDisplay)
 	html += titleWithInfo("h5", "1.1.1) Customizar Processos e Threads", tipProc)
@@ -2024,7 +2079,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// Recomendações específicas para Proxys (mostrar apenas se houver Unknown ou Offline)
 	if unknown > 0 || offline > 0 {
-		html += `<h4>2) Zabbix Proxys</h4>`
+		html += `<h4 id='card-proxys'>2) Zabbix Proxys</h4>`
 		html += `<h5>2.2) Status Proxys</h5>`
 		if unknown > 0 {
 			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
@@ -2060,17 +2115,12 @@ func generateZabbixReport(url, token string) (string, error) {
 		if total <= 0 { return "0%" }
 		return fmt.Sprintf("%.2f%%", (float64(part)*100.0)/float64(total))
 	}
-	// items with interval <= 60s (sum 1,10,30,60)
-	itemsLe60 := 0
-	for _, r := range intervalRows { if r.Interval <= 60 { itemsLe60 += r.Count } }
-	// LLD rules with interval <= 300s (sum 1,10,30,60,300)
-	lldLe300 := 0
-	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Count } }
+	// items/LLD aggregates computed earlier near KPI block
 
-	html += `<h4>3) Items</h4>`
+	html += `<h4 id='card-items'>3) Items</h4>`
 	html += `<div style='margin-left:6px;'>`
 	html += `<p><strong>3.1) Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` Itens sem Template:</strong> validar a necessidade de criação de template para estes itens, não impacta diretamente na performance do Zabbix, porem é útil para organização e reutilização dos itens.</p>`
-	html += `<p><strong>3.2)Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` Itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta/processar a métrica apresentou algum erro. Esses itens continuam consumindo os processos desnecessariamente do Zabbix, causando consumo de recursos de hardware.</p>`
+	html += `<p><strong>3.2) Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` Itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta/processar a métrica apresentou algum erro. Esses itens continuam consumindo os processos desnecessariamente do Zabbix, causando consumo de recursos de hardware.</p>`
 	html += `<p><strong>3.3) Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens desabilitados não consomem os processos do Zabbix, entretanto é necessário avaliar por qual motivo esses itens foram desabilitados, qual o impacto para o monitoramento e ao serviço monitorado.</p>`
 	html += `<p><strong>3.4) Existem ` + fmt.Sprintf("%d", itemsLe60) + ` Itens com Intervalo de Coleta menor ou igual a 60s:</strong> As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper, é interessante avaliar a necessidade.</p>`
 	// LLD explanatory paragraph removed from Items tab to avoid duplication; kept in Recomendações
@@ -2081,13 +2131,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>`
 
 	// --- Regras de LLD (tópico separado nas Recomendações) ---
-	html += `<h4>4) Regras de LLD</h4>`
+	html += `<h4 id='card-lld'>4) Regras de LLD</h4>`
 	html += `<div style='margin-left:6px;'>`
 	html += `<p><strong>4.1) Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
 	html += `<p><strong>4.2) Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
 	html += `</div>`
 
 	// Recomendacoes de Templates
+	html += "<div id='card-templates'></div>"
 	html += titleWithInfo("h4", "5) Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
 	// Top templates para revisão (Top N)
 	html += `<div style='margin-left:6px;'>`
