@@ -1974,6 +1974,44 @@ func generateZabbixReport(url, token string) (string, error) {
 	lldLe300 := 0
 	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Count } }
 
+	// get em itens SNMP com SNMP OID GET E WALK, utilzado no Zabbix 7,
+	snmpTplCount := 0
+	snmpGetWalkCount := 0
+	if majorV >= 7 {
+		if resp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"output": "extend",
+			"templated": true,
+			"countOutput": true,
+			"filter": map[string]interface{}{"type": 20},
+		}); err == nil {
+			if r, ok := resp["result"]; ok {
+				switch v := r.(type) {
+				case float64:
+					snmpTplCount = int(v)
+				case string:
+					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpTplCount = iv }
+				}
+			}
+		}
+		if resp2, err2 := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"filter": map[string]interface{}{"type": 20},
+			"search": map[string]interface{}{"snmp_oid": []string{"get[*", "walk[*"}},
+			"searchWildcardsEnabled": true,
+			"searchByAny": true,
+			"countOutput": true,
+			"templated": true,
+		}); err2 == nil {
+			if r2, ok2 := resp2["result"]; ok2 {
+				switch v := r2.(type) {
+				case float64:
+					snmpGetWalkCount = int(v)
+				case string:
+					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpGetWalkCount = iv }
+				}
+			}
+		}
+	}
+
 	// --- Recommendations KPI row + lightweight cards (modern layout, anchors scroll to sections) ---
 	// KPI numbers (computed after attention and interval aggregates are available)
 	attentionCount := len(attention)
@@ -1993,6 +2031,7 @@ func generateZabbixReport(url, token string) (string, error) {
 .kpi .kpi-label{font-size:12px;color:#334155}
 .kpi-warn{border-left:4px solid #ffcc00}
 .kpi-crit{border-left:4px solid #ff6666}
+.kpi-ok{border-left:4px solid #16a34a}
 .rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}
 .rec-card{background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04)}
 .rec-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -2009,11 +2048,21 @@ func generateZabbixReport(url, token string) (string, error) {
 		`<div id='card-lld' class='rec-card'><div class='rec-card-header'><strong>Regras de LLD</strong><span class='status-badge ok'>` + fmt.Sprintf("%d curto intervalo", lldLe300) + `</span></div><div class='rec-card-body'><!-- lld content below --></div></div>` +
 		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong>Templates</strong><span class='status-badge ok'>` + fmt.Sprintf("%d", templatesShown) + `</span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
 	`</div>`
+	// SNMP-POLLER KPI (porcentagem)
+	snmpPct := 0
+	if snmpTplCount > 0 { snmpPct = (snmpGetWalkCount * 100) / snmpTplCount }
+	
 	html += `<div class='rec-kpis'>`
 	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Process/Pollers com AVG alto</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
 	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Itens não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Itens Não Suportados</div></div>`
+	// show SNMP KPI only for Zabbix 7 (we computed counts earlier)
+	if majorV >= 7 {
+		kclass := "kpi-crit"
+		if snmpPct >= 80 { kclass = "kpi-ok" }
+		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%d%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
+	}
 	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Itens Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Itens Texto c/ Histórico</div></div>`
 	html += `</div>`	
 
@@ -2129,49 +2178,10 @@ setTimeout(setupInfoTooltips,50);
 		html += `<p><strong>3.5) Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
 	}
 
-	// 3.6) Recomendacao de Itens SNMP em templates, do Zabbix 7, para serem migrados para o Novo Poller.
+	// 3.6) Recomendacao de Itens SNMP em templates (Zabbix 7): render using counts computed earlier
 	if majorV >= 7 {
-		// Total de Items SNMP, type=20
-		snmpTplCount := 0
-		if resp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-			"output": "extend",
-			"templated": true,
-			"countOutput": true,
-			"filter": map[string]interface{}{"type": 20},
-		}); err == nil {
-			if r, ok := resp["result"]; ok {
-				switch v := r.(type) {
-				case float64:
-					snmpTplCount = int(v)
-				case string:
-					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpTplCount = iv }
-				}
-			}
-		}
-
-		// Pesquisa os items SNMP que utilizam o novo formato de OID (get[] e walk[])
-		snmpGetWalkCount := 0
-		if resp2, err2 := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-			"filter": map[string]interface{}{"type": 20},
-			"search": map[string]interface{}{"snmp_oid": []string{"get[*", "walk[*"}},
-			"searchWildcardsEnabled": true,
-			"searchByAny": true,
-			"countOutput": true,
-			"templated": true,
-		}); err2 == nil {
-			if r2, ok2 := resp2["result"]; ok2 {
-				switch v := r2.(type) {
-				case float64:
-					snmpGetWalkCount = int(v)
-				case string:
-					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpGetWalkCount = iv }
-				}
-			}
-		}
-
-		// Cria a recomendacao.
 		if snmpTplCount > 0 {
-			tip := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato." 
+			tip := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
 			html += `<p><strong>3.6) Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total de itens do ambiente:</strong> ` + htmlpkg.EscapeString(tip) + `</p>`
 		}
 	}

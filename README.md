@@ -45,7 +45,6 @@ Proximas Funcionalidades:
 ⬜ Banco de dados Postgres para armazenamento de dados, garantindo performance e escalabilidade;
 ⬜ Botão de refresh para atualizar o relatório ou consulta específica sem precisar reiniciar a coleta;
 ⬜ imagem do fluxo de processos do zabbix;
-⬜ get em items snmp get[] e walk[], poller novo;
 ⬜ trends dos Pollers Proxys;
 ⬜ Preprocessamento de item texto com discardunchanged - https://www.zabbix.com/documentation/current/en/manual/api/reference/item/get#retrieving-items-with-preprocessing-rules;
 
