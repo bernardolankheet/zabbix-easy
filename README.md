@@ -39,6 +39,7 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
 ✅ Recomendação de ações corretivas;
     - Processos e Threads do Zabbix Server (recomendação para habilitar conforme a versão do Zabbix, exemplo habilitar snmp poller no Zabbix 7);
     - Sugestões de correções em Items e Templates;
+    -Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
 
 Proximas Funcionalidades:
 ⬜ Banco de dados Postgres para armazenamento de dados, garantindo performance e escalabilidade;

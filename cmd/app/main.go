@@ -2128,6 +2128,53 @@ setTimeout(setupInfoTooltips,50);
 	if textCount > 0 {
 		html += `<p><strong>3.5) Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
 	}
+
+	// 3.6) Recomendacao de Itens SNMP em templates, do Zabbix 7, para serem migrados para o Novo Poller.
+	if majorV >= 7 {
+		// Total de Items SNMP, type=20
+		snmpTplCount := 0
+		if resp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"output": "extend",
+			"templated": true,
+			"countOutput": true,
+			"filter": map[string]interface{}{"type": 20},
+		}); err == nil {
+			if r, ok := resp["result"]; ok {
+				switch v := r.(type) {
+				case float64:
+					snmpTplCount = int(v)
+				case string:
+					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpTplCount = iv }
+				}
+			}
+		}
+
+		// Pesquisa os items SNMP que utilizam o novo formato de OID (get[] e walk[])
+		snmpGetWalkCount := 0
+		if resp2, err2 := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"filter": map[string]interface{}{"type": 20},
+			"search": map[string]interface{}{"snmp_oid": []string{"get[*", "walk[*"}},
+			"searchWildcardsEnabled": true,
+			"searchByAny": true,
+			"countOutput": true,
+			"templated": true,
+		}); err2 == nil {
+			if r2, ok2 := resp2["result"]; ok2 {
+				switch v := r2.(type) {
+				case float64:
+					snmpGetWalkCount = int(v)
+				case string:
+					if iv, ierr := strconv.Atoi(v); ierr == nil { snmpGetWalkCount = iv }
+				}
+			}
+		}
+
+		// Cria a recomendacao.
+		if snmpTplCount > 0 {
+			tip := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato." 
+			html += `<p><strong>3.6) Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total de itens do ambiente:</strong> ` + htmlpkg.EscapeString(tip) + `</p>`
+		}
+	}
 	html += `</div>`
 
 	// --- Regras de LLD (tópico separado nas Recomendações) ---
