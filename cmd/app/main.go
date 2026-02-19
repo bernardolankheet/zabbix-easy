@@ -16,6 +16,8 @@ import (
 	neturl "net/url"
 	"sync"
 	"os"
+    "database/sql"
+    _ "github.com/lib/pq"
 )
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
@@ -2273,54 +2275,161 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 
+	// initialize Postgres (optional) using ENV vars
+	var db *sql.DB
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost != "" {
+		dbPort := os.Getenv("DB_PORT")
+		if dbPort == "" { dbPort = "5432" }
+		dbUser := os.Getenv("DB_USER")
+		dbPass := os.Getenv("DB_PASSWORD")
+		dbName := os.Getenv("DB_NAME")
+		conn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName)
 
-	       // In-memory task store (substitua por Postgres depois)
-		       type Task struct {
-			       ID     string
-			       Status string // "pending", "processing", "done", "error"
-			       Report string
-			       ProgressMsg string // mensagem de progresso
-		       }
-		       var tasks = make(map[string]*Task)
+		// Attempt to connect with retries. If still unavailable after attempts, exit so container stops.
+		maxAttempts := 15
+		waitSec := 2
+		var d *sql.DB
+		var err error
+		for i := 1; i <= maxAttempts; i++ {
+			d, err = sql.Open("postgres", conn)
+			if err == nil {
+				if pingErr := d.Ping(); pingErr == nil {
+					db = d
+					break
+				} else {
+					_ = d.Close()
+					err = pingErr
+				}
+			}
+			log.Printf("[WARN] Postgres not available (attempt %d/%d): %v", i, maxAttempts, err)
+			time.Sleep(time.Duration(waitSec) * time.Second)
+		}
+		if db == nil {
+			log.Fatalf("[FATAL] Postgres did not become available after %d attempts: %v", maxAttempts, err)
+		}
 
-	       r.POST("/api/start", func(c *gin.Context) {
-		       type Req struct {
-			       ZabbixURL   string `json:"zabbix_url"`
-			       ZabbixToken string `json:"zabbix_token"`
-		       }
-		       var req Req
-		       if err := c.ShouldBindJSON(&req); err != nil {
-			       log.Printf("[ERROR] Dados inválidos recebidos: %v", err)
-			       c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
-			       return
-		       }
-		       log.Printf("[DEBUG] Requisição recebida: url=%s, token=%s", req.ZabbixURL, req.ZabbixToken)
-		       id := fmt.Sprintf("task-%d", time.Now().UnixNano())
-		       tasks[id] = &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."}
-		       go func(taskID string, url, token string) {
-			       setProgress := func(msg string) {
-				       if t, ok := tasks[taskID]; ok { t.ProgressMsg = msg }
-			       }
-			       setProgress("Detectando versão do Zabbix...")
-			       report, err := generateZabbixReportWithProgress(url, token, setProgress)
-			       if err != nil {
-				       log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
-				       tasks[taskID].Status = "error"
-				       if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
-					       tasks[taskID].Report = "<div style='color:red;'>Token Invalido</div>"
-				       } else {
-					       tasks[taskID].Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
-				       }
-				       return
-			       }
-			       log.Printf("[DEBUG] Tarefa %s concluída", taskID)
-			       tasks[taskID].Status = "done"
-			       tasks[taskID].Report = report
-			       tasks[taskID].ProgressMsg = "Relatório gerado." // final
-		       }(id, req.ZabbixURL, req.ZabbixToken)
-			       c.JSON(http.StatusOK, gin.H{"task_id": id})
-			       })
+		log.Printf("[INFO] Connected to Postgres at %s:%s db=%s", dbHost, dbPort, dbName)
+		// ensure reports table has the correct schema; if an old table exists with missing columns,
+		// rename it to preserve data and create a fresh table with the expected columns
+		expectedCols := map[string]bool{"id":false, "name":false, "format":false, "content":false, "zabbix_url":false, "created_at":false}
+		rows, err := db.Query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='reports'")
+		if err != nil {
+			log.Printf("[WARN] Failed to inspect reports table schema: %v", err)
+		} else {
+			defer rows.Close()
+			found := 0
+			for rows.Next() {
+				var col string
+				_ = rows.Scan(&col)
+				if _, ok := expectedCols[col]; ok {
+					expectedCols[col] = true
+				}
+				found++
+			}
+			// if table doesn't exist, create it
+			if found == 0 {
+				_, err := db.Exec(`CREATE TABLE reports (
+					id SERIAL PRIMARY KEY,
+					name TEXT,
+					format TEXT,
+					content BYTEA,
+					zabbix_url TEXT,
+					created_at TIMESTAMPTZ DEFAULT now()
+				)`)
+				if err != nil {
+					log.Printf("[WARN] Failed to create reports table: %v", err)
+				}
+			} else {
+				// if any expected column is missing, rename old table and create a fresh one
+				missing := []string{}
+				for k, v := range expectedCols {
+					if !v { missing = append(missing, k) }
+				}
+				if len(missing) > 0 {
+					ts := time.Now().Unix()
+					oldName := fmt.Sprintf("reports_old_%d", ts)
+					_, err := db.Exec(fmt.Sprintf("ALTER TABLE reports RENAME TO %s", oldName))
+					if err != nil {
+						log.Printf("[WARN] Failed to rename old reports table: %v", err)
+					} else {
+						log.Printf("[INFO] Renamed existing reports -> %s due to missing columns: %v", oldName, missing)
+						_, err := db.Exec(`CREATE TABLE reports (
+							id SERIAL PRIMARY KEY,
+							name TEXT,
+							format TEXT,
+							content BYTEA,
+							zabbix_url TEXT,
+							created_at TIMESTAMPTZ DEFAULT now()
+						)`)
+						if err != nil {
+							log.Printf("[WARN] Failed to create new reports table: %v", err)
+						}
+					}
+				}
+			}
+		}
+	}
 
+	// In-memory task store (keeps recent tasks until process restart)
+	type Task struct {
+		ID     string
+		Status string // "pending", "processing", "done", "error"
+		Report string
+		ProgressMsg string // mensagem de progresso
+		DBID   int
+	}
+	var tasks = make(map[string]*Task)
+
+	r.POST("/api/start", func(c *gin.Context) {
+		type Req struct {
+			ZabbixURL   string `json:"zabbix_url"`
+			ZabbixToken string `json:"zabbix_token"`
+		}
+		var req Req
+		if err := c.ShouldBindJSON(&req); err != nil {
+			log.Printf("[ERROR] Dados inválidos recebidos: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+			return
+		}
+		log.Printf("[DEBUG] Requisição recebida: url=%s, token=%s", req.ZabbixURL, req.ZabbixToken)
+		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
+		tasks[id] = &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."}
+		go func(taskID string, url, token string) {
+			setProgress := func(msg string) {
+				if t, ok := tasks[taskID]; ok { t.ProgressMsg = msg }
+			}
+			setProgress("Detectando versão do Zabbix...")
+			report, err := generateZabbixReportWithProgress(url, token, setProgress)
+			if err != nil {
+				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
+				tasks[taskID].Status = "error"
+				if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
+					tasks[taskID].Report = "<div style='color:red;'>Token Invalido</div>"
+				} else {
+					tasks[taskID].Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
+				}
+				return
+			}
+			log.Printf("[DEBUG] Tarefa %s concluída", taskID)
+			tasks[taskID].Status = "done"
+			tasks[taskID].Report = report
+			tasks[taskID].ProgressMsg = "Relatório gerado." // final
+			// save to DB if available
+			if db != nil {
+				name := "report-" + fmt.Sprintf("%d", time.Now().Unix())
+				// insert
+				_, err := db.Exec("INSERT INTO reports(name, format, content, zabbix_url) VALUES($1,$2,$3,$4)", name, "html", []byte(report), url)
+				if err != nil {
+					log.Printf("[WARN] Failed to save report to DB: %v", err)
+				}
+			}
+			return
+		}(id, req.ZabbixURL, req.ZabbixToken)
+		c.JSON(http.StatusOK, gin.H{"task_id": id})
+	})
+
+				// progress endpoint for in-memory tasks
 				r.GET("/api/progress/:id", func(c *gin.Context) {
 					id := c.Param("id")
 					task, ok := tasks[id]
@@ -2332,17 +2441,74 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"status": task.Status, "progress_msg": task.ProgressMsg, "report": task.Report})
 				})
 
-			       r.GET("/api/report/:id", func(c *gin.Context) {
-				       id := c.Param("id")
-				       task, ok := tasks[id]
-				       if !ok || task.Status != "done" {
-					       c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não disponível"})
-					       return
-				       }
-				       c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
-			       })
+				// return report HTML generated in this session (in-memory)
+				r.GET("/api/report/:id", func(c *gin.Context) {
+					id := c.Param("id")
+					task, ok := tasks[id]
+					if !ok || task.Status != "done" {
+						c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não disponível"})
+						return
+					}
+					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
+				})
 
-			       r.Run(":8080")
+				// list reports stored in DB (most recent first)
+				r.GET("/api/reports", func(c *gin.Context) {
+					if db == nil {
+						c.JSON(http.StatusOK, gin.H{"reports": []interface{}{}})
+						return
+					}
+					limit := 20
+					rows, err := db.Query("SELECT id, name, format, zabbix_url, created_at FROM reports ORDER BY created_at DESC LIMIT $1", limit)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
+					defer rows.Close()
+					out := []map[string]interface{}{}
+					for rows.Next() {
+						var id int
+						var name, format, zurl string
+						var created time.Time
+						if err := rows.Scan(&id, &name, &format, &zurl, &created); err == nil {
+							out = append(out, map[string]interface{}{"id": id, "name": name, "format": format, "zabbix_url": zurl, "created_at": created})
+						}
+					}
+					c.JSON(http.StatusOK, gin.H{"reports": out})
+				})
+
+				// fetch report content from DB by id (wrap fragment into full HTML if needed)
+				r.GET("/api/reportdb/:id", func(c *gin.Context) {
+					if db == nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
+						return
+					}
+					id := c.Param("id")
+					row := db.QueryRow("SELECT name, format, content FROM reports WHERE id = $1", id)
+					var name, format string
+					var content []byte
+					if err := row.Scan(&name, &format, &content); err != nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não encontrado"})
+						return
+					}
+					s := string(content)
+					// if stored content already contains full HTML, return as-is
+					low := strings.ToLower(s)
+					if strings.Contains(low, "<!doctype") || strings.Contains(low, "<html") {
+						c.Data(http.StatusOK, "text/html; charset=utf-8", content)
+						return
+					}
+					// otherwise wrap fragment into a full document and include local CSS/JS
+					cssLink := `<link rel="stylesheet" href="/static/style.css">`
+					jsChart := `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>`
+					extra := `<script src="/static/script.js"></script>`
+					// inline initializer to run gauges when the standalone page is loaded
+					initInline := `<script>window.addEventListener('load', function(){ try{ if (typeof initGauges === 'function') initGauges(document.body); }catch(e){console&&console.error(e);} });</script>`
+					full := "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Relatório Zabbix - " + htmlpkg.EscapeString(name) + "</title>" + cssLink + jsChart + `</head><body>` + s + extra + initInline + `</body></html>`
+					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(full))
+				})
+
+				r.Run(":8080")
 			}
 
 			// Wrapper for progress reporting

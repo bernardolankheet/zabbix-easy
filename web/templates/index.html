@@ -23,6 +23,11 @@
                 </span>
             </div>
             <button type="submit">Gerar Relatório</button>
+            <div class="db-controls" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                <button type="button" id="btn-load-db">Carregar relatórios do banco</button>
+                <select id="reportSelect" style="min-width:240px"><option value="">-- selecione --</option></select>
+                <button type="button" id="btn-open-db">Abrir selecionado</button>
+            </div>
         </form>
         <div id="progress-bar" class="progress-bar" style="display:none;">
             <div class="progress"></div>

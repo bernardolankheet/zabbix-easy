@@ -341,6 +341,50 @@ function checkProgress(taskId, progress) {
         });
 }
 
+// Load list of reports from server DB and populate selector
+document.getElementById('btn-load-db').addEventListener('click', function(){
+    fetch('/api/reports')
+        .then(res => res.json())
+        .then(data => {
+            const sel = document.getElementById('reportSelect');
+            sel.innerHTML = '<option value="">-- selecione --</option>';
+            if (data && data.reports) {
+                data.reports.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    const d = new Date(r.created_at);
+                    opt.text = (r.name || ('Relatório ' + r.id)) + ' — ' + d.toLocaleString();
+                    sel.appendChild(opt);
+                });
+            }
+        }).catch(err => { alert('Erro ao carregar lista: ' + err); });
+});
+
+// Open selected report from DB in a new window
+document.getElementById('btn-open-db').addEventListener('click', function(){
+    const sel = document.getElementById('reportSelect');
+    if (!sel) return alert('Nenhum seletor encontrado');
+    const id = sel.value;
+    if (!id) return alert('Selecione um relatório');
+    fetch('/api/reportdb/' + id)
+        .then(res => {
+            if (!res.ok) throw new Error('Relatório não encontrado');
+            return res.text();
+        })
+        .then(html => {
+            const w = window.open('', '_blank');
+            if (w) {
+                w.document.open();
+                w.document.write(html);
+                w.document.close();
+            } else {
+                // fallback: show in current report area
+                document.getElementById('report-area').style.display = 'block';
+                document.getElementById('report-area').innerHTML = html;
+            }
+        }).catch(err => alert('Erro ao abrir relatório: ' + err));
+});
+
 // Initialize doughnut gauges inside a given container
 function initGauges(container) {
     if (typeof Chart === 'undefined') return; // Chart.js not loaded
