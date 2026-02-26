@@ -2477,32 +2477,55 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"reports": out})
 				})
 
-				// fetch report content from DB by id (wrap fragment into full HTML if needed)
-				r.GET("/api/reportdb/:id", func(c *gin.Context) {
-					if db == nil {
-						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
-						return
+// fetch report content from DB by id
+			// ?raw=1  → return only the HTML fragment so the JS renderReport() can
+			//            assemble the full layout (header + export/print buttons) itself.
+			// (default) → wrap fragment in a full standalone document (legacy / direct link).
+			r.GET("/api/reportdb/:id", func(c *gin.Context) {
+				if db == nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
+					return
+				}
+				id := c.Param("id")
+				row := db.QueryRow("SELECT name, format, content FROM reports WHERE id = $1", id)
+				var name, format string
+				var content []byte
+				if err := row.Scan(&name, &format, &content); err != nil {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não encontrado"})
+					return
+				}
+				s := string(content)
+				low := strings.ToLower(s)
+				isFullDoc := strings.Contains(low, "<!doctype") || strings.Contains(low, "<html")
+
+				// ?raw=1: JS wants a bare fragment to render inline with its own layout
+				if c.Query("raw") == "1" {
+					fragment := s
+					if isFullDoc {
+						// extract <body> content from the stored full document
+						bi := strings.Index(low, "<body")
+						ei := strings.LastIndex(low, "</body>")
+						if bi != -1 && ei != -1 {
+							// advance past the closing ">" of the <body ...> tag
+							bodyTagEnd := strings.Index(s[bi:], ">")
+							if bodyTagEnd != -1 {
+								fragment = s[bi+bodyTagEnd+1 : ei]
+							}
+						}
 					}
-					id := c.Param("id")
-					row := db.QueryRow("SELECT name, format, content FROM reports WHERE id = $1", id)
-					var name, format string
-					var content []byte
-					if err := row.Scan(&name, &format, &content); err != nil {
-						c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não encontrado"})
-						return
-					}
-					s := string(content)
-					// if stored content already contains full HTML, return as-is
-					low := strings.ToLower(s)
-					if strings.Contains(low, "<!doctype") || strings.Contains(low, "<html") {
-						c.Data(http.StatusOK, "text/html; charset=utf-8", content)
-						return
-					}
-					// otherwise wrap fragment into a full document and include local CSS/JS
-					cssLink := `<link rel="stylesheet" href="/static/style.css">`
-					jsChart := `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>`
-					extra := `<script src="/static/script.js"></script>`
-					// inline initializer to run gauges when the standalone page is loaded
+					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(fragment))
+					return
+				}
+
+				// default: return a standalone full document (no raw flag)
+				if isFullDoc {
+					c.Data(http.StatusOK, "text/html; charset=utf-8", content)
+					return
+				}
+				// wrap fragment into a full document with CSS / JS / gauge init
+				cssLink := `<link rel="stylesheet" href="/static/style.css">`
+				jsChart := `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>`
+				extra := `<script src="/static/script.js"></script>`
 					initInline := `<script>window.addEventListener('load', function(){ try{ if (typeof initGauges === 'function') initGauges(document.body); }catch(e){console&&console.error(e);} });</script>`
 					full := "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Relatório Zabbix - " + htmlpkg.EscapeString(name) + "</title>" + cssLink + jsChart + `</head><body>` + s + extra + initInline + `</body></html>`
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(full))
