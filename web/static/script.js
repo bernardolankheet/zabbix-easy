@@ -301,7 +301,10 @@ document.getElementById('btn-load-db').addEventListener('click', function() {
                     const opt = document.createElement('option');
                     opt.value = r.id;
                     const d = new Date(r.created_at);
-                    opt.text = (r.name || ('Relat\u00f3rio ' + r.id)) + ' \u2014 ' + d.toLocaleString();
+                    const label = (r.zabbix_url || r.name || ('Relatório ' + r.id))
+                        .replace(/^https?:\/\//, '')  // remove http:// ou https:// na hora de carregar o html de relatório
+                        .replace(/\/$/, '');           // remove trailing slash na hora de carregar o html de relatório
+                    opt.text = label + ' \u2014 ' + d.toLocaleString();
                     sel.appendChild(opt);
                 });
             }
