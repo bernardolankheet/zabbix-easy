@@ -182,6 +182,58 @@ func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string,
 	return "", nil
 }
 
+// getHistoryStats busca valores de history num intervalo e retorna map com value_min/value_avg/value_max.
+// Usado como fallback quando trend.get não tem dados (trends=0 no item, período curto, etc).
+func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[string]interface{}, error) {
+	now := time.Now().Unix()
+	var from int64
+	if checkTrendDurationSeconds > 0 {
+		from = now - checkTrendDurationSeconds
+	} else {
+		from = now - int64(days*24*60*60)
+	}
+	params := map[string]interface{}{
+		"output":    []string{"value"},
+		"history":   histType,
+		"itemids":   []string{itemid},
+		"time_from": from,
+		"time_to":   now,
+		"sortfield": "clock",
+		"sortorder": "ASC",
+		"limit":     2000,
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "history.get", params)
+	if err != nil { return nil, err }
+	r, ok := resp["result"]
+	if !ok { return nil, nil }
+	arr, ok := r.([]interface{})
+	if !ok || len(arr) == 0 { return nil, nil }
+	var vals []float64
+	for _, entry := range arr {
+		m, ok := entry.(map[string]interface{})
+		if !ok { continue }
+		if v, ok := m["value"]; ok {
+			if f, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); err == nil {
+				vals = append(vals, f)
+			}
+		}
+	}
+	if len(vals) == 0 { return nil, nil }
+	vmin, vmax := vals[0], vals[0]
+	sum := 0.0
+	for _, v := range vals {
+		if v < vmin { vmin = v }
+		if v > vmax { vmax = v }
+		sum += v
+	}
+	vavg := sum / float64(len(vals))
+	return map[string]interface{}{
+		"value_min": fmt.Sprintf("%f", vmin),
+		"value_avg": fmt.Sprintf("%f", vavg),
+		"value_max": fmt.Sprintf("%f", vmax),
+	}, nil
+}
+
 // getLastTrend busca o último registro em trend para um itemid no intervalo now - days
 func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{}, error) {
 	now := time.Now().Unix()
@@ -517,12 +569,15 @@ func generateZabbixReport(url, token string) (string, error) {
 			// fallback: se cache não tiver, tentar buscar pelo itemid (compatibilidade)
 			templateName = cacheTemplateItems[itemId]
 		}
-		templateCounter[tplId]++
+		// capturo o "templateid"] para ser ID do ITEM dentro do template, para funcionar a logica do template ofensor, isso é necessario para múltiplos itens do mesmo template.
+		realTplId := cacheTemplateHostID[tplId]
+		if realTplId == "" { realTplId = tplId } // fallback se cache não tiver o mapeamento
+		templateCounter[realTplId]++
 		hostCounter[itemHostName]++
-		itemCounter[itemName+"|"+tplId]++
-		errorCounter[itemError+"|"+tplId]++
-		templateItems[tplId] = append(templateItems[tplId], []string{itemName, itemError, itemHostName, urlEdit, templateName})
-		hostItems[itemHostName] = append(hostItems[itemHostName], []string{itemName, itemError, tplId, urlEdit})
+		itemCounter[itemName+"|"+realTplId]++
+		errorCounter[itemError+"|"+realTplId]++
+		templateItems[realTplId] = append(templateItems[realTplId], []string{itemName, itemError, itemHostName, urlEdit, templateName})
+		hostItems[itemHostName] = append(hostItems[itemHostName], []string{itemName, itemError, realTplId, urlEdit})
 	}
 
 	// Buscar nomes dos templates
@@ -955,10 +1010,22 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			if trend == nil {
-				pr.Disabled = true
-				pr.DisabledMsg = "Processo não habilitado"
-				resultsPoll <- pollRes{Idx: idx, Row: pr}
-				return
+				// fallback: busca history quando trends não estão disponíveis (trends=0 no item)
+				histType := 0 // float para itens zabbix[process,...]
+				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
+				var herr error
+				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
+				if herr != nil {
+					pr.Err = true
+					resultsPoll <- pollRes{Idx: idx, Row: pr}
+					return
+				}
+				if trend == nil {
+					pr.Disabled = true
+					pr.DisabledMsg = "Processo não habilitado"
+					resultsPoll <- pollRes{Idx: idx, Row: pr}
+					return
+				}
 			}
 			parseVal := func(k string) float64 {
 				if v, ok := trend[k]; ok {
@@ -1192,10 +1259,22 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			if trend == nil {
-				pr.Disabled = true
-				pr.DisabledMsg = "Processo não habilitado"
-				results <- procResult{idx: i, pr: pr}
-				return
+				// fallback: busca history quando trends não estão disponíveis (trends=0 no item)
+				histType := 0 // float para itens zabbix[process,...]
+				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
+				var herr error
+				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
+				if herr != nil {
+					pr.Err = true
+					results <- procResult{idx: i, pr: pr}
+					return
+				}
+				if trend == nil {
+					pr.Disabled = true
+					pr.DisabledMsg = "Processo não habilitado"
+					results <- procResult{idx: i, pr: pr}
+					return
+				}
 			}
 			parseVal := func(k string) float64 {
 				if v, ok := trend[k]; ok {
