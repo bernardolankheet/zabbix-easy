@@ -723,11 +723,11 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<h4 style='margin:0 0 8px 0;'>Hosts: Desabilitados</h4>`
 	html += `<canvas id='hosts-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", nTotalHosts) + `' data-unsupported='` + fmt.Sprintf("%d", nDisabledHosts) + `' data-unsupported-label='Desabilitados' data-supported-label='Habilitados' data-color-unsupported='#ffcc66' data-color-supported='#66c2a5'></canvas>`
 	// legend lines: color swatches and separated lines (supported / disabled)
-	hostDisabledPct := 0
-	if nTotalHosts > 0 { hostDisabledPct = (nDisabledHosts * 100) / nTotalHosts }
+	hostDisabledPct := 0.0
+	if nTotalHosts > 0 { hostDisabledPct = (float64(nDisabledHosts) * 100.0) / float64(nTotalHosts) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
 	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong>Total hosts:</strong>&nbsp;` + fmt.Sprintf("%d", nTotalHosts) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong>Desabilitados:</strong>&nbsp;` + fmt.Sprintf("%d", nDisabledHosts) + ` (` + fmt.Sprintf("%d", hostDisabledPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong>Desabilitados:</strong>&nbsp;` + fmt.Sprintf("%d", nDisabledHosts) + ` (` + fmt.Sprintf("%.2f", hostDisabledPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	// Items gauge (right)
@@ -735,11 +735,11 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<h4 style='margin:0 0 8px 0;'>Itens: Não Suportados</h4>`
 	html += `<canvas id='items-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='Não suportados' data-supported-label='Suportados' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
 	// legend lines for items
-	itemsUnsupportedPct := 0
-	if totalItemsVal > 0 { itemsUnsupportedPct = (unsupportedVal * 100) / totalItemsVal }
+	itemsUnsupportedPct := 0.0
+	if totalItemsVal > 0 { itemsUnsupportedPct = (float64(unsupportedVal) * 100.0) / float64(totalItemsVal) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
 	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong>Total items:</strong>&nbsp;` + fmt.Sprintf("%d", totalItemsVal) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong>Não suportados:</strong>&nbsp;` + fmt.Sprintf("%d", unsupportedVal) + ` (` + fmt.Sprintf("%d", itemsUnsupportedPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong>Não suportados:</strong>&nbsp;` + fmt.Sprintf("%d", unsupportedVal) + ` (` + fmt.Sprintf("%.2f", itemsUnsupportedPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	html += `</div>`
@@ -2051,8 +2051,8 @@ func generateZabbixReport(url, token string) (string, error) {
 		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong>Templates</strong><span class='status-badge ok'>` + fmt.Sprintf("%d", templatesShown) + `</span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
 	`</div>`
 	// SNMP-POLLER KPI (porcentagem)
-	snmpPct := 0
-	if snmpTplCount > 0 { snmpPct = (snmpGetWalkCount * 100) / snmpTplCount }
+	snmpPct := 0.0
+	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
 	
 	html += `<div class='rec-kpis'>`
 	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Process/Pollers com AVG alto</div></div>`
@@ -2062,8 +2062,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// show SNMP KPI only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		kclass := "kpi-crit"
-		if snmpPct >= 80 { kclass = "kpi-ok" }
-		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%d%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
+		if snmpPct >= 80.0 { kclass = "kpi-ok" }
+		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
 	}
 	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Itens Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Itens Texto c/ Histórico</div></div>`
 	html += `</div>`	

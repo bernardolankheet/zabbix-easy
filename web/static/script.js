@@ -357,7 +357,7 @@ function initGauges(container) {
                     cutout: '60%',
                     plugins: {
                         legend: { display: false },
-                        tooltip: { callbacks: { label: function(ctx) { let v = ctx.parsed; let p = total > 0 ? Math.round((v / total) * 100) : 0; return ctx.label + ': ' + v + ' (' + p + '%)'; } } }
+                        tooltip: { callbacks: { label: function(ctx) { let v = ctx.parsed; let p = total > 0 ? ((v / total) * 100).toFixed(2) : '0.00'; return ctx.label + ': ' + v + ' (' + p + '%)'; } } }
                     }
                 }
             });
