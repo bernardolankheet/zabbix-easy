@@ -51,7 +51,7 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
 // Assembles the full report layout (header + export/print buttons + content)
 // into #report-area and wires all button event listeners.
 // ---------------------------------------------------------------------------
-function renderReport(html, titleHint) {
+function renderReport(html, titleHint, createdAt) {
     const reportArea = document.getElementById('report-area');
     reportArea.style.display = 'block';
 
@@ -60,10 +60,11 @@ function renderReport(html, titleHint) {
 
     const header = document.createElement('div');
     header.className = 'report-frame-header';
+    const geradoEm = createdAt ? new Date(createdAt).toLocaleString() : new Date().toLocaleString();
     header.innerHTML = `
         <div class="frame-meta">
             <div class="frame-title">Relat\u00f3rio Zabbix</div>
-            <div class="frame-sub">Gerado em: ${new Date().toLocaleString()}</div>
+            <div class="frame-sub">Gerado em: ${geradoEm}</div>
         </div>`;
 
     const left = document.createElement('div');
@@ -300,10 +301,11 @@ document.getElementById('btn-load-db').addEventListener('click', function() {
                 data.reports.forEach(r => {
                     const opt = document.createElement('option');
                     opt.value = r.id;
+                    opt.dataset.createdAt = r.created_at || '';
                     const d = new Date(r.created_at);
                     const label = (r.zabbix_url || r.name || ('Relatório ' + r.id))
-                        .replace(/^https?:\/\//, '')  // remove http:// ou https:// na hora de carregar o html de relatório
-                        .replace(/\/$/, '');           // remove trailing slash na hora de carregar o html de relatório
+                        .replace(/^https?:\/\//, '')  // remove http:// ou https://
+                        .replace(/\/$/, '');           // remove trailing slash
                     opt.text = label + ' \u2014 ' + d.toLocaleString();
                     sel.appendChild(opt);
                 });
@@ -325,8 +327,10 @@ document.getElementById('btn-open-db').addEventListener('click', function() {
         })
         .then(html => {
             // pass option label as titleHint fallback for filenames
-            const optText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-            renderReport(html, optText);
+            const selOpt = sel.options[sel.selectedIndex];
+            const optText = selOpt ? selOpt.text : '';
+            const createdAt = selOpt ? selOpt.dataset.createdAt : '';
+            renderReport(html, optText, createdAt);
         })
         .catch(err => alert('Erro ao abrir relat\u00f3rio: ' + err));
 });
