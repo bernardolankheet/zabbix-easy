@@ -1005,18 +1005,19 @@ func generateZabbixReport(url, token string) (string, error) {
 			itemid := fmt.Sprintf("%v", item["itemid"])
 			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
 			if terr != nil {
-				pr.Err = true
-				resultsPoll <- pollRes{Idx: idx, Row: pr}
-				return
+				log.Printf("[DEBUG] trend.get failed for poller '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)
+				trend = nil // força fallback para history abaixo
 			}
 			if trend == nil {
-				// fallback: busca history quando trends não estão disponíveis (trends=0 no item)
+				// fallback: busca history quando trends não estão disponíveis (trends=0 no item ou erro)
 				histType := 0 // float para itens zabbix[process,...]
 				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
 				var herr error
 				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
 				if herr != nil {
-					pr.Err = true
+					log.Printf("[DEBUG] history.get also failed for poller '%s' (itemid=%s): %v — marking disabled", name, itemid, herr)
+					pr.Disabled = true
+					pr.DisabledMsg = "Processo não habilitado"
 					resultsPoll <- pollRes{Idx: idx, Row: pr}
 					return
 				}
@@ -1254,18 +1255,19 @@ func generateZabbixReport(url, token string) (string, error) {
 			log.Printf("[DEBUG] Found internal process item: key=%s itemid=%s hostid=%v", pk, itemid, item["hostid"])
 			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
 			if terr != nil {
-				pr.Err = true
-				results <- procResult{idx: i, pr: pr}
-				return
+				log.Printf("[DEBUG] trend.get failed for process '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)
+				trend = nil // força fallback para history abaixo
 			}
 			if trend == nil {
-				// fallback: busca history quando trends não estão disponíveis (trends=0 no item)
+				// fallback: busca history quando trends não estão disponíveis (trends=0 no item ou erro)
 				histType := 0 // float para itens zabbix[process,...]
 				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
 				var herr error
 				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
 				if herr != nil {
-					pr.Err = true
+					log.Printf("[DEBUG] history.get also failed for process '%s' (itemid=%s): %v — marking disabled", name, itemid, herr)
+					pr.Disabled = true
+					pr.DisabledMsg = "Processo não habilitado"
 					results <- procResult{idx: i, pr: pr}
 					return
 				}

@@ -134,6 +134,8 @@ function renderReport(html, titleHint, createdAt) {
 
     // initialize doughnut gauges
     initGauges(left);
+    // initialize table search / sort / pagination
+    initTableEnhancements(left);
 
     // helper: extract the Ambiente name from report text for use in filenames
     function extractAmbienteName(leftEl) {
@@ -159,6 +161,14 @@ function renderReport(html, titleHint, createdAt) {
         });
         clone.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'block'; });
         clone.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        // expand paginated tables: show all rows, strip controls for clean static export
+        clone.querySelectorAll('.modern-table[data-dt-enhanced]').forEach(t => {
+            t.querySelectorAll('tbody tr').forEach(r => r.style.removeProperty('display'));
+            t.querySelectorAll('.dt-no-results-row').forEach(r => r.parentNode && r.parentNode.removeChild(r));
+        });
+        clone.querySelectorAll('.dt-toolbar, .dt-pagination').forEach(el => el.parentNode && el.parentNode.removeChild(el));
+        clone.querySelectorAll('.dt-sort-icon').forEach(ic => ic.parentNode && ic.parentNode.removeChild(ic));
+        clone.querySelectorAll('.dt-sortable').forEach(th => th.classList.remove('dt-sortable', 'dt-sort-asc', 'dt-sort-desc'));
         const rSide = clone.querySelector('.report-side');
         const rMain = clone.querySelector('.report-main');
         if (rSide && rMain) {
@@ -372,5 +382,197 @@ function initGauges(container) {
         } catch (err) {
             console.error('Failed to init gauge', err);
         }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// initTableEnhancements(container)
+// Adds per-table search, column sorting and pagination to all .modern-table
+// elements inside [container] that have more than MIN_ROWS data rows.
+// PDF/print: @media print CSS forces all rows visible automatically.
+// HTML export: buildFullDocumentHTML_fromContainer strips controls and expands rows.
+// ---------------------------------------------------------------------------
+function initTableEnhancements(container) {
+    var MIN_ROWS   = 10;
+    var PAGE_SIZES = [10, 25, 50, 100];
+    var DEFAULT_PS = 25;
+
+    container.querySelectorAll('.modern-table').forEach(function(table) {
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var allRows = Array.from(tbody.querySelectorAll('tr'));
+        if (allRows.length <= MIN_ROWS) return;
+
+        // — state —
+        var page = 1, ps = DEFAULT_PS, sortCol = -1, sortDir = 1, query = '';
+        var filtered = allRows.slice();
+
+        var wrap   = table.closest ? (table.closest('.table-responsive') || table.parentNode) : table.parentNode;
+        var parent = wrap.parentNode;
+        if (!parent) return;
+
+        // — toolbar —
+        var toolbar = document.createElement('div');
+        toolbar.className = 'dt-toolbar';
+        toolbar.innerHTML =
+            '<div class="dt-search">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+                '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' +
+              '</svg>' +
+              '<input type="text" class="dt-search-input" placeholder="Buscar na tabela...">' +
+            '</div>' +
+            '<div class="dt-controls">' +
+              '<span class="dt-info"></span>' +
+              '<select class="dt-page-size">' +
+                PAGE_SIZES.map(function(s) {
+                    return '<option value="' + s + '"' + (s === DEFAULT_PS ? ' selected' : '') + '>' + s + ' / p\u00e1g</option>';
+                }).join('') +
+              '</select>' +
+            '</div>';
+        parent.insertBefore(toolbar, wrap);
+
+        // — pagination bar —
+        var pagBar = document.createElement('div');
+        pagBar.className = 'dt-pagination';
+        parent.insertBefore(pagBar, wrap.nextSibling);
+
+        // — sortable headers —
+        var headers = Array.from(table.querySelectorAll('thead th'));
+        headers.forEach(function(th, idx) {
+            th.classList.add('dt-sortable');
+            var icon = document.createElement('span');
+            icon.className = 'dt-sort-icon';
+            icon.textContent = '\u2195';
+            th.appendChild(icon);
+            th.addEventListener('click', function() {
+                sortDir = (sortCol === idx) ? -sortDir : 1;
+                sortCol = idx;
+                headers.forEach(function(h) {
+                    h.classList.remove('dt-sort-asc', 'dt-sort-desc');
+                    var ic = h.querySelector('.dt-sort-icon');
+                    if (ic) ic.textContent = '\u2195';
+                });
+                th.classList.add(sortDir === 1 ? 'dt-sort-asc' : 'dt-sort-desc');
+                icon.textContent = sortDir === 1 ? '\u2191' : '\u2193';
+                run();
+            });
+        });
+
+        function cellText(row, col) {
+            var cells = row.querySelectorAll('td');
+            return cells[col] ? (cells[col].innerText || cells[col].textContent || '').trim() : '';
+        }
+
+        function run() {
+            filtered = allRows.filter(function(r) {
+                if (!query) return true;
+                return (r.innerText || r.textContent || '').toLowerCase().indexOf(query) !== -1;
+            });
+            if (sortCol >= 0) {
+                filtered.sort(function(a, b) {
+                    var ta = cellText(a, sortCol).toLowerCase();
+                    var tb = cellText(b, sortCol).toLowerCase();
+                    var na = parseFloat(ta.replace(/[^0-9.-]/g, ''));
+                    var nb = parseFloat(tb.replace(/[^0-9.-]/g, ''));
+                    if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+                    return ta.localeCompare(tb, 'pt-BR', {sensitivity: 'base', numeric: true}) * sortDir;
+                });
+            }
+            page = 1;
+            draw();
+        }
+
+        function draw() {
+            // Ordenacão das tabelas
+            filtered.forEach(function(r) { tbody.appendChild(r); });
+
+            var total = filtered.length;
+            var pages = Math.max(1, Math.ceil(total / ps));
+            page = Math.min(page, pages);
+            var start = (page - 1) * ps;
+            var end   = Math.min(start + ps, total);
+
+            allRows.forEach(function(r) { r.style.display = 'none'; });
+            filtered.slice(start, end).forEach(function(r) { r.style.display = ''; });
+
+            // no-results row
+            var noRes = tbody.querySelector('.dt-no-results-row');
+            if (total === 0) {
+                if (!noRes) {
+                    noRes = document.createElement('tr');
+                    noRes.className = 'dt-no-results-row';
+                    var td = document.createElement('td');
+                    td.colSpan = headers.length || 99;
+                    td.className = 'dt-no-results';
+                    td.textContent = 'Nenhum resultado encontrado.';
+                    noRes.appendChild(td);
+                    tbody.appendChild(noRes);
+                }
+                noRes.style.display = '';
+            } else if (noRes) {
+                noRes.style.display = 'none';
+            }
+
+            // info text
+            var infoEl = toolbar.querySelector('.dt-info');
+            if (infoEl) {
+                infoEl.textContent = total < allRows.length
+                    ? (start + 1) + '\u2013' + end + ' de ' + total + ' (filtrado de ' + allRows.length + ')'
+                    : (start + 1) + '\u2013' + end + ' de ' + total;
+            }
+
+            // pagination controls
+            pagBar.innerHTML = '';
+            if (pages <= 1) return;
+
+            function mkBtn(lbl, pg, isActive, isDis) {
+                var b = document.createElement('button');
+                b.className = 'dt-btn' + (isActive ? ' active' : '');
+                b.innerHTML = lbl;
+                b.disabled = isDis;
+                if (!isDis && !isActive) b.addEventListener('click', function() { page = pg; draw(); });
+                pagBar.appendChild(b);
+            }
+            function mkDots() {
+                var sp = document.createElement('span');
+                sp.className = 'dt-ellipsis';
+                sp.textContent = '\u2026';
+                pagBar.appendChild(sp);
+            }
+
+            mkBtn('&#8249;', page - 1, false, page === 1);
+            var delta = 2, rng = [], prev = null;
+            for (var i = 1; i <= pages; i++) {
+                if (i === 1 || i === pages || (i >= page - delta && i <= page + delta)) rng.push(i);
+            }
+            rng.forEach(function(pg) {
+                if (prev !== null) {
+                    if (pg - prev === 2) mkBtn(prev + 1, prev + 1, prev + 1 === page, false);
+                    else if (pg - prev > 2) mkDots();
+                }
+                mkBtn(pg, pg, pg === page, false);
+                prev = pg;
+            });
+            mkBtn('&#8250;', page + 1, false, page === pages);
+        }
+
+        // — events —
+        var searchInput = toolbar.querySelector('.dt-search-input');
+        var debTimer;
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(debTimer);
+            debTimer = setTimeout(function() {
+                query = e.target.value.trim().toLowerCase();
+                run();
+            }, 220);
+        });
+        toolbar.querySelector('.dt-page-size').addEventListener('change', function(e) {
+            ps = parseInt(e.target.value, 10);
+            page = 1;
+            draw();
+        });
+
+        table.setAttribute('data-dt-enhanced', '1');
+        run();
     });
 }

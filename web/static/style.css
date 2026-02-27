@@ -561,6 +561,166 @@ label {
     }
 }
 
+/* ─── Paginação das tabelas ─── */
+.dt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 2px;
+    margin-bottom: 2px;
+}
+
+.dt-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 180px;
+    max-width: 300px;
+}
+
+.dt-search svg {
+    position: absolute;
+    left: 9px;
+    color: #9ab0bf;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.dt-search-input {
+    width: 100%;
+    padding: 6px 10px 6px 30px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    font-size: 0.875em;
+    background: #f7fafd;
+    color: #2d3e50;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.dt-search-input::placeholder { color: #b0bec5; }
+
+.dt-search-input:focus {
+    border-color: #2d8cf0;
+    box-shadow: 0 0 0 3px rgba(45,140,240,0.1);
+    background: #fff;
+}
+
+.dt-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dt-info {
+    font-size: 0.82em;
+    color: #8a9daa;
+    white-space: nowrap;
+}
+
+.dt-page-size {
+    padding: 5px 8px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    font-size: 0.85em;
+    background: #f7fafd;
+    color: #2d3e50;
+    cursor: pointer;
+    outline: none;
+}
+
+.dt-page-size:focus {
+    border-color: #2d8cf0;
+    box-shadow: 0 0 0 3px rgba(45,140,240,0.1);
+}
+
+.dt-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.dt-sortable:hover { background: #e8f2fb !important; }
+
+.dt-sort-icon {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 0.75em;
+    color: #b0bec5;
+    vertical-align: middle;
+    transition: color 0.12s;
+}
+
+.dt-sort-asc .dt-sort-icon,
+.dt-sort-desc .dt-sort-icon { color: #2d8cf0; }
+
+.dt-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 2px 2px;
+}
+
+.dt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 7px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    background: #fff;
+    color: #2d3e50;
+    font-size: 0.84em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    line-height: 1;
+}
+
+.dt-btn:hover:not(:disabled):not(.active) {
+    background: #eaf3fb;
+    border-color: #2d8cf0;
+    color: #2d8cf0;
+}
+
+.dt-btn.active {
+    background: #2d8cf0;
+    border-color: #2d8cf0;
+    color: #fff;
+    cursor: default;
+    font-weight: 700;
+}
+
+.dt-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.dt-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 30px;
+    color: #9ab0bf;
+    font-size: 0.9em;
+}
+
+.dt-no-results {
+    text-align: center;
+    color: #9ab0bf;
+    font-size: 0.9em;
+    padding: 20px;
+    font-style: italic;
+}
+
 /* Print Styles */
 @media print {
     html, body {
@@ -603,6 +763,15 @@ label {
     }
     .action-group, .frame-actions {
         display: none !important;
+    }
+    .dt-toolbar, .dt-pagination {
+        display: none !important;
+    }
+    .dt-sort-icon {
+        display: none !important;
+    }
+    .modern-table[data-dt-enhanced] tbody tr {
+        display: table-row !important;
     }
     .report-layout-cols {
         display: block !important;
