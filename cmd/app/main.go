@@ -686,6 +686,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// Tab panels: resumo (visible), others hidden by default
 	html += `<div id='tab-resumo' class='tab-panel' style='display:block;'>`
+	html += `<h2 class='tab-print-title'>Resumo do Ambiente</h2>`
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Parâmetro</th><th>Valor</th><th>Detalhes</th></tr></thead><tbody>`
 	// Hosts
 	html += `<tr><td>Número de hosts (habilitados/desabilitados)</td><td>` + fmt.Sprintf("%d", nTotalHosts) + `</td><td>` + fmt.Sprintf("%d / %d", nEnabledHosts, nDisabledHosts) + `</td></tr>`
@@ -800,73 +801,9 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>`
 
 
-	// close Resumo tab and open Top Templates tab
 	html += `</div>` // end tab-resumo
 
-	// --- Top Templates/Itens tab ---
-	html += `<div id='tab-top' class='tab-panel' style='display:none;'>`
-	// Top Templates Ofensores
-	html += titleWithInfo("h3", "Top Templates Ofensores", "Como corrigir: " + descTemplates)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
-	for _, tpl := range topTemplates {
-		tplName := templateNames[tpl.Key]
-		if tplName == "" { tplName = tpl.Key }
-		html += `<tr><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", tpl.Value) + `</td></tr>`
-	}
-	html += `</tbody></table></div>`
-
-	// Montar o Top Hosts Ofensores (com template mais recorrente com itens problemáticos para cada host)
-	html += titleWithInfo("h3", "Top Hosts Ofensores", "Como corrigir: " + descHosts)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Host</th><th>Template Mais Ofensor</th><th>Quantidade de Erros</th></tr></thead><tbody>`
-	for _, host := range topHosts {
-		// Descobrir o template mais recorrente para o host
-		tplCount := map[string]int{}
-		for _, row := range hostItems[host.Key] {
-			tplCount[row[2]]++
-		}
-		mainTplId := ""
-		maxCount := 0
-		for tplId, count := range tplCount {
-			if count > maxCount { mainTplId = tplId; maxCount = count }
-		}
-		mainTplName := templateNames[mainTplId]
-		if mainTplName == "" { mainTplName = mainTplId }
-		html += `<tr><td>` + host.Key + `</td><td>` + mainTplName + `</td><td>` + fmt.Sprintf("%d", host.Value) + `</td></tr>`
-	}
-	html += `</tbody></table></div>`
-
-	// Top Itens Problemáticos
-	html += titleWithInfo("h3", "Top Itens Problemáticos", "Como corrigir: " + descItens)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
-	for _, item := range topItems {
-		parts := strings.SplitN(item.Key, "|", 2)
-		itemName := parts[0]
-		tplId := ""
-		if len(parts) > 1 { tplId = parts[1] }
-		tplName := templateNames[tplId]
-		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + itemName + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", item.Value) + `</td></tr>`
-	}
-	html += `</tbody></table></div>`
-
-	// Tipos de Erro Mais Comuns
-	html += titleWithInfo("h3", "Tipos de Erro Mais Comuns", "Como corrigir: " + descErros)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Mensagem de Erro</th><th>Template</th><th>Ocorrências</th></tr></thead><tbody>`
-	for _, errRow := range topErrors {
-		parts := strings.SplitN(errRow.Key, "|", 2)
-		errMsg := parts[0]
-		tplId := ""
-		if len(parts) > 1 { tplId = parts[1] }
-		tplName := templateNames[tplId]
-		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + errMsg + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", errRow.Value) + `</td></tr>`
-	}
-	html += `</tbody></table></div>`
-
-	// close Top tab after Top Errors and open Processos tab will be inserted later
-	html += `</div>` // end tab-top
-
-	       // --- Processos e Threads Zabbix Server (Pollers + Internal) ---
+	// --- Processos e Threads Zabbix Server (Pollers + Internal) ---
 		if progressCb != nil { progressCb("Coletando informações de Pollers e Processos internos...") }
 		// Get CHECKTRENDTIME as string for display (default "30")
 	       checkTrendStr := os.Getenv("CHECKTRENDTIME")
@@ -887,6 +824,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		       }
 	       }
 	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
+	       html += `<h2 class='tab-print-title'>Zabbix Server</h2>`
 	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
 	       if serverHost == "" {
 		       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for pollers")
@@ -1387,6 +1325,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Proxys tab (Zabbix Proxys) ---
 	html += `<div id='tab-proxys' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title'>Zabbix Proxys</h2>`
 	html += titleWithInfo("h3", "Sumário Zabbix Proxys", "De preferencia para proxys Ativos. Proxys Passivos podem ser usados, em casos especificos, requer que o Zabbix Server consiga iniciar conexões com o Proxy. Verifique se os proxys estão atualizados e configurados corretamente.")
 	// Small summary table for proxies (unknown / offline / active / passive / total) placed above details
 	unknown := 0
@@ -1572,6 +1511,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	// --- Items tab (Itens não suportados + Intervalo de Coleta) ---
 	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Itens não suportados...") }
 	html += `<div id='tab-items' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title'>Items e LLDs</h2>`
 	// --- Itens não suportados (nova categoria) ---
 	// Choose the frontend path depending on Zabbix major version (>=7 use zabbix.php, older use items.php)
 	itemsPath := ""
@@ -2034,6 +1974,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Templates tab ---
 	html += `<div id='tab-templates' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title'>Templates</h2>`
 	// Detalhamento dos Principais Templates
 	html += titleWithInfo("h3", "Detalhamento dos Principais Templates", descDetalhamento)
 		// legend moved into tooltip via titleWithInfo
@@ -2052,8 +1993,71 @@ func generateZabbixReport(url, token string) (string, error) {
 	// close templates tab and main container
 	html += `</div>` // end tab-templates
 
+	// --- Top Templates/Itens tab ---
+	html += `<div id='tab-top' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title'>Top Hosts/Templates/Itens</h2>`
+	// Top Templates Ofensores
+	html += titleWithInfo("h3", "Top Templates Ofensores", "Como corrigir: " + descTemplates)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	for _, tpl := range topTemplates {
+		tplName := templateNames[tpl.Key]
+		if tplName == "" { tplName = tpl.Key }
+		html += `<tr><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", tpl.Value) + `</td></tr>`
+	}
+	html += `</tbody></table></div>`
+
+	// Montar o Top Hosts Ofensores (com template mais recorrente com itens problemáticos para cada host)
+	html += titleWithInfo("h3", "Top Hosts Ofensores", "Como corrigir: " + descHosts)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Host</th><th>Template Mais Ofensor</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	for _, host := range topHosts {
+		// Descobrir o template mais recorrente para o host
+		tplCount := map[string]int{}
+		for _, row := range hostItems[host.Key] {
+			tplCount[row[2]]++
+		}
+		mainTplId := ""
+		maxCount := 0
+		for tplId, count := range tplCount {
+			if count > maxCount { mainTplId = tplId; maxCount = count }
+		}
+		mainTplName := templateNames[mainTplId]
+		if mainTplName == "" { mainTplName = mainTplId }
+		html += `<tr><td>` + host.Key + `</td><td>` + mainTplName + `</td><td>` + fmt.Sprintf("%d", host.Value) + `</td></tr>`
+	}
+	html += `</tbody></table></div>`
+
+	// Top Itens Problemáticos
+	html += titleWithInfo("h3", "Top Itens Problemáticos", "Como corrigir: " + descItens)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	for _, item := range topItems {
+		parts := strings.SplitN(item.Key, "|", 2)
+		itemName := parts[0]
+		tplId := ""
+		if len(parts) > 1 { tplId = parts[1] }
+		tplName := templateNames[tplId]
+		if tplName == "" { tplName = tplId }
+		html += `<tr><td>` + itemName + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", item.Value) + `</td></tr>`
+	}
+	html += `</tbody></table></div>`
+
+	// Tipos de Erro Mais Comuns
+	html += titleWithInfo("h3", "Tipos de Erro Mais Comuns", "Como corrigir: " + descErros)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Mensagem de Erro</th><th>Template</th><th>Ocorrências</th></tr></thead><tbody>`
+	for _, errRow := range topErrors {
+		parts := strings.SplitN(errRow.Key, "|", 2)
+		errMsg := parts[0]
+		tplId := ""
+		if len(parts) > 1 { tplId = parts[1] }
+		tplName := templateNames[tplId]
+		if tplName == "" { tplName = tplId }
+		html += `<tr><td>` + errMsg + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", errRow.Value) + `</td></tr>`
+	}
+	html += `</tbody></table></div>`
+	html += `</div>` // end tab-top
+
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title'>Recomendações</h2>`
 	html += titleWithInfo("h3", "Recomendações", "Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.")
 
 	// precompute aggregates needed by the KPI/cards (attention list, interval/LDD small-interval counts)

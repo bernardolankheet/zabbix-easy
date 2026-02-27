@@ -722,6 +722,10 @@ label {
 }
 
 /* Print Styles */
+.tab-print-title {
+    display: none;
+}
+
 @media print {
     html, body {
         background: #fff;
@@ -772,6 +776,27 @@ label {
     }
     .modern-table[data-dt-enhanced] tbody tr {
         display: table-row !important;
+    }
+    /* Each tab section starts on a new page — target all tab-panels except the first */
+    .tab-panel + .tab-panel {
+        page-break-before: always;
+        break-before: page;
+    }
+    /* Prevent table rows from being split across pages */
+    .modern-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .tab-print-title {
+        display: block !important;
+        font-size: 18px;
+        font-weight: 700;
+        color: #102a43;
+        border-bottom: 2px solid #0b69d6;
+        padding-bottom: 6px;
+        margin: 0 0 14px 0;
+        page-break-after: avoid;
+        break-after: avoid;
     }
     .report-layout-cols {
         display: block !important;
