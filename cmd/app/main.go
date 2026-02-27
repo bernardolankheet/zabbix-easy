@@ -1421,35 +1421,33 @@ func generateZabbixReport(url, token string) (string, error) {
 		// if proxies not available, fall back to proxyCount for total
 		total = proxyCount
 	}
-	// render small table above the proxys details (ordered as requested)
+	// Renderiza tabela de sumario de proxys, e aplica estilos de destaque para categorias com contagem > 0 (vermelho para unknown/offline, verde para active, amarelo para passive)
 	html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Descrição</th><th>Quantidade</th></tr></thead><tbody>`
-	html += `<tr><td>Proxys Unknown</td><td>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
-	html += `<tr><td>Proxys Offline</td><td>` + fmt.Sprintf("%d", offline) + `</td></tr>`
-	html += `<tr><td>Proxys Ativos</td><td>` + fmt.Sprintf("%d", active) + `</td></tr>`
-	html += `<tr><td>Proxys Passivos</td><td>` + fmt.Sprintf("%d", passive) + `</td></tr>`
+	unknownTdStyle := ""
+	if unknown > 0 { unknownTdStyle = "background:#ff6666 !important;color:#000 !important;" }
+	offlineTdStyle := ""
+	if offline > 0 { offlineTdStyle = "background:#ff6666 !important;color:#000 !important;" }
+	activeTdStyle := ""
+	if active > 0 { activeTdStyle = "background:#66c28a !important;color:#000 !important;" }
+	passiveTdStyle := ""
+	if passive > 0 { passiveTdStyle = "background:#ffe08a !important;color:#000 !important;" }
+	html += `<tr><td style='` + unknownTdStyle + `'>Proxys Unknown</td><td style='` + unknownTdStyle + `'>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
+	html += `<tr><td style='` + offlineTdStyle + `'>Proxys Offline</td><td style='` + offlineTdStyle + `'>` + fmt.Sprintf("%d", offline) + `</td></tr>`
+	html += `<tr><td style='` + activeTdStyle + `'>Proxys Ativos</td><td style='` + activeTdStyle + `'>` + fmt.Sprintf("%d", active) + `</td></tr>`
+	html += `<tr><td style='` + passiveTdStyle + `'>Proxys Passivos</td><td style='` + passiveTdStyle + `'>` + fmt.Sprintf("%d", passive) + `</td></tr>`
 	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir lista de Proxys</a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// Proxys details table (list)
-	// show only communicating proxies (state == 2) in the details list
-	visibleProxies := []map[string]interface{}{}
+	// show all proxies in the details list, with Status column based on state
 	if len(proxies) > 0 {
-		for _, p := range proxies {
-			st := fmt.Sprintf("%v", p["state"])
-			if st == "" { st = fmt.Sprintf("%v", p["status"]) }
-			if st == "2" {
-				visibleProxies = append(visibleProxies, p)
-			}
-		}
-	}
-	if len(visibleProxies) > 0 {
 		html += `<h4>Proxys</h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:50%'><col style='width:12%'><col style='width:12%'><col style='width:12%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th><th>Status</th></tr></thead><tbody>`
 			// parallelize per-proxy item calls to improve throughput
 			type proxyRow struct{ idx int; html string }
-			resultsP := make(chan proxyRow, len(visibleProxies))
+			resultsP := make(chan proxyRow, len(proxies))
 			var pwg sync.WaitGroup
-			for i, p := range visibleProxies {
+			for i, p := range proxies {
 				p := p
 				i := i
 				pwg.Add(1)
@@ -1528,18 +1526,40 @@ func generateZabbixReport(url, token string) (string, error) {
 						log.Printf("[DEBUG] item.get (total) for proxy %s failed: %v", proxyid, terr)
 					}
 
-					rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td></tr>`
-					resultsP <- proxyRow{idx: i, html: rowHTML}
-				}()
-			}
-			pwg.Wait()
-			close(resultsP)
-			// preserve original ordering
-			rowsMap := make(map[int]string)
-			idxs := []int{}
-			for pr := range resultsP { rowsMap[pr.idx] = pr.html; idxs = append(idxs, pr.idx) }
-			sort.Ints(idxs)
-			for _, ii := range idxs { html += rowsMap[ii] }
+				// Status column based on state (0=Unknown, 1=Offline, 2=Online)
+				st := fmt.Sprintf("%v", p["state"])
+				if st == "" || st == "<nil>" { st = fmt.Sprintf("%v", p["status"]) }
+				var statusLabel, statusStyle string
+				switch st {
+				case "2":
+					statusLabel = "Online"
+					statusStyle = "background:#66c28a;color:#000;padding:4px 8px;border-radius:4px;text-align:center;"
+				case "1":
+					statusLabel = "Offline"
+					statusStyle = "background:#ff6666;color:#000;padding:4px 8px;border-radius:4px;text-align:center;"
+				default: // 0 = Unknown
+					statusLabel = "Unknown"
+					statusStyle = "background:#ff6666;color:#000;padding:4px 8px;border-radius:4px;text-align:center;"
+				}
+				// For offline/unknown proxies, dash out metric columns (no data collected)
+				if st != "2" {
+					queueVal = "-"
+					itemsUnsupportedVal = "-"
+					totalItemsVal = "-"
+				}
+
+				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
+				resultsP <- proxyRow{idx: i, html: rowHTML}
+			}()
+		}
+		pwg.Wait()
+		close(resultsP)
+		// Continua com a ordem original dos proxys, incluo as cores
+		rowsMap := make(map[int]string)
+		idxs := []int{}
+		for pr := range resultsP { rowsMap[pr.idx] = pr.html; idxs = append(idxs, pr.idx) }
+		sort.Ints(idxs)
+		for _, ii := range idxs { html += rowsMap[ii] }
 		html += `</tbody></table></div>`
 	} else {
 		html += `<div class='como-corrigir'>Nenhum proxy configurado ou informação indisponível.</div>`
