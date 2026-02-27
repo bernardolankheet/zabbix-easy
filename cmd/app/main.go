@@ -160,6 +160,67 @@ func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, er
 	return nil, nil
 }
 
+// nameToWildcard converts "agent poller" -> "*agent*poller*" for Zabbix wildcard item search.
+func nameToWildcard(name string) string {
+	words := strings.Fields(strings.TrimSpace(name))
+	return "*" + strings.Join(words, "*") + "*"
+}
+
+// wildcardMatch reports whether s matches the simple wildcard pattern (only * supported).
+func wildcardMatch(pattern, s string) bool {
+	parts := strings.Split(strings.ToLower(pattern), "*")
+	sl := strings.ToLower(s)
+	pos := 0
+	for _, p := range parts {
+		if p == "" { continue }
+		idx := strings.Index(sl[pos:], p)
+		if idx < 0 { return false }
+		pos += idx + len(p)
+	}
+	return true
+}
+
+// getProcessItemsBulk fetches items for all given process names in ONE item.get call using
+// wildcard search (searchWildcardsEnabled + searchByAny). Returns map[lowercaseName]item.
+// Most-specific match (most words) wins when multiple patterns hit the same item key.
+func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
+	if len(names) == 0 { return map[string]map[string]interface{}{}, nil }
+	patterns := make([]string, len(names))
+	for i, n := range names { patterns[i] = nameToWildcard(n) }
+	params := map[string]interface{}{
+		"output":                 []string{"itemid", "hostid", "name", "key_", "value_type"},
+		"search":                 map[string]interface{}{"key_": patterns},
+		"searchByAny":            true,
+		"searchWildcardsEnabled": true,
+	}
+	if hostid != "" { params["hostids"] = hostid }
+	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
+	if err != nil { return nil, err }
+	// Sort entries by word count desc so most-specific pattern is tried first
+	type nameEntry struct{ norm string; words int; pattern string }
+	entries := make([]nameEntry, len(names))
+	for i, n := range names {
+		entries[i] = nameEntry{norm: strings.ToLower(strings.TrimSpace(n)), words: len(strings.Fields(n)), pattern: patterns[i]}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
+	result := map[string]map[string]interface{}{}
+	if r, ok := resp["result"]; ok {
+		arr, _ := r.([]interface{})
+		for _, raw := range arr {
+			item, _ := raw.(map[string]interface{})
+			if item == nil { continue }
+			itemKey := fmt.Sprintf("%v", item["key_"])
+			for _, e := range entries {
+				if wildcardMatch(e.pattern, itemKey) {
+					if _, exists := result[e.norm]; !exists { result[e.norm] = item }
+					break
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
 // getLastHistoryValue pega o último valor de history para um itemid, usando historyType (0=float,3=int,1=char etc.)
 func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string, error) {
 	params := map[string]interface{}{
@@ -854,6 +915,50 @@ func generateZabbixReport(url, token string) (string, error) {
 	       } else {
 		       // for Zabbix 6, include SNMP trapper as separate component if desired (kept out of pollers)
 	       }
+	// procNames defined here so both sections share the same bulk fetch below
+	procNames := []string{
+		"configuration syncer",
+		"configuration syncer worker",
+		"alerter",
+		"alert manager",
+		"availability manager",
+		"escalator",
+		"history syncer",
+		"housekeeper",
+		"trapper",
+		"ipmi manager",
+		"lld manager",
+		"lld worker",
+		"preprocessing manager",
+		"preprocessing worker",
+		"report manager",
+		"report writer",
+		"self-monitoring",
+		"service manager",
+		"task manager",
+		"timer",
+		"trigger housekeeper",
+		"vmware collector",
+		"ha manager",
+	}
+	// Single bulk item.get for ALL server process items (pollers + internal processes)
+	allServerNames := append(append([]string{}, pollerNames...), procNames...)
+	serverItemsMap, serverItemsErr := getProcessItemsBulk(apiUrl, token, allServerNames, serverHost)
+	if serverItemsErr != nil {
+		log.Printf("[ERROR] bulk process item.get failed: %v", serverItemsErr)
+		serverItemsMap = map[string]map[string]interface{}{}
+	}
+	log.Printf("[DEBUG] bulk process item.get: %d matches for %d names", len(serverItemsMap), len(allServerNames))
+	// Check host existence once — reused in DisabledMsg across both goroutine loops
+	serverHostExists := false
+	if serverHost != "" {
+		hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
+		if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
+			if rr, ok := hresp["result"]; ok {
+				if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 { serverHostExists = true }
+			}
+		}
+	}
 		html += titleWithInfo("h3", "Pollers (Data Collectors)", `Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as métricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor; porém eles também podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers no arquivo zabbix_server.conf quando houver degradação. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)		
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Poller</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	type pollRow struct{
@@ -892,55 +997,26 @@ func generateZabbixReport(url, token string) (string, error) {
 
 			pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
 
-			key := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
-			item, ierr := getItemByKey(apiUrl, token, key, serverHost)
-			if ierr != nil {
-				pr.Err = true
-				resultsPoll <- pollRes{Idx: idx, Row: pr}
-				return
-			}
+			item := serverItemsMap[strings.ToLower(strings.TrimSpace(name))]
 			if item == nil {
 				pr.Disabled = true
-				if serverHost != "" {
-					hostExists := false
-					hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
-					if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
-						if rr, ok := hresp["result"]; ok {
-							if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
-								hostExists = true
-							}
-						}
-					}
-					if !hostExists {
-						pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
-					} else {
-						if majorV < 7 {
-							switch strings.ToLower(strings.TrimSpace(name)) {
-							case "agent poller", "browser poller", "http agent poller", "snmp poller":
-								pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-							default:
-								pr.DisabledMsg = "Processo não habilitado"
-							}
-						} else {
-							pr.DisabledMsg = "Processo não habilitado"
-						}
-					}
-				} else {
-					if majorV < 7 {
-						switch strings.ToLower(strings.TrimSpace(name)) {
-						case "agent poller", "browser poller", "http agent poller", "snmp poller":
-							pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-						default:
-							pr.DisabledMsg = "Processo não habilitado"
-						}
-					} else {
+				if serverHost != "" && !serverHostExists {
+					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+				} else if majorV < 7 {
+					switch strings.ToLower(strings.TrimSpace(name)) {
+					case "agent poller", "browser poller", "http agent poller", "snmp poller":
+						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
+					default:
 						pr.DisabledMsg = "Processo não habilitado"
 					}
+				} else {
+					pr.DisabledMsg = "Processo não habilitado"
 				}
 				resultsPoll <- pollRes{Idx: idx, Row: pr}
 				return
 			}
 			itemid := fmt.Sprintf("%v", item["itemid"])
+			log.Printf("[DEBUG] poller '%s': key_=%v itemid=%s", name, item["key_"], itemid)
 			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
 			if terr != nil {
 				log.Printf("[DEBUG] trend.get failed for poller '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)
@@ -1067,38 +1143,6 @@ func generateZabbixReport(url, token string) (string, error) {
 		       html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
 	       }
 	html += `</tbody></table></div>`
-	// Procura chave de processo no Zabbix server e pega últimos trend stats (now-30d .. now)
-	serverHost = os.Getenv("ZABBIX_SERVER_HOSTID")
-	if serverHost == "" {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for internal processes")
-	} else {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for internal processes", serverHost)
-	}
-	// use a simple list of process names and build the zabbix[process,...] key dynamically
-	procNames := []string{
-		"configuration syncer",
-		"alerter",
-		"alert manager",
-		"availability manager",
-		"escalator",
-		"history syncer",
-		"housekeeper",
-		"trapper",
-		"ipmi manager",
-		"lld manager",
-		"lld worker",
-		"preprocessing manager",
-		"preprocessing worker",
-		"report manager",
-		"report writer",
-		"self-monitoring",
-		"service manager",
-		"task manager",
-		"timer",
-		"trigger housekeeper",
-		"vmware collector",
-		"ha manager",
-	}
 	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	// procDesc
@@ -1141,56 +1185,26 @@ func generateZabbixReport(url, token string) (string, error) {
 
 			pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
 
-			pk := fmt.Sprintf("zabbix[process,%s,avg,busy]", name)
-			item, ierr := getItemByKey(apiUrl, token, pk, serverHost)
-			if ierr != nil {
-				pr.Err = true
-				results <- procResult{idx: i, pr: pr}
-				return
-			}
+			item := serverItemsMap[strings.ToLower(strings.TrimSpace(name))]
 			if item == nil {
 				pr.Disabled = true
-				if serverHost != "" {
-					hostExists := false
-					hostParams := map[string]interface{}{"output": []string{"hostid"}, "hostids": []string{serverHost}}
-					if hresp, herr := zabbixApiRequest(apiUrl, token, "host.get", hostParams); herr == nil {
-						if rr, ok := hresp["result"]; ok {
-							if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
-								hostExists = true
-							}
-						}
-					}
-					if !hostExists {
-						pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
-					} else {
-						if majorV < 7 {
-							n := strings.ToLower(strings.TrimSpace(name))
-							if n == "lld manager" || n == "lld worker" {
-								pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-							} else {
-								pr.DisabledMsg = "Processo não habilitado"
-							}
-						} else {
-							pr.DisabledMsg = "Processo não habilitado"
-						}
-					}
-				} else {
-					if majorV < 7 {
-						n := strings.ToLower(strings.TrimSpace(name))
-						if n == "lld manager" || n == "lld worker" {
-							pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-						} else {
-							pr.DisabledMsg = "Processo não habilitado"
-						}
+				if serverHost != "" && !serverHostExists {
+					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+				} else if majorV < 7 {
+					n := strings.ToLower(strings.TrimSpace(name))
+					if n == "lld manager" || n == "lld worker" || n == "configuration syncer worker" {
+						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
 					} else {
 						pr.DisabledMsg = "Processo não habilitado"
 					}
+				} else {
+					pr.DisabledMsg = "Processo não habilitado"
 				}
 				results <- procResult{idx: i, pr: pr}
 				return
 			}
 			itemid := fmt.Sprintf("%v", item["itemid"])
-			log.Printf("[DEBUG] Found internal process item: key=%s itemid=%s hostid=%v", pk, itemid, item["hostid"])
+			log.Printf("[DEBUG] internal process '%s': key_=%v itemid=%s", name, item["key_"], itemid)
 			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
 			if terr != nil {
 				log.Printf("[DEBUG] trend.get failed for process '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)

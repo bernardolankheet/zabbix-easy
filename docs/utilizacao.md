@@ -119,21 +119,39 @@ Para cada processo é exibido `min`, `avg` e `max` de utilização (%), além de
 | value_max | Pico de utilização no período |
 | Status | Verde OK / Vermelho Atenção / Cinza não habilitado |
 
-### Chamadas à API do Zabbix (por processo, em paralelo)
+### Chamadas à API do Zabbix
 
-#### 1. `item.get` — localizar o item
+#### 1. `item.get` — busca bulk de todos os processos (1 chamada única)
+
+Antes de disparar as goroutines de trend/history, o código faz **uma única chamada** `item.get` que cobre todos os processos (pollers + internal) de uma vez:
 
 ```json
 {
   "method": "item.get",
   "params": {
     "output": ["itemid", "hostid", "name", "key_", "value_type"],
-    "filter": { "key_": "zabbix[process,<nome>,avg,busy]" },
-    "hostids": "<ZABBIX_SERVER_HOSTID>",
-    "limit": 1
+    "search": {
+      "key_": [
+        "*agent*poller*",
+        "*browser*poller*",
+        "*configuration*syncer*",
+        "*history*syncer*",
+        "*housekeeper*",
+        "*poller*",
+        "..."
+      ]
+    },
+    "searchByAny": true,
+    "searchWildcardsEnabled": true,
+    "hostids": "<ZABBIX_SERVER_HOSTID>"
   }
 }
 ```
+
+- Cada nome de processo é convertido para um padrão wildcard por `nameToWildcard`: `"agent poller"` → `"*agent*poller*"`. Isso funciona tanto com chaves `agent poller` quanto `agent_poller`.
+- `searchByAny: true` faz o Zabbix retornar qualquer item que case com **ao menos um** padrão.
+- Os items retornados são mapeados de volta a cada nome via `wildcardMatch` (client-side), priorizando o padrão mais específico (mais palavras) para evitar colisões entre `*poller*` e `*agent*poller*`.
+- Se `ZABBIX_SERVER_HOSTID` não estiver definida, o parâmetro `hostids` é omitido.
 
 #### 2a. `trend.get` — estatísticas do período (primária)
 
@@ -173,7 +191,9 @@ Quando o `trend.get` retorna vazio (item com `trends=0` ou retenção expirada),
 
 | Função | Descrição |
 |--------|-----------|
-| `getItemByKey(apiUrl, token, key, hostid)` | `item.get` com filtro exato na `key_`; com cache (`sync.Map`) |
+| `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
+| `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome de processo |
+| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna `map[nomeLowercase]item` |
 | `getLastTrend(apiUrl, token, itemid, days)` | `trend.get` no período configurado |
 | `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: `history.get` + cálculo manual de min/avg/max |
 
@@ -197,16 +217,36 @@ Quando o `trend.get` retorna vazio (item com `trends=0` ou retenção expirada),
 
 ### Como adicionar um novo processo
 
+São **3 lugares** em `cmd/app/main.go`:
+
+**1. `procDesc`** — descrição exibida no tooltip `?` (obrigatório, chave em lowercase):
 ```go
-// Para Pollers:
-pollerNames = append(pollerNames, "novo poller")
-
-// Para Internal Processes:
-procNames = append(procNames, "novo processo")
-
-// Descrição (map procDesc):
-procDesc["novo processo"] = `Parâmetro "XYZ": descrição e quando ajustar.`
+"novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
 ```
+
+**2. Tabela correta:**
+
+- **Pollers (Data Collectors)** → adicione em `commonPollers` ou dentro de `if majorV >= 7`:
+```go
+commonPollers := []string{
+    ...
+    "novo poller",  // ← aqui
+}
+// ou exclusivo do Zabbix 7+:
+if majorV >= 7 {
+    pollerNames = append([]string{"novo poller"}, pollerNames...)
+}
+```
+
+- **Internal Process** → adicione em `procNames`:
+```go
+procNames := []string{
+    ...
+    "novo processo",  // ← aqui
+}
+```
+
+**3. Regra do nome:** use o nome exatamente como aparece na chave do item no Zabbix, com espaço ou underscore. A função `nameToWildcard` converte automaticamente — `"agent poller"` → `"*agent*poller*"` — e casa com `agent poller`, `agent_poller` ou qualquer variante.
 
 ---
 
@@ -512,25 +552,26 @@ Para cada processo é exibido o **mínimo**, **média** e **máximo** de utiliza
 
 ### Chamadas à API do Zabbix
 
-Cada processo da lista faz **duas chamadas** (executadas em paralelo via goroutines com semáforo):
+Cada processo da lista consulta o **mapa pré-carregado** por `getProcessItemsBulk` (1 chamada feita antes das goroutines) e depois faz **duas chamadas** paralelas para obter os dados de trend/history:
 
-#### 1. `item.get` — localizar o item do processo
+#### 1. `item.get` bulk — localizar todos os itens de processos (1 chamada única)
 
 ```json
 {
   "method": "item.get",
   "params": {
     "output": ["itemid", "hostid", "name", "key_", "value_type"],
-    "filter": { "key_": "zabbix[process,<nome>,avg,busy]" },
-    "hostids": "<ZABBIX_SERVER_HOSTID>",
-    "limit": 1
+    "search": { "key_": ["*agent*poller*", "*poller*", "*history*syncer*", "..."] },
+    "searchByAny": true,
+    "searchWildcardsEnabled": true,
+    "hostids": "<ZABBIX_SERVER_HOSTID>"
   }
 }
 ```
 
-- A chave é construída dinamicamente: `zabbix[process,poller,avg,busy]`, `zabbix[process,history syncer,avg,busy]`, etc.
+- A chave **não** é mais `zabbix[process,<nome>,avg,busy]` — é buscada por wildcard e casa com qualquer formato de chave (espaço ou underscore).
 - Se `ZABBIX_SERVER_HOSTID` não estiver definida, o parâmetro `hostids` é omitido.
-- Resultado `[]` → processo marcado como **"Processo não habilitado"** (cinza).
+- Resultado vazio para um processo → marcado como **"Processo não habilitado"** (cinza).
 
 #### 2a. `trend.get` — buscar estatísticas de trend (primária)
 
@@ -540,8 +581,8 @@ Cada processo da lista faz **duas chamadas** (executadas em paralelo via gorouti
   "params": {
     "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
     "itemids": ["<itemid>"],
-    "time_from": <agora - CHECKTRENDTIME>,
-    "time_to": <agora>,
+    "time_from": "<agora - CHECKTRENDTIME>",
+    "time_to": "<agora>",
     "limit": 1
   }
 }
@@ -559,8 +600,8 @@ Cada processo da lista faz **duas chamadas** (executadas em paralelo via gorouti
     "output": ["value"],
     "history": 0,
     "itemids": ["<itemid>"],
-    "time_from": <agora - CHECKTRENDTIME>,
-    "time_to": <agora>,
+    "time_from": "<agora - CHECKTRENDTIME>",
+    "time_to": "<agora>",
     "sortfield": "clock",
     "sortorder": "ASC",
     "limit": 2000
@@ -569,7 +610,6 @@ Cada processo da lista faz **duas chamadas** (executadas em paralelo via gorouti
 ```
 
 - Usado quando o item tem `trends=0` configurado no Zabbix, ou quando o período de retenção de trends já expirou.
-- O `history` type é `0` (float) por padrão; se o `value_type` do item for `3` (inteiro), usa `3`.
 - O código coleta até 2.000 pontos e calcula manualmente `min`, `avg` e `max`.
 - Resultado ainda `[]` → processo marcado como **"Processo não habilitado"** (cinza).
 
@@ -580,9 +620,11 @@ Cada processo da lista faz **duas chamadas** (executadas em paralelo via gorouti
 
 #### Helpers utilizados
 
-| Função                      | Descrição                                                                                  |
-|-----------------------------|--------------------------------------------------------------------------------------------|
-| `getItemByKey(apiUrl, token, key, hostid)` | Faz `item.get` com filtro exato na `key_`. Tem cache em memória (`sync.Map`) para evitar chamadas duplicadas durante a geração. |
+| Função | Descrição |
+|--------|-----------|
+| `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
+| `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome |
+| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade). Retorna `map[nomeLowercase]item` |
 | `getLastTrend(apiUrl, token, itemid, days)` | Faz `trend.get` para o itemid no período configurado. Respeita `CHECKTRENDTIME`. |
 | `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: faz `history.get`, coleta até 2.000 pontos e retorna `{value_min, value_avg, value_max}` calculados. |
 
@@ -609,17 +651,36 @@ Tanto os pollers quanto os internal processes são coletados em **goroutines par
 
 ### Como adicionar um novo processo à lista
 
-Para incluir um novo tipo de processo na tabela de **Pollers**, edite o slice `pollerNames` (ou o bloco `if majorV >= 7`) em `generateZabbixReport`. Para **Internal Processes**, edite o slice `procNames`. Em seguida, adicione a descrição correspondente no map `procDesc`.
+São **3 lugares** em `cmd/app/main.go`:
 
+**1. `procDesc`** — descrição exibida no tooltip `?` (chave em lowercase):
 ```go
-// Exemplo: adicionar "novo poller" para Zabbix 7+
+"novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
+```
+
+**2. Tabela correta:**
+
+- **Pollers (Data Collectors)** → `commonPollers` ou bloco `if majorV >= 7`:
+```go
+commonPollers := []string{
+    ...
+    "novo poller",
+}
+// ou exclusivo do Zabbix 7+:
 if majorV >= 7 {
     pollerNames = append([]string{"novo poller"}, pollerNames...)
 }
-
-// Adicionar descrição
-procDesc["novo poller"] = `Parâmetro "StartNovoPoller": descrição do parâmetro e quando ajustar.`
 ```
+
+- **Internal Process** → slice `procNames`:
+```go
+procNames := []string{
+    ...
+    "novo processo",
+}
+```
+
+**3. Regra do nome:** use o nome exatamente como aparece na chave do item no Zabbix (com espaço ou underscore). A função `nameToWildcard` converte automaticamente — `"agent poller"` → `"*agent*poller*"` — casando com `agent poller`, `agent_poller` ou qualquer variante.
 
 --- 
 
@@ -639,13 +700,24 @@ Abaixo estão listadas as principais chamadas feitas pelo backend Go à API do Z
 
 ### 3. item.get
 - **Descrição:** Utilizada em diversos contextos:
+  - Busca **bulk de todos os itens de processo** (pollers + internal) em 1 chamada com wildcard
   - Buscar itens por chave (`key_`) e hostid
   - Contar itens totais, habilitados, desabilitados, não suportados
   - Listar itens não suportados e seus detalhes
   - Buscar itens sem template
   - Buscar itens por tipo (`type`), estado (`state`), intervalo (`delay`)
 - **Exemplos de parâmetros:**
-  - Buscar item por chave:
+  - Busca bulk de processos do servidor (nova abordagem):
+    ```json
+    {
+      "output": ["itemid", "hostid", "name", "key_", "value_type"],
+      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
+      "searchByAny": true,
+      "searchWildcardsEnabled": true,
+      "hostids": "<ZABBIX_SERVER_HOSTID>"
+    }
+    ```
+  - Buscar item por chave exata:
     ```json
     { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "<hostid>", "limit": 1 }
     ```
