@@ -26,6 +26,23 @@ var debugApi bool = false
 // Format examples: 30d, 1d, 12h, 10m (days/hours/minutes). Defaults to 30d.
 var checkTrendDurationSeconds int64 = 30 * 24 * 60 * 60
 
+// parseCheckTrendEnv lê a variável de ambiente CHECKTRENDTIME e converte o valor
+// para segundos, armazenando em checkTrendDurationSeconds.
+//
+// Formatos aceitos (case-insensitive):
+//
+//	"30d"  → 30 dias  (2592000 s)   ← padrão se a variável não estiver definida
+//	"12h"  → 12 horas (43200 s)
+//	"90m"  → 90 minutos (5400 s)
+//	"3600" → sem sufixo = minutos (3600 minutos)
+//
+// checkTrendDurationSeconds é usado por getLastTrend, getTrendsBulkStats e
+// getHistoryStats para determinar o intervalo time_from/time_to nas chamadas
+// à API do Zabbix.
+//
+// ─── Como alterar o padrão ────────────────────────────────────────────────
+// O valor padrão (30d) é definido na declaração de checkTrendDurationSeconds
+// no topo do arquivo. Altere lá caso queira um padrão diferente sem usar ENV.
 func parseCheckTrendEnv() {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHECKTRENDTIME")))
 	if v == "" {
@@ -83,7 +100,36 @@ func initHttpClient() {
 	httpClient = &http.Client{Transport: tr, Timeout: 20 * time.Second}
 }
 
-// Função para coletar e gerar requisições ao Zabbix API
+// zabbixApiRequest é o ponto central de comunicação com a API JSON-RPC do Zabbix.
+// Toda chamada à API (item.get, trend.get, host.get, etc.) passa por aqui.
+//
+// Parâmetros:
+//
+//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.empresa.com/api_jsonrpc.php"
+//	token   — token de autenticação (campo "auth" no JSON-RPC). Passe "" para
+//	           chamadas que não requerem autenticação, como apiinfo.version.
+//	method  — método da API Zabbix, ex: "item.get", "trend.get", "host.get"
+//	params  — qualquer struct/map que será serializado como o campo "params" do JSON-RPC
+//
+// Retorno:
+//
+//	map[string]interface{} com a resposta completa do JSON-RPC (inclui "result").
+//	Erro se a requisição HTTP falhar, se o JSON não puder ser parseado, ou se
+//	a resposta contiver o campo "error" (erro da própria API Zabbix).
+//
+// Observações:
+//
+//	• Usa httpClient global (reutilização de conexão, TLS sem verificação).
+//	• Se APP_DEBUG=1, loga o request e os primeiros 4096 bytes da resposta.
+//	• Sempre loga o tempo de execução de cada chamada.
+//
+// ─── Como adicionar uma nova chamada à API ────────────────────────────────
+// Chame diretamente esta função com o método e params desejados:
+//
+//	resp, err := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
+//	    "output": []string{"triggerid", "description"},
+//	    "filter": map[string]interface{}{"value": 1},
+//	})
 func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
 	req := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -128,7 +174,25 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	return result, nil
 }
 
-// getItemByKey busca item(s) pelo key_ (opcional hostid). Retorna o primeiro item ou nil.
+// getItemByKey busca um item específico pela chave exata (key_) e, opcionalmente,
+// filtra pelo hostid. Retorna o primeiro resultado ou nil se não encontrado.
+//
+// Uso típico:
+//
+//	item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)
+//	if item != nil {
+//	    itemid := fmt.Sprintf("%v", item["itemid"])
+//	}
+//
+// Resultado é cacheado em itemLookupCache (sync.Map) usando "key|hostid" como
+// chave do cache — chamadas subsequentes com os mesmos parâmetros não fazem
+// nova requisição à API.
+//
+// ─── Diferença em relação a getProcessItemsBulk ───────────────────────────
+// Esta função usa filter exato (key_ == valor). Use-a para chaves conhecidas
+// e fixas (ex: "zabbix[requiredperformance]").
+// Use getProcessItemsBulk quando quiser buscar múltiplos processos de uma vez
+// com padrões wildcard.
 func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, error) {
 	// check cache first
 	cacheKey := key + "|" + hostid
@@ -160,13 +224,48 @@ func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, er
 	return nil, nil
 }
 
-// nameToWildcard converts "agent poller" -> "*agent*poller*" for Zabbix wildcard item search.
+// nameToWildcard converte um nome legível de processo em um padrão wildcard
+// compatível com o campo search.key_ do item.get (searchWildcardsEnabled=true).
+//
+// Exemplos:
+//
+//	"agent poller"   → "*agent*poller*"
+//	"http poller"    → "*http*poller*"
+//	"data*sender"    → "*data*sender*"  ("*" no meio já funciona como separador)
+//
+// O padrão gerado casa a chave do item independentemente do separador usado
+// pela versão do Zabbix (espaço, underscore, ponto, etc.). Por exemplo,
+// "*agent*poller*" bate tanto em:
+//
+//	"zabbix[process,agent poller,avg,busy]"   (Zabbix 6)
+//	"zabbix[process,agent_poller,avg,busy]"   (Zabbix 7+)
+//
+// ─── Quando modificar ─────────────────────────────────────────────────────
+// Raramente necessário. Se o Zabbix mudar o formato das chaves de forma
+// incompatível, ajuste a lógica de separação aqui. Para adicionar processos
+// novos, basta incluir o nome nas listas (pollerNames, procNames, etc.).
 func nameToWildcard(name string) string {
 	words := strings.Fields(strings.TrimSpace(name))
 	return "*" + strings.Join(words, "*") + "*"
 }
 
-// wildcardMatch reports whether s matches the simple wildcard pattern (only * supported).
+// wildcardMatch verifica se a string s casa com o padrão wildcard (apenas "*" suportado).
+// A comparação é case-insensitive.
+//
+// Exemplos:
+//
+//	wildcardMatch("*agent*poller*", "zabbix[process,agent poller,avg,busy]")  → true
+//	wildcardMatch("*poller*",       "zabbix[process,agent poller,avg,busy]")  → true
+//	wildcardMatch("*poller*",       "zabbix[history_syncer]")                 → false
+//
+// Usado em getProcessItemsBulk e getProxyProcessItems para mapear os itens
+// retornados pela API de volta ao nome de processo original.
+// A prioridade "mais específico primeiro" (mais palavras no padrão) é garantida
+// pelo sort feito antes de chamar esta função nos callers.
+//
+// ─── Quando modificar ─────────────────────────────────────────────────────
+// Apenas se precisar suportar wildcards adicionais (ex: "?"). Atualmente
+// somente "*" é reconhecido.
 func wildcardMatch(pattern, s string) bool {
 	parts := strings.Split(strings.ToLower(pattern), "*")
 	sl := strings.ToLower(s)
@@ -180,9 +279,31 @@ func wildcardMatch(pattern, s string) bool {
 	return true
 }
 
-// getProcessItemsBulk fetches items for all given process names in ONE item.get call using
-// wildcard search (searchWildcardsEnabled + searchByAny). Returns map[lowercaseName]item.
-// Most-specific match (most words) wins when multiple patterns hit the same item key.
+// getProcessItemsBulk busca itens de processo para o Zabbix Server em UMA única
+// chamada item.get usando wildcard (searchWildcardsEnabled + searchByAny).
+//
+// Retorna map[nomeEmMinúsculas] → item (os campos itemid, key_, name, value_type).
+//
+// Estratégia de resolução de conflitos ("mais específico vence"):
+//
+//	Se dois padrões batem no mesmo item (ex: "*poller*" e "*agent*poller*"),
+//	o padrão com mais palavras tem prioridade. Isso evita que o padrão genérico
+//	"*poller*" roube o item do "*agent*poller*".
+//
+// Parâmetros:
+//
+//	names  — lista de nomes de processo (ex: ["agent poller", "history syncer"])
+//	hostid — se não vazio, filtra pelo host (use ZABBIX_SERVER_HOSTID)
+//
+// ─── Diferença em relação a getProxyProcessItems ──────────────────────────
+// Esta função usa search.key_ wildcard: funciona bem quando as chaves seguem
+// um padrão previsível. Para proxies, prefira getProxyProcessItems, que busca
+// todos os itens type=5 e faz o match client-side — mais robusto a variações
+// de formato de chave entre versões do Zabbix.
+//
+// ─── Como adicionar um processo novo ─────────────────────────────────────
+// Inclua o nome em pollerNames ou procNames dentro de generateZabbixReport.
+// Esta função é chamada automaticamente com a lista completa.
 func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
 	if len(names) == 0 { return map[string]map[string]interface{}{}, nil }
 	patterns := make([]string, len(names))
@@ -221,7 +342,91 @@ func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (m
 	return result, nil
 }
 
-// getLastHistoryValue pega o último valor de history para um itemid, usando historyType (0=float,3=int,1=char etc.)
+// getProxyProcessItems busca itens de monitoramento de processos para um único
+// host de proxy em UMA chamada item.get, filtrando por type=5 (Zabbix internal).
+//
+// Estratégia (mais robusta que wildcard na key_):
+//
+//	1. Busca TODOS os itens do tipo 5 (Zabbix internal) do host de uma vez.
+//	2. Faz o match client-side usando nameToWildcard, testando TANTO key_ QUANTO
+//	   o campo name do item.
+//
+// Por que checar o campo name?
+//
+//	O Zabbix 7 alterou o formato da key_ de alguns processos do proxy.
+//	O campo name (ex: "Utilization of data sender processes, in %") é estável
+//	entre versões. Ao checar os dois campos, a função funciona em Zabbix 6 e 7
+//	sem ajustes.
+//
+// Parâmetros:
+//
+//	names  — lista de nomes (ex: ["data*sender", "poller"]) de proxyAllProcNames
+//	hostid — hostid do host de auto-monitoramento do proxy (pode diferir do proxyid
+//	         no Zabbix 7; veja o Step 1 do goroutine de proxy em generateZabbixReport)
+//
+// Retorna map[nomeEmMinúsculas] → item.
+//
+// ─── Como adicionar um processo novo ao proxy ─────────────────────────────
+// Inclua o nome em proxyAllProcNames dentro de generateZabbixReport.
+// Use "*" como separador de palavras para que nameToWildcard gere o padrão
+// correto. Ex: "nova*feature" → padrão "*nova*feature*".
+func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
+	if len(names) == 0 || hostid == "" { return map[string]map[string]interface{}{}, nil }
+	params := map[string]interface{}{
+		"output":  []string{"itemid", "hostid", "name", "key_", "value_type"},
+		"hostids": hostid,
+		"filter":  map[string]interface{}{"type": 5}, // Zabbix internal items only
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
+	if err != nil { return nil, err }
+	// Build name entries sorted by word count desc (most specific pattern wins)
+	type nameEntry struct{ norm string; words int; pattern string }
+	entries := make([]nameEntry, len(names))
+	for i, n := range names {
+		entries[i] = nameEntry{
+			norm:    strings.ToLower(strings.TrimSpace(n)),
+			words:   len(strings.Fields(n)),
+			pattern: nameToWildcard(n),
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
+	result := map[string]map[string]interface{}{}
+	if r, ok := resp["result"]; ok {
+		arr, _ := r.([]interface{})
+		log.Printf("[DEBUG] getProxyProcessItems hostid=%s: %d type=5 items returned", hostid, len(arr))
+		for _, raw := range arr {
+			item, _ := raw.(map[string]interface{})
+			if item == nil { continue }
+			itemKey  := fmt.Sprintf("%v", item["key_"])
+			itemName := fmt.Sprintf("%v", item["name"])
+			for _, e := range entries {
+				// Match against key_ OR item name — covers both old and new key formats
+				if wildcardMatch(e.pattern, itemKey) || wildcardMatch(e.pattern, itemName) {
+					if _, exists := result[e.norm]; !exists { result[e.norm] = item }
+					break
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
+// getLastHistoryValue retorna o valor mais recente do histórico de um item
+// (history.get com sortorder DESC, limit 1).
+//
+// Parâmetros:
+//
+//	itemid      — ID do item no Zabbix
+//	historyType — tipo de histórico (value_type do item):
+//	               0 = float, 1 = char/string, 2 = log, 3 = integer, 4 = text
+//
+// Retorna o valor como string (ex: "3.14", "200") ou "" se não houver dados.
+//
+// Uso típico: obter o último valor de NVPS (zabbix[requiredperformance]).
+//
+// ─── Diferença em relação a getHistoryStats ───────────────────────────────
+// Esta função retorna apenas o último ponto (limit:1). Use getHistoryStats
+// quando precisar de min/avg/max em um intervalo de tempo.
 func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string, error) {
 	params := map[string]interface{}{
 		"output": "extend",
@@ -243,8 +448,28 @@ func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string,
 	return "", nil
 }
 
-// getHistoryStats busca valores de history num intervalo e retorna map com value_min/value_avg/value_max.
-// Usado como fallback quando trend.get não tem dados (trends=0 no item, período curto, etc).
+// getHistoryStats é o fallback de trend para UM único item: busca até 2000 pontos
+// do histórico no período configurado (CHECKTRENDTIME) e calcula min/avg/max.
+//
+// Quando usar:
+//
+//	• Quando getLastTrend retorna nil (item com trends=0, período curto ou
+//	  retenção de trend expirada).
+//	• Para itens do Zabbix Server (processados individualmente em goroutines).
+//
+// Parâmetros:
+//
+//	itemid  — ID do item
+//	hisType — tipo de histórico (0=float, 3=int, …)
+//	days    — fallback de intervalo em dias SE checkTrendDurationSeconds == 0
+//	          (normalmente checkTrendDurationSeconds > 0 e days é ignorado)
+//
+// Retorna map com "value_min", "value_avg", "value_max" como strings float,
+// ou nil se não houver dados.
+//
+// ─── Diferença em relação a getHistoryStatsBulkByType ────────────────────
+// Esta função processa UM item por chamada à API. Para proxies (múltiplos
+// itens de uma vez), use getHistoryStatsBulkByType.
 func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[string]interface{}, error) {
 	now := time.Now().Unix()
 	var from int64
@@ -295,7 +520,28 @@ func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[
 	}, nil
 }
 
-// getLastTrend busca o último registro em trend para um itemid no intervalo now - days
+// getLastTrend busca o registro mais recente de trend para UM único item dentro
+// do período configurado (CHECKTRENDTIME) usando trend.get.
+//
+// Retorna map com "value_min", "value_avg", "value_max" (strings float)
+// ou nil se não houver trend disponível (→ usar getHistoryStats como fallback).
+//
+// Parâmetros:
+//
+//	itemid — ID do item
+//	days   — fallback de intervalo em dias SE checkTrendDurationSeconds == 0
+//	         (normalmente ignorado pois checkTrendDurationSeconds é preenchido
+//	          por parseCheckTrendEnv ao iniciar o servidor)
+//
+// Usado pelos goroutines de pollers e processos do Zabbix Server.
+// Para processos de proxy (múltiplos itens de uma vez), use getTrendsBulkStats.
+//
+// ─── Fluxo recomendado ────────────────────────────────────────────────────
+//
+//	trendData, _ := getLastTrend(apiUrl, token, itemid, 30)
+//	if trendData == nil {
+//	    trendData, _ = getHistoryStats(apiUrl, token, itemid, histType, 30)
+//	}
 func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{}, error) {
 	now := time.Now().Unix()
 	// compute 'from' based on CHECKTRENDTIME if provided, otherwise use days param (in days)
@@ -323,7 +569,11 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 	return nil, nil
 }
 
-// getProxyCount returns the total number of proxies configured in Zabbix (countOutput)
+// getProxyCount retorna o número total de proxies configurados no Zabbix
+// usando proxy.get com countOutput:true.
+//
+// Usado apenas no card de resumo ("Número de Proxys"). Para obter a lista
+// completa de proxies com detalhes, use getProxies.
 func getProxyCount(apiUrl, token string) (int, error) {
 	params := map[string]interface{}{
 		"output": "extend",
@@ -344,7 +594,256 @@ func getProxyCount(apiUrl, token string) (int, error) {
 	return 0, nil
 }
 
-// getProxies returns the list of proxies with full details (output extend)
+// getProcessItemsBulkByHostids busca itens de processo para MÚLTIPLOS hosts em
+// UMA única chamada item.get, usando wildcard na key_ (mesma estratégia de
+// getProcessItemsBulk) e agrupando os resultados por hostid.
+//
+// Retorna map[hostid] → map[nomeEmMinúsculas] → item.
+//
+// ─── Estado atual ─────────────────────────────────────────────────────────
+// Função disponível mas não utilizada diretamente pelos proxies no momento
+// (substituída por getProxyProcessItems, que usa type=5 + match client-side).
+// Mantida para uso futuro ou em cenários onde a abordagem wildcard seja
+// preferível (ex: buscar itens de vários hosts de uma vez de forma eficiente).
+//
+// ─── Quando usar ──────────────────────────────────────────────────────────
+// Prefira esta função quando:
+//   - Os hostids de todos os proxies/hosts já forem conhecidos antecipadamente.
+//   - O formato das chaves for previsível (wildcard confiável).
+// Prefira getProxyProcessItems quando o formato da key_ for incerto entre
+// versões do Zabbix.
+func getProcessItemsBulkByHostids(apiUrl, token string, names []string, hostids []string) (map[string]map[string]map[string]interface{}, error) {
+	if len(names) == 0 || len(hostids) == 0 {
+		return map[string]map[string]map[string]interface{}{}, nil
+	}
+	patterns := make([]string, len(names))
+	for i, n := range names { patterns[i] = nameToWildcard(n) }
+	params := map[string]interface{}{
+		"output":                 []string{"itemid", "hostid", "name", "key_", "value_type"},
+		"hostids":                hostids,
+		"search":                 map[string]interface{}{"key_": patterns},
+		"searchByAny":            true,
+		"searchWildcardsEnabled": true,
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
+	if err != nil { return nil, err }
+	// Sort entries by word count desc — most specific pattern wins
+	type nameEntry struct{ norm string; words int; pattern string }
+	entries := make([]nameEntry, len(names))
+	for i, n := range names {
+		entries[i] = nameEntry{norm: strings.ToLower(strings.TrimSpace(n)), words: len(strings.Fields(n)), pattern: patterns[i]}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
+	result := map[string]map[string]map[string]interface{}{}
+	if r, ok := resp["result"]; ok {
+		arr, _ := r.([]interface{})
+		for _, raw := range arr {
+			item, _ := raw.(map[string]interface{})
+			if item == nil { continue }
+			hid := fmt.Sprintf("%v", item["hostid"])
+			itemKey := fmt.Sprintf("%v", item["key_"])
+			for _, e := range entries {
+				if wildcardMatch(e.pattern, itemKey) {
+					if result[hid] == nil { result[hid] = map[string]map[string]interface{}{} }
+					if _, exists := result[hid][e.norm]; !exists { result[hid][e.norm] = item }
+					break
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
+// getTrendsBulkStats busca dados de trend para TODOS os itemids em UMA única
+// chamada trend.get e agrega os resultados por item.
+//
+// Agregação por item (quando há múltiplos registros de trend no período):
+//
+//	value_min → menor de todos os value_min
+//	value_avg → média de todos os value_avg
+//	value_max → maior de todos os value_max
+//
+// Retorna map[itemid] → {"value_min", "value_avg", "value_max"} como strings.
+// Itens sem dados no período não aparecem no mapa (use esse ausência como
+// sinal para acionar o fallback getHistoryStatsBulkByType).
+//
+// O intervalo de tempo é controlado por checkTrendDurationSeconds (CHECKTRENDTIME).
+//
+// ─── Fluxo recomendado para proxies ───────────────────────────────────────
+//
+//	trendMap, _ := getTrendsBulkStats(apiUrl, token, iids)
+//	// Para itens sem trend, usar fallback de history:
+//	missing := map[string]int{}
+//	for _, iid := range iids {
+//	    if _, ok := trendMap[iid]; !ok { missing[iid] = vtypes[iid] }
+//	}
+//	if len(missing) > 0 {
+//	    histStats, _ := getHistoryStatsBulkByType(apiUrl, token, missing)
+//	    for iid, s := range histStats { trendMap[iid] = s }
+//	}
+func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[string]interface{}, error) {
+	if len(itemids) == 0 { return map[string]map[string]interface{}{}, nil }
+	now := time.Now().Unix()
+	var from int64
+	if checkTrendDurationSeconds > 0 {
+		from = now - checkTrendDurationSeconds
+	} else {
+		from = now - 30*24*60*60
+	}
+	params := map[string]interface{}{
+		"output":    []string{"itemid", "value_min", "value_avg", "value_max"},
+		"itemids":   itemids,
+		"time_from": from,
+		"time_to":   now,
+	}
+	resp, err := zabbixApiRequest(apiUrl, token, "trend.get", params)
+	if err != nil { return nil, err }
+	type aggState struct {
+		vmin, vmaxV float64
+		vavgSum     float64
+		count       int
+	}
+	agg := map[string]*aggState{}
+	if r, ok := resp["result"]; ok {
+		arr, _ := r.([]interface{})
+		for _, raw := range arr {
+			row, _ := raw.(map[string]interface{})
+			if row == nil { continue }
+			iid := fmt.Sprintf("%v", row["itemid"])
+			parseF := func(k string) (float64, bool) {
+				if v, ok2 := row[k]; ok2 {
+					if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
+				}
+				return 0, false
+			}
+			vmin, ok1 := parseF("value_min")
+			vavg, ok2 := parseF("value_avg")
+			vmax, ok3 := parseF("value_max")
+			if !ok1 && !ok2 && !ok3 { continue }
+			if agg[iid] == nil {
+				agg[iid] = &aggState{vmin: vmin, vmaxV: vmax, vavgSum: vavg, count: 1}
+			} else {
+				s := agg[iid]
+				if ok1 && vmin < s.vmin { s.vmin = vmin }
+				if ok3 && vmax > s.vmaxV { s.vmaxV = vmax }
+				if ok2 { s.vavgSum += vavg; s.count++ }
+			}
+		}
+	}
+	result := map[string]map[string]interface{}{}
+	for iid, s := range agg {
+		vavg := 0.0
+		if s.count > 0 { vavg = s.vavgSum / float64(s.count) }
+		result[iid] = map[string]interface{}{
+			"value_min": fmt.Sprintf("%f", s.vmin),
+			"value_avg": fmt.Sprintf("%f", vavg),
+			"value_max": fmt.Sprintf("%f", s.vmaxV),
+		}
+	}
+	return result, nil
+}
+
+// getHistoryStatsBulkByType é o fallback bulk de trend para MÚLTIPLOS itens.
+// Busca histórico agrupando os itemids por value_type e fazendo UMA chamada
+// history.get por tipo. Calcula min/avg/max a partir dos valores brutos.
+//
+// Parâmetros:
+//
+//	items — map[itemid] → value_type (0=float, 3=int, 1=char, …)
+//	         Inclua apenas os itens que não tiveram dados em getTrendsBulkStats.
+//
+// Limite de segurança: 500 pontos por item, máximo de 20.000 linhas por chamada
+// (para evitar respostas gigantes que sobrecarreguem a API ou a memória).
+//
+// Retorna map[itemid] → {"value_min", "value_avg", "value_max"} como strings.
+//
+// ─── Quando usar ──────────────────────────────────────────────────────────
+// Somente como fallback após getTrendsBulkStats, para os itens que não
+// retornaram dados de trend (trends=0 no item, período muito curto, etc.).
+// Para um único item (Zabbix Server), use getHistoryStats.
+func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[string]map[string]interface{}, error) {
+	if len(items) == 0 { return map[string]map[string]interface{}{}, nil }
+	// Group itemids by value_type
+	byType := map[int][]string{}
+	for iid, vt := range items { byType[vt] = append(byType[vt], iid) }
+	now := time.Now().Unix()
+	var from int64
+	if checkTrendDurationSeconds > 0 {
+		from = now - checkTrendDurationSeconds
+	} else {
+		from = now - 30*24*60*60
+	}
+	result := map[string]map[string]interface{}{}
+	var mu sync.Mutex
+	for histType, iids := range byType {
+		// Cap limit to avoid huge responses: 500 rows per item
+		limit := len(iids) * 500
+		if limit > 20000 { limit = 20000 }
+		params := map[string]interface{}{
+			"output":    []string{"itemid", "value"},
+			"history":   histType,
+			"itemids":   iids,
+			"time_from": from,
+			"time_to":   now,
+			"sortfield": "clock",
+			"sortorder": "ASC",
+			"limit":     limit,
+		}
+		resp, err := zabbixApiRequest(apiUrl, token, "history.get", params)
+		if err != nil { continue }
+		type aggS struct{ vals []float64 }
+		agg := map[string]*aggS{}
+		if r, ok := resp["result"]; ok {
+			arr, _ := r.([]interface{})
+			for _, raw := range arr {
+				row, _ := raw.(map[string]interface{})
+				if row == nil { continue }
+				iid := fmt.Sprintf("%v", row["itemid"])
+				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", row["value"]), 64); e == nil {
+					if agg[iid] == nil { agg[iid] = &aggS{} }
+					agg[iid].vals = append(agg[iid].vals, f)
+				}
+			}
+		}
+		mu.Lock()
+		for iid, s := range agg {
+			if len(s.vals) == 0 { continue }
+			vmin, vmax, sum := s.vals[0], s.vals[0], 0.0
+			for _, v := range s.vals {
+				if v < vmin { vmin = v }
+				if v > vmax { vmax = v }
+				sum += v
+			}
+			result[iid] = map[string]interface{}{
+				"value_min": fmt.Sprintf("%f", vmin),
+				"value_avg": fmt.Sprintf("%f", sum/float64(len(s.vals))),
+				"value_max": fmt.Sprintf("%f", vmax),
+			}
+		}
+		mu.Unlock()
+	}
+	return result, nil
+}
+
+// getProxies retorna a lista completa de proxies configurados no Zabbix
+// com todos os campos disponíveis (output: extend).
+//
+// Os campos relevantes retornados (variam entre Zabbix 6 e 7):
+//
+//	Zabbix 6:
+//	  proxyid, host (nome), status (5=active, 6=passive), state (0=unknown, 1=offline, 2=online)
+//	Zabbix 7:
+//	  proxyid, name (nome), operating_mode (0=active, 1=passive), state (0=unknown, 1=offline, 2=online)
+//
+// A lista é usada em duas partes do relatório:
+//
+//	1. Tabela de resumo de proxies (status, tipo, fila, itens não suportados)
+//	2. Seção "Processos e Threads Zabbix Proxys" (goroutines por proxy)
+//
+// ─── Compatibilidade Zabbix 6 vs 7 ───────────────────────────────────────
+// O código em generateZabbixReport verifica os campos "operating_mode" (v7)
+// e "status" (v6) para determinar o tipo (Active/Passive), e "state" para
+// determinar o estado (Online/Offline/Unknown).
 func getProxies(apiUrl, token string) ([]map[string]interface{}, error) {
 	params := map[string]interface{}{
 		"output": "extend",
@@ -815,6 +1314,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"trigger housekeeper": `Parâmetro "TriggerHousekeeper": remove problemas/triggers órfãos ou deletados; aumente se houver acúmulo de entradas a limpar.`,
 		"unreachable poller": `Parâmetro "StartPollersUnreachable": poller específico para hosts considerados inatingíveis; hosts sem comunicação. Os parâmetros UnreachableDelay e UnreachablePeriod podem ser utilizados para verificar se o host está com comunicação e retirar desta fila. Queda massiva de hosts, pode afetar este poller.`,
 		"vmware collector": `Parâmetro "StartVMwareCollectors": coletor para integrações VMware responsável por consultar APIs VMware; aumente para maior paralelismo em ambientes virtualizados grandes.`,
+		"data sender": `Processo exclusivo do Zabbix Proxy: responsável por enviar os dados coletados ao Zabbix Server. Sobrecarga indica que a conexão com o servidor está lenta, há muitos dados acumulados na fila ou o parâmetro DataSenderFrequency precisa ser ajustado.`,
 	}
 
 	// Prepare numeric totals for gauge
@@ -1062,7 +1562,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			pr.Savg = fmtVal(vavg)
 			pr.Smax = fmtVal(vmax)
 			if vavg >= 0 {
-				if vavg < 49.9 {
+				if vavg < 59.9 {
 					pr.StatusText = "OK"
 					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
 				} else {
@@ -1250,7 +1750,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			pr.Savg = fmtVal(vavg)
 			pr.Smax = fmtVal(vmax)
 			if vavg >= 0 {
-				if vavg < 49.9 {
+				if vavg < 59.9 {
 					pr.StatusText = "OK"
 					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
 				} else {
@@ -1427,12 +1927,12 @@ func generateZabbixReport(url, token string) (string, error) {
 
 					paramsItems := map[string]interface{}{
 						"search": map[string]interface{}{"key_": []string{
-							"*items_unsupported*", "*configuration syncer*", "*queue,10m*", "*data sender*", "*availability manager*",
-							"*agent poller*", "*browser poller*", "*discovery manager*", "*discovery worker*", "*history syncer*",
-							"*housekeeper*", "*http agent poller*", "*http poller*", "*icmp pinger*", "*internal poller*",
-							"*ipmi manager*", "*ipmi poller*", "*java poller*", "*odbc poller*", "*poller*", "*preprocessing manager*",
-							"*preprocessing worker*", "*self-monitoring*", "*snmp poller*", "*snmp trapper*", "*task manager*",
-							"*trapper*", "*unreachable poller*", "*vmware collector*",
+							"*items_unsupported*", "*configuration*syncer*", "*queue,10m*", "*data*sender*", "*availability*manager*",
+							"*agent*poller*", "*browser*poller*", "*discovery*manager*", "*discovery*worker*", "*history*syncer*",
+							"*housekeeper*", "*http*agent*poller*", "*http*poller*", "*icmp*pinger*", "*internal*poller*",
+							"*ipmi*manager*", "*ipmi*poller*", "*java*poller*", "*odbc*poller*", "*poller*", "*preprocessing*manager*",
+							"*preprocessing*worker*", "*self-monitoring*", "*snmp*poller*", "*snmp*trapper*", "*task*manager*",
+							"*trapper*", "*unreachable*poller*", "*vmware*collector*",
 						}},
 						"searchWildcardsEnabled": true,
 						"searchByAny": true,
@@ -1518,7 +2018,325 @@ func generateZabbixReport(url, token string) (string, error) {
 		html += `<div class='como-corrigir'>Nenhum proxy configurado ou informação indisponível.</div>`
 	}
 
-	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys", "Os Zabbix Proxys possuem processos próprios que coletam e encaminham dados ao servidor. Verifique conexões, filas e consumo de recursos por proxy. Use a página de Proxies no frontend para detalhes por proxy.")
+	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys",
+		`Os Zabbix Proxys possuem processos próprios de coleta e encaminhamento de dados. `+
+		`As decisões de ajuste devem basear-se nas tendências dos últimos `+checkTrendDisplay+
+		`: utilização média acima de 50% é sinal de atenção; acima de 60% recomenda-se aumentar o processo no arquivo zabbix_proxy.conf.`)
+	if progressCb != nil { progressCb("Coletando processos e threads dos Zabbix Proxys...") }
+
+	// All process names for proxy (pollers + internal merged into one table)
+	proxyAllProcNames := []string{
+		"data*sender",
+		"poller",
+		"unreachable*poller",
+		"http*poller",
+		"icmp*pinger",
+		"ipmi*poller",
+		"java*poller",
+		"odbc*poller",
+		"trapper",
+		"preprocessing*manager",
+		"preprocessing*worker",
+		"configuration*syncer",
+		"availability*manager",
+		"discovery*manager",
+		"discovery*worker",
+		"history*syncer",
+		"housekeeper",
+		"ipmi*manager",
+		"lld*manager",
+		"lld*worker",
+		"task*manager",
+		"vmware*collector",
+	}
+	if majorV >= 7 {
+		proxyAllProcNames = append([]string{"agent*poller", "browser*poller", "http*agent*poller", "snmp*poller"}, proxyAllProcNames...)
+	}
+
+	type proxyProcRow struct {
+		friendly string
+		vavg     float64
+		rowHTML  string
+	}
+	type proxyProcResult struct {
+		idx         int
+		name        string
+		online      bool
+		rows        []proxyProcRow
+		noItemsNote string
+	}
+
+	type proxyMetaP struct {
+		Idx     int
+		ProxyId string
+		Name    string
+		Online  bool
+	}
+	var proxyMetaList []proxyMetaP
+	for i, p := range proxies {
+		pid := fmt.Sprintf("%v", p["proxyid"])
+		if pid == "" || pid == "<nil>" { continue }
+		nm := fmt.Sprintf("%v", p["name"])
+		if nm == "<nil>" || nm == "" { nm = fmt.Sprintf("%v", p["host"]) }
+		st := fmt.Sprintf("%v", p["state"])
+		if st == "" || st == "<nil>" { st = fmt.Sprintf("%v", p["status"]) }
+		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: st == "2"})
+	}
+
+	ppCh := make(chan proxyProcResult, len(proxyMetaList)+1)
+	var wgPP sync.WaitGroup
+	for _, pm := range proxyMetaList {
+		pm := pm
+		wgPP.Add(1)
+		go func() {
+			defer wgPP.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			res := proxyProcResult{idx: pm.Idx, name: pm.Name, online: pm.Online}
+			if !pm.Online {
+				ppCh <- res
+				return
+			}
+
+			// ── Step 1: discover the actual hostid of this proxy's self-monitoring host ──
+			// Zabbix 6: proxyid == hostid  |  Zabbix 7: they differ → try multiple lookups
+			hostId := ""
+			// Attempt A: Zabbix 6 — proxyid IS the hostid
+			if hckResp, hckErr := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{
+				"output":  []string{"hostid"},
+				"hostids": []string{pm.ProxyId},
+			}); hckErr == nil {
+				if rr, ok := hckResp["result"]; ok {
+					if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
+						hostId = pm.ProxyId
+						log.Printf("[DEBUG] proxy '%s': Zabbix 6 path — proxyid=%s == hostid", pm.Name, hostId)
+					}
+				}
+			}
+			// Attempt B: Zabbix 7 — match by technical hostname (host field)
+			if hostId == "" {
+				if hnResp, hnErr := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{
+					"output": []string{"hostid"},
+					"filter": map[string]interface{}{"host": pm.Name},
+				}); hnErr == nil {
+					if rr, ok := hnResp["result"]; ok {
+						if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
+							if hm, ok3 := arr[0].(map[string]interface{}); ok3 {
+								hostId = fmt.Sprintf("%v", hm["hostid"])
+								log.Printf("[DEBUG] proxy '%s': found by technical name → hostid=%s", pm.Name, hostId)
+							}
+						}
+					}
+				}
+			}
+			// Attempt C: Zabbix 7 — match by display name (name field, exact)
+			if hostId == "" {
+				if hnResp, hnErr := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{
+					"output": []string{"hostid"},
+					"filter": map[string]interface{}{"name": pm.Name},
+				}); hnErr == nil {
+					if rr, ok := hnResp["result"]; ok {
+						if arr, ok2 := rr.([]interface{}); ok2 && len(arr) > 0 {
+							if hm, ok3 := arr[0].(map[string]interface{}); ok3 {
+								hostId = fmt.Sprintf("%v", hm["hostid"])
+								log.Printf("[DEBUG] proxy '%s': found by display name → hostid=%s", pm.Name, hostId)
+							}
+						}
+					}
+				}
+			}
+			if hostId == "" {
+				hostId = pm.ProxyId
+				log.Printf("[WARN] proxy '%s': hostid not resolved, using proxyid=%s as last resort", pm.Name, hostId)
+			}
+
+			// ── Step 2: single item.get for all process names on this proxy's host ──
+			// Uses getProxyProcessItems: fetches ALL type=5 (Zabbix internal) items and
+			// matches client-side on BOTH key_ AND name — robust across Zabbix 6/7 key formats.
+			itemsMap, iErr := getProxyProcessItems(apiUrl, token, proxyAllProcNames, hostId)
+			if iErr != nil {
+				log.Printf("[ERROR] proxy '%s' item.get failed: %v", pm.Name, iErr)
+				res.noItemsNote = fmt.Sprintf("Erro ao consultar itens (hostid=%s).", hostId)
+				ppCh <- res
+				return
+			}
+			if len(itemsMap) == 0 {
+				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado (hostid=%s). Verifique se o template de auto-monitoramento do proxy está vinculado ao host.", hostId)
+				ppCh <- res
+				return
+			}
+
+			// ── Step 3: collect itemids + value_types ──
+			iids := make([]string, 0, len(itemsMap))
+			vtypes := map[string]int{}
+			for _, item := range itemsMap {
+				iid := fmt.Sprintf("%v", item["itemid"])
+				vt := 0
+				if fmt.Sprintf("%v", item["value_type"]) == "3" { vt = 3 }
+				iids = append(iids, iid)
+				vtypes[iid] = vt
+			}
+
+			// ── Step 4: single trend.get for all items of this proxy (CHECKTRENDTIME respected) ──
+			trendMap, _ := getTrendsBulkStats(apiUrl, token, iids)
+
+			// ── Step 5: history.get fallback for items without trend data ──
+			missingH := map[string]int{}
+			for _, iid := range iids {
+				if _, ok := trendMap[iid]; !ok { missingH[iid] = vtypes[iid] }
+			}
+			if len(missingH) > 0 {
+				histStats, _ := getHistoryStatsBulkByType(apiUrl, token, missingH)
+				for iid, stats := range histStats {
+					if _, exists := trendMap[iid]; !exists { trendMap[iid] = stats }
+				}
+			}
+
+			// ── Step 6: build rows ──
+			parseStat := func(tr map[string]interface{}) (smin, savg, smax string, vavg float64, stText, stStyle string) {
+				pv := func(k string) float64 {
+					if v, ok := tr[k]; ok {
+						if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f }
+					}
+					return -1
+				}
+				fv := func(f float64) string {
+					if f < 0 { return "-" }
+					return fmt.Sprintf("%.2f%%", f)
+				}
+				vavg = pv("value_avg")
+				smin, savg, smax = fv(pv("value_min")), fv(vavg), fv(pv("value_max"))
+				if vavg >= 0 {
+					if vavg < 59.9 {
+						stText = "OK"; stStyle = "background:#66c28a;color:#000;padding:4px 6px;border-radius:4px;text-align:center;"
+					} else {
+						stText = "Atenção"; stStyle = "background:#ff6666;color:#000;padding:4px 6px;border-radius:4px;text-align:center;"
+					}
+				} else {
+					stText = "-"; stStyle = ""
+				}
+				return
+			}
+			for _, procName := range proxyAllProcNames {
+				baseName := strings.ToLower(strings.TrimSpace(procName)) // raw key used for itemsMap lookup
+				displayName := strings.ReplaceAll(procName, "*", " ")   // spaces for display and procDesc
+				dispBaseName := strings.ToLower(strings.TrimSpace(displayName))
+				// skip v7-only on v6
+				if majorV < 7 {
+					switch dispBaseName {
+					case "agent poller", "browser poller", "http agent poller", "snmp poller":
+						continue
+					}
+				}
+				words := strings.Fields(displayName)
+				for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
+				if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
+				friendly := strings.Join(words, " ")
+				desc := procDesc[dispBaseName]
+				if desc == "" { desc = "Process" }
+
+				nameCell := `<td style='position:relative;padding:0;'>` +
+					`<div style='display:flex;align-items:center;gap:4px;'><span>` + htmlpkg.EscapeString(friendly) + `</span>` +
+					`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
+					`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:300px;max-width:640px;white-space:normal;word-break:normal;overflow-wrap:break-word;'>` +
+					htmlpkg.EscapeString(desc) + `</span></span></div></td>`
+
+				item := itemsMap[baseName]
+				if item == nil {
+					res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: -1,
+						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>Processo não habilitado</td></tr>`})
+					continue
+				}
+				iid := fmt.Sprintf("%v", item["itemid"])
+				tr := trendMap[iid]
+				if tr == nil {
+					res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: -1,
+						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>Sem dados</td></tr>`})
+					continue
+				}
+				smin, savg, smax, vavg, stText, stStyle := parseStat(tr)
+				res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: vavg,
+					rowHTML: `<tr>` + nameCell + `<td>` + smin + `</td><td>` + savg + `</td><td>` + smax + `</td><td style='` + stStyle + `'>` + stText + `</td></tr>`})
+			}
+			// sort by vavg desc (busiest first)
+			sort.Slice(res.rows, func(i, j int) bool { return res.rows[i].vavg > res.rows[j].vavg })
+			ppCh <- res
+		}()
+	}
+	wgPP.Wait()
+	close(ppCh)
+
+	ppResults := map[int]proxyProcResult{}
+	for r := range ppCh { ppResults[r.idx] = r }
+
+	// Build list of proxy processes in Atenção for the Recommendations section
+	type proxyProcAttnItem struct{ ProxyName, ProcFriendly string; Vavg float64 }
+	var proxyProcAttnList []proxyProcAttnItem
+	for _, pm := range proxyMetaList {
+		if !pm.Online { continue }
+		res := ppResults[pm.Idx]
+		for _, row := range res.rows {
+			if row.vavg >= 59.9 {
+				proxyProcAttnList = append(proxyProcAttnList, proxyProcAttnItem{
+					ProxyName:   pm.Name,
+					ProcFriendly: row.friendly,
+					Vavg:        row.vavg,
+				})
+			}
+		}
+	}
+
+	if len(proxyMetaList) == 0 {
+		html += `<div class='como-corrigir'>Nenhum proxy configurado.</div>`
+	} else {
+		html += `<div style='display:flex;flex-direction:column;gap:10px;margin-top:8px;'>`
+		for _, pm := range proxyMetaList {
+			res := ppResults[pm.Idx]
+			// Online/Offline badge
+			connBadge := `<span style='margin-left:8px;background:#ff6666;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Offline/Unknown</span>`
+			if pm.Online { connBadge = `<span style='margin-left:8px;background:#66c28a;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Online</span>` }
+			// Status badge (OK / Atenção) — computed from worst vavg across all rows
+			statusBadge := ``
+			if pm.Online {
+				hasData := false
+				hasAtencao := false
+				for _, row := range res.rows {
+					if row.vavg >= 0 {
+						hasData = true
+						if row.vavg >= 59.9 { hasAtencao = true }
+					}
+				}
+				if hasData {
+					if hasAtencao {
+						statusBadge = `<span style='margin-left:6px;background:#ff6666;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Atenção</span>`
+					} else {
+						statusBadge = `<span style='margin-left:6px;background:#66c28a;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>OK</span>`
+					}
+				}
+			}
+			html += `<details style='border:1px solid #d1d5db;border-radius:6px;padding:0;'>`
+			html += `<summary style='padding:10px 14px;cursor:pointer;font-weight:600;font-size:0.95em;list-style:none;display:flex;align-items:center;'>` +
+				`<svg viewBox='0 0 10 10' width='10' height='10' style='margin-right:6px;flex-shrink:0;'><path d='M2 3 L5 7 L8 3' stroke='#555' stroke-width='1.5' fill='none'/></svg>` +
+				htmlpkg.EscapeString(pm.Name) + connBadge + statusBadge + `</summary>`
+			if !pm.Online {
+				html += `<div style='padding:10px 14px;color:#888;'>Proxy offline ou unknown — dados de processos não disponíveis.</div></details>`
+				continue
+			}
+			html += `<div style='padding:8px 14px 12px;'>`
+			if res.noItemsNote != "" {
+				html += `<div class='como-corrigir' style='margin:4px 0 8px;'>` + htmlpkg.EscapeString(res.noItemsNote) + `</div>`
+			}
+			if len(res.rows) > 0 {
+				html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Processo</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
+				for _, r := range res.rows { html += r.rowHTML }
+				html += `</tbody></table></div>`
+			}
+			html += `</div></details>`
+		}
+		html += `</div>`
+	}
 
 	html += `</div>` // end tab-proxys
 
@@ -2242,7 +3060,7 @@ setTimeout(setupInfoTooltips,50);
 	}
 	if len(missingAsync) > 0 {
 		tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
-		html += titleWithInfo("h6", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
+		html += titleWithInfo("h5", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
 		html += `<div style='margin-left:6px;'><ul>`
 		descs := map[string]string{
 			"Agent Poller": "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
@@ -2256,10 +3074,19 @@ setTimeout(setupInfoTooltips,50);
 		html += `</ul></div>`
 	}
 
-	// --- Seção: Zabbix Proxys (somente se houver Unknown ou Offline) ---
-	if unknown > 0 || offline > 0 {
+	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção) ---
+	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 {
 		proxySub := 0
 		html += nextSec("card-proxys", "Zabbix Proxys")
+		if len(proxyProcAttnList) > 0 {
+			tipProxyProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendStr, checkTrendDisplay)
+			html += titleWithInfo("h5", nextSub(&proxySub, "Customizar Processos e Threads"), tipProxyProc)
+			html += `<ol style='margin-left:18px;'>`
+			for _, a := range proxyProcAttnList {
+				html += `<li>` + htmlpkg.EscapeString(a.ProxyName) + ` — ` + htmlpkg.EscapeString(a.ProcFriendly) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
+			}
+			html += `</ol>`
+		}
 		if unknown > 0 {
 			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
@@ -2304,7 +3131,7 @@ setTimeout(setupInfoTooltips,50);
 	}
 	if majorV >= 7 && snmpTplCount > 0 {
 		tipSnmp := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
-		html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong> Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. ` + htmlpkg.EscapeString(tipSnmp) + `</p>`
+		html += `<p>` + titleWithInfo("strong", nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):"), tipSnmp) + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total.</p>`
 	}
 	html += `</div>`
 

@@ -296,6 +296,152 @@ As linhas por proxy são geradas em goroutines paralelas com o semáforo `sem`. 
 
 ---
 
+### Processos e Threads dos Proxys
+
+#### O que é
+
+Exibe a utilização dos processos internos de cada Zabbix Proxy em um accordion por proxy. Para cada processo é mostrado `min`, `avg` e `max` de utilização (%), além de badge **OK** ou **Atenção** no cabeçalho do accordion.
+
+#### Tabela exibida (uma por proxy)
+
+| Coluna | Descrição |
+|--------|-----------|
+| Processo | Nome com ícone `?` de tooltip com descrição do parâmetro `zabbix_proxy.conf` |
+| value_min | Mínimo de utilização no período (`CHECKTRENDTIME`) |
+| value_avg | Média de utilização no período |
+| value_max | Pico de utilização no período |
+| Status | Verde OK / Vermelho Atenção / Cinza não habilitado / Cinza sem dados |
+
+O accordion de cada proxy exibe dois badges no cabeçalho:
+
+- **Online / Offline·Unknown** — estado atual de comunicação com o Zabbix Server
+- **OK / Atenção** — pior `value_avg` entre todos os processos com dados
+
+#### Chamadas à API do Zabbix
+
+Cada proxy ativo executa um goroutine independente (controlado pelo semáforo `sem`) com o fluxo a seguir:
+
+##### Step 1 — Descoberta do hostid do proxy (3 tentativas)
+
+O hostid do host de auto-monitoramento do proxy pode diferir do proxyid a partir do Zabbix 7.
+
+| Tentativa | Método | Parâmetros | Quando funciona |
+|-----------|--------|-----------|-----------------|
+| A | `host.get` | `hostids: [proxyid]` | Zabbix 6 — proxyid == hostid |
+| B | `host.get` | `filter: {host: proxyName}` | Zabbix 7 — busca por nome técnico |
+| C | `host.get` | `filter: {name: proxyName}` | Zabbix 7 — busca por nome de exibição |
+| Fallback | — | usa `proxyid` diretamente | último recurso |
+
+##### Step 2 — `item.get` bulk (1 chamada, todos os processos do proxy)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid", "name", "key_", "value_type"],
+    "hostids": "<hostid resolvido no Step 1>",
+    "filter": { "type": 5 }
+  }
+}
+```
+
+- Busca **todos** os itens do tipo `5` (Zabbix internal) do host — sem wildcard na API.
+- O match é feito **client-side**: para cada item retornado, testa o padrão `nameToWildcard` contra **`key_` e `name`** do item.
+- Checar o campo `name` garante compatibilidade entre Zabbix 6 e 7, já que o `name` ("Utilization of data sender processes, in %") é estável mesmo quando a `key_` muda de formato.
+
+##### Step 3 — `trend.get` bulk (1 chamada, todos os itens do proxy)
+
+```json
+{
+  "method": "trend.get",
+  "params": {
+    "output": ["itemid", "value_min", "value_avg", "value_max"],
+    "itemids": ["<iid1>", "<iid2>", "..."],
+    "time_from": "<agora - CHECKTRENDTIME>",
+    "time_to": "<agora>"
+  }
+}
+```
+
+- Agrega múltiplos registros de trend por item: `min(value_min)`, `mean(value_avg)`, `max(value_max)`.
+- Itens sem dados no resultado disparam o fallback abaixo.
+
+##### Step 4 — `history.get` fallback (1 chamada por `value_type`, somente itens sem trend)
+
+```json
+{
+  "method": "history.get",
+  "params": {
+    "output": ["itemid", "value"],
+    "history": "<value_type>",
+    "itemids": ["<iids sem trend>"],
+    "time_from": "<agora - CHECKTRENDTIME>",
+    "time_to": "<agora>",
+    "sortfield": "clock",
+    "sortorder": "ASC",
+    "limit": 20000
+  }
+}
+```
+
+- Agrupa os itens pelo `value_type` e faz uma chamada por tipo (máximo de 20.000 linhas por chamada).
+- Calcula `min/avg/max` manualmente a partir dos valores brutos.
+
+#### Funções Go responsáveis
+
+| Função | Descrição |
+|--------|-----------|
+| `getProxies(apiUrl, token)` | Retorna lista completa de proxies com todos os campos (`output:extend`) |
+| `getProxyProcessItems(apiUrl, token, names, hostid)` | Busca todos os itens `type=5` do host; match client-side em `key_` **e** `name` usando `nameToWildcard` |
+| `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids; agrega `min/avg/max` por item |
+| `getHistoryStatsBulkByType(apiUrl, token, items)` | Fallback: **1 `history.get` por `value_type`**; agrega `min/avg/max` a partir do histórico bruto |
+| `nameToWildcard(name)` | Converte `"data*sender"` → `"*data*sender*"` para match client-side |
+| `wildcardMatch(pattern, s)` | Match simples com `*`; usado por `getProxyProcessItems` para testar `key_` e `name` |
+
+#### Lógica de versão
+
+| Zabbix | Processos extras |
+|--------|----------------|
+| ≥ 7 | Inclui `agent poller`, `browser poller`, `http agent poller`, `snmp poller` |
+| 6 | Esses quatro são ignorados na construção da tabela |
+
+#### Lógica de status
+
+| Condição | Exibição |
+|----------|----------|
+| Proxy offline / unknown | Accordion sem tabela; badge **Offline/Unknown** |
+| Nenhum item `type=5` encontrado | Nota com o hostid usado; sem tabela |
+| `trend.get` e `history.get` sem dados | Cinza — "Sem dados" |
+| Item não encontrado para o processo | Cinza — "Processo não habilitado" |
+| `value_avg < 60%` | Verde — OK |
+| `value_avg ≥ 60%` | Vermelho — Atenção |
+
+#### Como adicionar um novo processo ao proxy
+
+São **2 lugares** em `cmd/app/main.go`:
+
+**1. `procDesc`** — descrição do tooltip `?` (chave em lowercase, com espaços em vez de `*`):
+```go
+"novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
+```
+
+**2. `proxyAllProcNames`** — lista de processos do proxy (use `*` como separador de palavras):
+```go
+proxyAllProcNames := []string{
+    "data*sender",
+    ...
+    "novo*processo",  // ← aqui
+}
+// ou exclusivo do Zabbix 7+:
+if majorV >= 7 {
+    proxyAllProcNames = append([]string{"novo*processo"}, proxyAllProcNames...)
+}
+```
+
+**Regra do `*`:** use `*` entre as palavras do nome (ex: `"data*sender"`, `"lld*manager"`). O `*` funciona como separador wildcard, permitindo casar tanto `data sender` quanto `data_sender` na `key_` e no `name` do item.
+
+---
+
 ## Guia 4: Items e LLDs (`tab-items`)
 
 ### O que é
