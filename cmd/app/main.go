@@ -2649,6 +2649,41 @@ func main() {
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(full))
 				})
 
+				// delete a single report by id
+				r.DELETE("/api/reportdb/:id", func(c *gin.Context) {
+					if db == nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
+						return
+					}
+					id := c.Param("id")
+					res, err := db.Exec("DELETE FROM reports WHERE id = $1", id)
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
+					n, _ := res.RowsAffected()
+					if n == 0 {
+						c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não encontrado"})
+						return
+					}
+					c.JSON(http.StatusOK, gin.H{"deleted": id})
+				})
+
+				// delete all reports
+				r.DELETE("/api/reports", func(c *gin.Context) {
+					if db == nil {
+						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
+						return
+					}
+					res, err := db.Exec("DELETE FROM reports")
+					if err != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						return
+					}
+					n, _ := res.RowsAffected()
+					c.JSON(http.StatusOK, gin.H{"deleted": n})
+				})
+
 				r.Run(":8080")
 			}
 

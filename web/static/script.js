@@ -351,6 +351,59 @@ document.getElementById('btn-open-db').addEventListener('click', function() {
         .catch(err => alert('Erro ao abrir relat\u00f3rio: ' + err));
 });
 
+// Helper: reload the reports list into the selector
+function reloadReportList() {
+    fetch('/api/reports')
+        .then(res => res.json())
+        .then(data => {
+            const sel = document.getElementById('reportSelect');
+            sel.innerHTML = '<option value="">-- selecione --</option>';
+            if (data && data.reports) {
+                data.reports.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    opt.dataset.createdAt = r.created_at || '';
+                    const d = new Date(r.created_at);
+                    const label = (r.zabbix_url || r.name || ('Relat\u00f3rio ' + r.id))
+                        .replace(/^https?:\/\//, '')
+                        .replace(/\/$/, '');
+                    opt.text = label + ' \u2014 ' + d.toLocaleString();
+                    sel.appendChild(opt);
+                });
+            }
+        }).catch(err => { alert('Erro ao recarregar lista: ' + err); });
+}
+
+// Delete selected report
+document.getElementById('btn-delete-db').addEventListener('click', function() {
+    const sel = document.getElementById('reportSelect');
+    const id = sel ? sel.value : '';
+    if (!id) return alert('Selecione um relat\u00f3rio para excluir.');
+    const label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : id;
+    if (!confirm('Excluir o relat\u00f3rio "' + label + '"?\nEssa a\u00e7\u00e3o n\u00e3o pode ser desfeita.')) return;
+    fetch('/api/reportdb/' + id, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) { alert('Erro: ' + data.error); return; }
+            reloadReportList();
+        })
+        .catch(err => alert('Erro ao excluir: ' + err));
+});
+
+// Delete all reports
+document.getElementById('btn-delete-all-db').addEventListener('click', function() {
+    if (!confirm('Excluir TODOS os relat\u00f3rios do banco?\nEssa a\u00e7\u00e3o n\u00e3o pode ser desfeita.')) return;
+    fetch('/api/reports', { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) { alert('Erro: ' + data.error); return; }
+            const n = data.deleted !== undefined ? data.deleted : '?';
+            reloadReportList();
+            alert(n + ' relat\u00f3rio(s) exclu\u00eddo(s).');
+        })
+        .catch(err => alert('Erro ao excluir: ' + err));
+});
+
 // Initialize doughnut gauges inside a given container
 function initGauges(container) {
     if (typeof Chart === 'undefined') return; // Chart.js not loaded
