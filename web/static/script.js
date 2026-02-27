@@ -184,11 +184,17 @@ function renderReport(html, titleHint, createdAt) {
             (cssText ? `<style>${cssText}</style>` : '') + `</head><body>`;
         const chartsInit = `<script src="https://cdn.jsdelivr.net/npm/chart.js"></` + `script>` +
             `<script>window.addEventListener('load',function(){try{` +
+            `var ttEl=null;` +
+            `function getTooltip(){if(!ttEl){ttEl=document.createElement('div');ttEl.style.cssText='position:fixed;background:rgba(0,0,0,0.82);color:#fff;padding:5px 11px;border-radius:5px;font-size:12.5px;pointer-events:none;z-index:99999;white-space:nowrap;opacity:0;transition:opacity 0.12s';document.body.appendChild(ttEl);}return ttEl;}` +
             `Array.from(document.querySelectorAll('canvas[data-total]')).forEach(function(canvas){try{` +
             `var tot=parseInt(canvas.getAttribute('data-total'))||0,` +
             `uns=parseInt(canvas.getAttribute('data-unsupported'))||0,` +
             `sup=Math.max(tot-uns,0);` +
-            `new Chart(canvas.getContext('2d'),{type:'doughnut',data:{labels:[canvas.getAttribute('data-unsupported-label')||'N\u00e3o Suportados',canvas.getAttribute('data-supported-label')||'Suportados'],datasets:[{data:[uns,sup],backgroundColor:[canvas.getAttribute('data-color-unsupported')||'#ff7a7a',canvas.getAttribute('data-color-supported')||'#66c2a5']}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false}}}});` +
+            `var extTT=function(ctx){var el=getTooltip();var tm=ctx.tooltip;if(!tm||tm.opacity===0){el.style.opacity='0';return;}var lines=[];(tm.body||[]).forEach(function(b){lines=lines.concat(b.lines);});` +
+            `el.innerHTML=lines.map(function(l){var m=l.match(/^(.+):\\s*(\\d+)/);if(m){var p=tot>0?((parseInt(m[2])/tot)*100).toFixed(2):'0.00';return m[1]+': <strong>'+m[2]+'</strong> ('+p+'%)';}return l;}).join('<br>');` +
+            `var r=ctx.chart.canvas.getBoundingClientRect();el.style.left=Math.min(r.left+tm.caretX+14,window.innerWidth-220)+'px';el.style.top=(r.top+tm.caretY-14)+'px';el.style.opacity='1';};` +
+            `new Chart(canvas.getContext('2d'),{type:'doughnut',data:{labels:[canvas.getAttribute('data-unsupported-label')||'N\u00e3o Suportados',canvas.getAttribute('data-supported-label')||'Suportados'],datasets:[{data:[uns,sup],backgroundColor:[canvas.getAttribute('data-color-unsupported')||'#ff7a7a',canvas.getAttribute('data-color-supported')||'#66c2a5']}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{enabled:false,external:extTT}}}});` +
+            `canvas.addEventListener('mouseleave',function(){var el=document.getElementById('cj-gauge-tooltip')||ttEl;if(el)el.style.opacity='0';});` +
             `}catch(e){}});` +
             `}catch(e){}});</` + `script>`;
         return head + bodyInner + chartsInit + `</body></html>`;
@@ -348,6 +354,63 @@ document.getElementById('btn-open-db').addEventListener('click', function() {
 // Initialize doughnut gauges inside a given container
 function initGauges(container) {
     if (typeof Chart === 'undefined') return; // Chart.js not loaded
+
+    // Shared external tooltip rendered in <body> — never clipped by canvas bounds
+    function getGaugeTooltipEl() {
+        let el = document.getElementById('cj-gauge-tooltip');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'cj-gauge-tooltip';
+            el.style.cssText = [
+                'position:fixed',
+                'background:rgba(0,0,0,0.82)',
+                'color:#fff',
+                'padding:5px 11px',
+                'border-radius:5px',
+                'font-size:12.5px',
+                'font-family:inherit',
+                'pointer-events:none',
+                'z-index:99999',
+                'white-space:nowrap',
+                'opacity:0',
+                'transition:opacity 0.12s'
+            ].join(';');
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function makeExternalTooltip(total) {
+        return function(context) {
+            var el = getGaugeTooltipEl();
+            var tm = context.tooltip;
+            if (!tm || tm.opacity === 0) { el.style.opacity = '0'; return; }
+            if (tm.body) {
+                var lines = [];
+                tm.body.forEach(function(b) { lines = lines.concat(b.lines); });
+                el.innerHTML = lines.map(function(l) {
+                    // rebuild with percentage using total in closure
+                    var match = l.match(/^(.+):\s*(\d+)/);
+                    if (match) {
+                        var label = match[1];
+                        var v = parseInt(match[2]);
+                        var p = total > 0 ? ((v / total) * 100).toFixed(2) : '0.00';
+                        return label + ': <strong>' + v + '</strong> (' + p + '%)';
+                    }
+                    return l;
+                }).join('<br>');
+            }
+            var rect = context.chart.canvas.getBoundingClientRect();
+            var x = rect.left + tm.caretX + 14;
+            var y = rect.top  + tm.caretY - 14;
+            // keep tooltip inside viewport horizontally
+            var vpw = window.innerWidth;
+            el.style.left = Math.min(x, vpw - 220) + 'px';
+            el.style.top  = y + 'px';
+            el.style.opacity = '1';
+        };
+    }
+
     const canvases = Array.from(container.querySelectorAll('canvas[data-total]'));
     canvases.forEach(canvas => {
         try {
@@ -374,9 +437,17 @@ function initGauges(container) {
                     cutout: '60%',
                     plugins: {
                         legend: { display: false },
-                        tooltip: { callbacks: { label: function(ctx) { let v = ctx.parsed; let p = total > 0 ? ((v / total) * 100).toFixed(2) : '0.00'; return ctx.label + ': ' + v + ' (' + p + '%)'; } } }
+                        tooltip: {
+                            enabled: false,
+                            external: makeExternalTooltip(total)
+                        }
                     }
                 }
+            });
+            // hide tooltip when mouse leaves the canvas
+            canvas.addEventListener('mouseleave', function() {
+                var el = document.getElementById('cj-gauge-tooltip');
+                if (el) el.style.opacity = '0';
             });
             canvas._chartInstance = chart;
         } catch (err) {
