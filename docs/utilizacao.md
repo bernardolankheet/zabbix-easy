@@ -492,29 +492,131 @@ snmpPct = snmpGetWalkCount / snmpTplCount * 100
 
 ---
 
-## Persistência e API REST
+## Relatórios Salvos (Persistência no Banco de Dados)
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `POST /api/start` | POST | Inicia geração; recebe `{zabbix_url, zabbix_token}`; retorna `{task_id}` |
-| `GET /api/progress/:id` | GET | Polling de status; retorna `{status, progress_msg, report}` |
-| `GET /api/report/:id` | GET | Retorna HTML do relatório gerado na sessão atual (in-memory) |
-| `GET /api/reports` | GET | Lista relatórios salvos no PostgreSQL (últimos 20) |
-| `GET /api/reportdb/:id` | GET | Retorna relatório salvo no banco como documento completo |
-| `GET /api/reportdb/:id?raw=1` | GET | Retorna apenas o fragment HTML para renderização inline pelo JS |
-| `DELETE /api/reportdb/:id` | DELETE | Remove relatório do banco |
+### Visão geral
 
-### Schema PostgreSQL
+Toda vez que um relatório é gerado com sucesso, ele é **salvo automaticamente** no PostgreSQL — sem nenhuma ação extra do usuário. Isso permite acessar relatórios anteriores a qualquer momento, mesmo após reiniciar a aplicação.
+
+> **Pré-requisito:** A variável de ambiente `DB_HOST` deve estar configurada (veja o `docker-compose.yml`). Se não estiver, os relatórios só ficam disponíveis na sessão atual (in-memory) e se perdem ao reiniciar.
+
+---
+
+### Como usar a interface de Relatórios Salvos
+
+Na tela inicial, abaixo do botão **Gerar Relatório**, existe o card **Relatórios Salvos** com os seguintes controles:
+
+```
+┌─ RELATÓRIOS SALVOS ──────────────────────── [↺ Carregar lista] ─┐
+│                                                                   │
+│  [── selecione um relatório ──────────────]  [Abrir] [Excluir]   │
+│                                              [Excluir Todos]      │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+#### Passo a passo
+
+| Passo | Ação | O que acontece |
+|-------|------|----------------|
+| 1 | Clique em **↺ Carregar lista** | A lista dos últimos 20 relatórios salvos é carregada no seletor. Cada entrada mostra a URL do Zabbix e a data/hora da geração. |
+| 2 | Selecione um relatório no menu suspenso | O relatório fica destacado — nenhuma ação ainda. |
+| 3 | Clique em **Abrir** | O relatório selecionado é carregado inline, com todas as guias, botões de exportar HTML e imprimir PDF funcionando normalmente. |
+| 4 _(opcional)_ | Clique em **Excluir** | Remove **apenas o relatório selecionado** do banco após confirmação. A lista é atualizada automaticamente. |
+| 5 _(opcional)_ | Clique em **Excluir Todos** | Remove **todos os relatórios** do banco após confirmação dupla. Retorna a contagem de registros removidos. |
+
+> **Dica:** Após abrir um relatório salvo, todos os botões de **Exportar HTML** e **Gerar PDF** funcionam normalmente — o relatório reabre com o mesmo layout e funcionalidades da geração original.
+
+---
+
+### Quando os relatórios são salvos
+
+O salvamento acontece automaticamente ao final da função `generateZabbixReportWithProgress`, no fluxo:
+
+```
+POST /api/start
+  → goroutine: generateZabbixReport()
+      → relatório HTML gerado com sucesso
+      → INSERT INTO reports (name, format, content, zabbix_url) VALUES (...)
+         name     = "report-<unix timestamp>"
+         format   = "html"
+         content  = HTML completo (BYTEA)
+         zabbix_url = URL informada no formulário
+```
+
+Se o banco não estiver disponível, o relatório ainda é exibido na tela normalmente — o erro de persistência é apenas logado (`[WARN] Failed to save report to DB`).
+
+---
+
+### Variáveis de ambiente para o banco
+
+| Variável    | Padrão     | Descrição |
+|-------------|------------|-----------|
+| `DB_HOST`   | _(vazio)_  | Host do PostgreSQL. **Se não definida, a persistência é desativada.** |
+| `DB_PORT`   | `5432`     | Porta do PostgreSQL. |
+| `DB_USER`   | `postgres` | Usuário do banco. |
+| `DB_PASSWORD` | `postgres` | Senha do banco. |
+| `DB_NAME`   | `zabbix_report` | Nome do banco de dados. |
+
+Exemplo no `docker-compose.yml`:
+```yaml
+environment:
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - DB_USER=postgres
+  - DB_PASSWORD=postgres
+  - DB_NAME=zabbix_report
+```
+
+---
+
+### Schema do banco de dados
+
+A tabela é criada automaticamente na primeira execução se não existir:
 
 ```sql
 CREATE TABLE reports (
   id         SERIAL PRIMARY KEY,
-  name       TEXT,
-  format     TEXT,
-  content    BYTEA,
-  zabbix_url TEXT,
+  name       TEXT,            -- "report-<timestamp>" gerado automaticamente
+  format     TEXT,            -- sempre "html" por enquanto
+  content    BYTEA,           -- HTML completo do relatório
+  zabbix_url TEXT,            -- URL do Zabbix usada na geração
   created_at TIMESTAMPTZ DEFAULT now()
 );
+```
+
+> **Migração automática:** Se a tabela existir com colunas faltando (schema antigo), a aplicação renomeia a tabela antiga para `reports_old_<timestamp>` e cria uma nova com o schema correto.
+
+---
+
+### API REST — Endpoints de relatórios
+
+Para integrações externas ou automações, os endpoints disponíveis são:
+
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `POST /api/start` | POST | Inicia geração; corpo `{"zabbix_url":"...","zabbix_token":"..."}` → retorna `{"task_id":"..."}` |
+| `GET /api/progress/:id` | GET | Polling do status da tarefa → `{"status":"done\|running\|error","progress_msg":"..."}` |
+| `GET /api/report/:id` | GET | Retorna o HTML do relatório da sessão atual (in-memory, perde ao reiniciar) |
+| `GET /api/reports` | GET | Lista os últimos 20 relatórios salvos no banco → `{"reports":[{"id":1,"name":"...","zabbix_url":"...","created_at":"..."},...]}` |
+| `GET /api/reportdb/:id` | GET | Retorna o relatório salvo como documento HTML completo (para abrir no browser diretamente) |
+| `GET /api/reportdb/:id?raw=1` | GET | Retorna apenas o fragment HTML interno (usado pelo JS para renderizar inline com o layout padrão) |
+| `DELETE /api/reportdb/:id` | DELETE | Remove um relatório específico pelo ID → `{"deleted":"<id>"}` ou `404` se não encontrado |
+| `DELETE /api/reports` | DELETE | Remove **todos** os relatórios → `{"deleted":<contagem>}` |
+
+#### Exemplo: listar e abrir um relatório via curl
+
+```bash
+# 1. Listar relatórios salvos
+curl http://localhost:8080/api/reports
+
+# 2. Abrir o relatório com ID 3 no browser
+curl http://localhost:8080/api/reportdb/3 > relatorio.html
+
+# 3. Excluir o relatório com ID 3
+curl -X DELETE http://localhost:8080/api/reportdb/3
+
+# 4. Excluir todos os relatórios
+curl -X DELETE http://localhost:8080/api/reports
 ```
 
 O relatório é dividido em guias (tabs). Esta seção documenta cada uma delas: o que exibe, quais chamadas à API do Zabbix são feitas, qual função Go gera o HTML e como os dados são tratados.

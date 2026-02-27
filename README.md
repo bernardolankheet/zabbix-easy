@@ -11,10 +11,8 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
 
 ## Como funciona
 1. O usuário informa a URL/token do Zabbix via Web UI
-2. O backend Go envia tarefas de coleta para o RabbitMQ
-3. Workers Go processam as tarefas, coletam dados do Zabbix e armazenam no Postgres
+2. Workers Go processam as tarefas, coletam dados do Zabbix e armazenam no Postgres
 4. Após a coleta, o relatório é gerado e exibido na interface
-
 
 ## Funcionalidades:
 ✅ Coleta de dados do Zabbix via API;
@@ -41,8 +39,9 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
     - Sugestões de correções em Items e Templates;
     -Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
 
+✅ Banco de dados Postgres para armazenamento de dados, por enquanto somente html armazenado;    
+
 Proximas Funcionalidades:
-⬜ Banco de dados Postgres para armazenamento de dados, garantindo performance e escalabilidade;
 ⬜ Botão de refresh para atualizar o relatório ou consulta específica sem precisar reiniciar a coleta;
 ⬜ imagem do fluxo de processos do zabbix;
 ⬜ trends dos Pollers Proxys;
@@ -52,5 +51,4 @@ Proximas Funcionalidades:
 ## Observações
 - Os dados no atualmente são temporários, não há retencao de dados ou cache, usados apenas para geração do relatório
 - O sistema é escalável e pronto para ambientes com grande volume de dados
-
 ---
