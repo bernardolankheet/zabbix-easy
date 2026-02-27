@@ -2194,12 +2194,25 @@ setTimeout(setupInfoTooltips,50);
 </script>`
 
 	// Recomendações dinâmicas (uses precomputed aggregates above)
+	// secNum auto-increments each time a top-level section is emitted;
+	// subNum resets to 1 at each new section and increments per sub-item.
+	secNum := 0
+	nextSec := func(cardID, title string) string {
+		secNum++
+		return fmt.Sprintf("<h4 id='%s'>%d) %s</h4>", cardID, secNum, title)
+	}
+	nextSub := func(sub *int, label string) string {
+		*sub++
+		return fmt.Sprintf("%d.%d)", secNum, *sub) + " " + label
+	}
 
-	html += `<h4 id='card-server'>1) Zabbix Server</h4>`
-	html += `<h5>1.1) Sugestões zabbix_server.conf:</h5>`
+	// --- Seção: Zabbix Server (sempre mostrada) ---
+	serverSub := 0
+	html += nextSec("card-server", "Zabbix Server")
+	html += fmt.Sprintf("<h5>%d.%d) Sugestões zabbix_server.conf:</h5>", secNum, 1)
+	serverSub = 1
 	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", os.Getenv("CHECKTRENDTIME"), checkTrendDisplay)
-	html += titleWithInfo("h5", "1.1.1) Customizar Processos e Threads", tipProc)
-	// legend moved into tooltip via titleWithInfo
+	html += titleWithInfo("h5", nextSub(&serverSub, "Customizar Processos e Threads"), tipProc)
 	if len(attention) == 0 {
 		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
 	} else {
@@ -2208,7 +2221,7 @@ setTimeout(setupInfoTooltips,50);
 			html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 		}
 		html += `</ol>`
-	}	
+	}
 
 	// Sugestão: Pollers Assíncronos (mostrar somente se algum não estiver habilitado)
 	asyncNames := []string{"Agent Poller", "HTTP Agent Poller", "SNMP Poller"}
@@ -2222,18 +2235,15 @@ setTimeout(setupInfoTooltips,50);
 	for _, an := range asyncNames {
 		norm := strings.ToLower(strings.TrimSpace(an))
 		if pr, ok := pollMap[norm]; ok {
-			// include only if disabled and DisabledMsg is non-empty
 			if pr.Disabled && strings.TrimSpace(pr.DisabledMsg) != "" {
 				missingAsync = append(missingAsync, an)
 			}
 		}
-		// do not include pollers that are not present in pollRows
 	}
 	if len(missingAsync) > 0 {
-		tip := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
-		html += titleWithInfo("h6", "1.1.2) Utilizar Pollers Assíncronos:", tip)
+		tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
+		html += titleWithInfo("h6", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
 		html += `<div style='margin-left:6px;'><ul>`
-		// descriptions for each async poller shown as info-tooltips
 		descs := map[string]string{
 			"Agent Poller": "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
 			"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
@@ -2241,22 +2251,21 @@ setTimeout(setupInfoTooltips,50);
 		}
 		for _, n := range missingAsync {
 			d := descs[n]
-			if d == "" { d = "" }
 			html += `<li>` + titleWithInfo("span", n, d) + `</li>`
 		}
 		html += `</ul></div>`
 	}
 
-	// Recomendações específicas para Proxys (mostrar apenas se houver Unknown ou Offline)
+	// --- Seção: Zabbix Proxys (somente se houver Unknown ou Offline) ---
 	if unknown > 0 || offline > 0 {
-		html += `<h4 id='card-proxys'>2) Zabbix Proxys</h4>`
-		html += `<h5>2.2) Status Proxys</h5>`
+		proxySub := 0
+		html += nextSec("card-proxys", "Zabbix Proxys")
 		if unknown > 0 {
 			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
 				"Confirme versões e compatibilidade (campo version no registro do proxy)."
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Status Proxys Unknown"))
 			html += `<p>Foram detectados ` + fmt.Sprintf("%d", unknown) + ` proxys com status ` + titleWithInfo("span", "Unknown", tipUnknown) + `</p>`
-			// list proxy names
 			html += `<ul>`
 			for _, n := range unknownNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
@@ -2265,62 +2274,55 @@ setTimeout(setupInfoTooltips,50);
 			tipOffline := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
 				"Confirme versões e compatibilidade (campo version no registro do proxy)."
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Status Proxys Offline"))
 			html += `<p>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
-			// list proxy names
 			html += `<ul>`
 			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
 		}
-		// breve separador
 		html += `<div style='height:8px'></div>`
 	}
 
-	// prepare numeric disabled count
+	// --- Seção: Items (sempre mostrada) ---
 	disabledCount := 0
 	if nItemsDisabled != "-" {
 		if v, err := strconv.Atoi(strings.TrimSpace(nItemsDisabled)); err == nil { disabledCount = v }
 	}
-	// percentage helpers
 	pct := func(part, total int) string {
 		if total <= 0 { return "0%" }
 		return fmt.Sprintf("%.2f%%", (float64(part)*100.0)/float64(total))
 	}
-	// items/LLD aggregates computed earlier near KPI block
-
-	html += `<h4 id='card-items'>3) Items</h4>`
+	itemsSub := 0
+	html += nextSec("card-items", "Items")
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>3.1) Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` Itens sem Template:</strong> validar a necessidade de criação de template para estes itens, não impacta diretamente na performance do Zabbix, porem é útil para organização e reutilização dos itens.</p>`
-	html += `<p><strong>3.2) Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` Itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta/processar a métrica apresentou algum erro. Esses itens continuam consumindo os processos desnecessariamente do Zabbix, causando consumo de recursos de hardware.</p>`
-	html += `<p><strong>3.3) Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total de itens do ambiente:</strong> Os itens desabilitados não consomem os processos do Zabbix, entretanto é necessário avaliar por qual motivo esses itens foram desabilitados, qual o impacto para o monitoramento e ao serviço monitorado.</p>`
-	html += `<p><strong>3.4) Existem ` + fmt.Sprintf("%d", itemsLe60) + ` Itens com Intervalo de Coleta menor ou igual a 60s:</strong> As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper, é interessante avaliar a necessidade.</p>`
-	// LLD explanatory paragraph removed from Items tab to avoid duplication; kept in Recomendações
-	// --- Items Texto recommendation (moved here) ---
+	html += `<p><strong>` + nextSub(&itemsSub, "Itens sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` itens sem template. Validar a necessidade de criação de template para estes itens; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos itens.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Itens não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São itens ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Itens desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Itens com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` itens com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade.</p>`
 	if textCount > 0 {
-		html += `<p><strong>3.5) Existem ` + fmt.Sprintf("%d", textCount) + ` Itens do tipo Texto com Retençao de Historico com Intervalo de Coleta menor ou igual a 300s:</strong> As métricas do tipo Texto serão coletadas com base no intervalo de coleta definido no item, Items de Texto possuem um custo elevado de Disco no monitoramento, principalmente quando são executados com intervalo de checagem baixo, analise e dê preferencia em nao reter historico (Do not store), utilize preprocessamento e/ou dependente item para extrair a informaçao que precise.</p>`
+		html += `<p><strong>` + nextSub(&itemsSub, "Itens Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` itens do tipo Texto com retenção de histórico e intervalo ≤ 300s. Itens de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente.</p>`
 	}
-
-	// 3.6) Recomendacao de Itens SNMP em templates (Zabbix 7): render using counts computed earlier
-	if majorV >= 7 {
-		if snmpTplCount > 0 {
-			tip := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
-			html += `<p><strong>3.6) Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total de itens do ambiente:</strong> ` + htmlpkg.EscapeString(tip) + `</p>`
-		}
+	if majorV >= 7 && snmpTplCount > 0 {
+		tipSnmp := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
+		html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong> Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. ` + htmlpkg.EscapeString(tipSnmp) + `</p>`
 	}
 	html += `</div>`
 
-	// --- Regras de LLD (tópico separado nas Recomendações) ---
-	html += `<h4 id='card-lld'>4) Regras de LLD</h4>`
+	// --- Seção: Regras de LLD ---
+	lldSub := 0
+	html += nextSec("card-lld", "Regras de LLD")
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>4.1) Existem ` + fmt.Sprintf("%d", lldLe300) + ` Regras de LLD com Intervalo de Coleta menor ou igual a 300s:</strong> LLD fornecem uma forma automática para criar itens, triggers, gráficos para diferentes objetos de um determinado dispositivo. Muitos casos não há necessidade de ter uma nova descoberta a cada minuto, por exemplo, uma placa de rede não é acrescentada a cada 5min, logo uma regra de LLD de Interface não precisa ter um periodo de Intervalo de Coleta baixo, isso impacta diretamente no Processo Interno LLD Manager.</p>`
-	html += `<p><strong>4.2) Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` Regras de LLD que estão com o Status de não suportados:</strong> Há necessidade de validação para entendimento e correção dos problemas, isso impacta diretamente no Processo Interno LLD Manager.</p>`
+	html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD com Intervalo ≤ 300s:") + `</strong> Existem ` + fmt.Sprintf("%d", lldLe300) + ` regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager.</p>`
+	html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD não suportadas:") + `</strong> Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager.</p>`
 	html += `</div>`
 
-	// Recomendacoes de Templates
+	// --- Seção: Templates ---
+	tplSub := 0
 	html += "<div id='card-templates'></div>"
-	html += titleWithInfo("h4", "5) Templates", descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
-	// Top templates para revisão (Top N)
+	html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
+	secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
 	html += `<div style='margin-left:6px;'>`
-	html += `<h4>5.1) Templates para revisão</h4>`
+	html += fmt.Sprintf("<h5>%d.%d) Templates para revisão</h5>", secNum, func() int { tplSub++; return tplSub }())
 	if len(topTemplates) == 0 {
 		html += `<p>Nenhum template problemático identificado.</p>`
 	} else {
@@ -2335,9 +2337,7 @@ setTimeout(setupInfoTooltips,50);
 		}
 		html += `</ul>`
 	}
-
-	// lista de Erros Mais Comuns
-	html += `<h5>5.2) Erros Mais Comuns</h5>`
+	html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns</h5>", secNum, func() int { tplSub++; return tplSub }())
 	if len(topErrors) == 0 {
 		html += `<p>Nenhum erro identificado.</p>`
 	} else {
@@ -2345,7 +2345,6 @@ setTimeout(setupInfoTooltips,50);
 		cnt2 := 0
 		for _, e := range topErrors {
 			if cnt2 >= 10 { break }
-			// formando keys e erros
 			parts := strings.SplitN(e.Key, "|", 2)
 			errMsg := parts[0]
 			tplId := ""
