@@ -1,6 +1,6 @@
 module go-zabbix-report
 
-go 1.24.1
+go 1.24.13
 
 require (
 	github.com/gin-gonic/gin v1.9.1

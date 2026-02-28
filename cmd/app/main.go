@@ -3073,7 +3073,6 @@ func generateZabbixReport(url, token string) (string, error) {
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
-	Detalhamento dos Principais Templates
 	html += `<div class='rec-kpis'>`
 	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Zabbix Server - Process/Pollers com AVG alto</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
