@@ -638,6 +638,171 @@ snmpPct = snmpGetWalkCount / snmpTplCount * 100
 
 ---
 
+### Item "Items SNMP-POLLER (Zabbix 7)" — Seção 3 (Items)
+
+#### O que é
+
+Aparece na **Seção 3 — Items** das Recomendações (subitem `3.x)`), **somente** para Zabbix ≥ 7 e quando há pelo menos 1 item SNMP em templates (`snmpTplCount > 0`). Exibe:
+
+- Total de items SNMP em templates (`snmpTplCount`)
+- Quantidade já usando OID `get[]`/`walk[]` — formato do poller assíncrono (`snmpGetWalkCount`)
+- Percentual migrado em relação ao total de items do ambiente
+
+Aponta o colaborador para a subseção **"Templates passíveis para migração para SNMP-POLLER"** para ver os templates específicos que precisam de atenção.
+
+#### Condição de exibição
+
+```
+majorV >= 7  AND  snmpTplCount > 0
+```
+
+#### Chamadas à API
+
+Essas 2 chamadas são **compartilhadas** com o KPI card "Items - SNMP-POLLER" no topo das Recomendações — os valores são coletados uma única vez e reutilizados:
+
+| Chamada | Parâmetros relevantes | Variável Go |
+|---------|-----------------------|-------------|
+| `item.get` | `filter:{type:20}, templated:true, countOutput:true` | `snmpTplCount` |
+| `item.get` | `filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true` | `snmpGetWalkCount` |
+
+> **`type:20`** corresponde ao tipo SNMP no Zabbix. Os OIDs `get[*` e `walk[*` são o padrão do Zabbix 7 para o poller assíncrono; OIDs no formato antigo (ex.: `.1.3.6.1.2.1.1.1.0`) **não** casam com esse filtro.
+
+#### Lógica de exibição no HTML
+
+```go
+if majorV >= 7 && snmpTplCount > 0 {
+    // exibe item 3.x com snmpTplCount, snmpGetWalkCount e pct(snmpGetWalkCount, totalItemsVal)
+    // aponta para a seção "Templates passíveis para migração para SNMP-POLLER"
+}
+```
+
+---
+
+### Subseção "Templates passíveis para migração para SNMP-POLLER" — Seção 5 (Templates)
+
+#### O que é
+
+Aparece ao final da **Seção 5 — Templates** das Recomendações, **somente** para Zabbix ≥ 7 e quando há pelo menos 1 template legado em uso (`len(snmpMigrationTpls) > 0`). Lista alfabeticamente os nomes dos templates que satisfazem **todas** estas condições:
+
+1. Possuem ao menos um item SNMP (`type=20`) em templates
+2. **Ainda não** utilizam OID no formato `get[]` ou `walk[]` (poller assíncrono do Zabbix 7)
+3. Estão **vinculados a pelo menos um host** (realmente em uso no ambiente)
+
+Templates totalmente migrados (onde **todos** os items SNMP já usam `get[]`/`walk[]`) são excluídos automaticamente.
+
+> **Nota:** Um template com **mistura** de OIDs antigos e novos ainda aparece na lista. Somente quando **100% dos items SNMP** usam o formato moderno o template é removido. Isso garante que migrações incompletas também sejam revisadas.
+
+#### Chamadas à API do Zabbix (exclusivas desta subseção)
+
+São **3 chamadas** feitas sequencialmente após os `countOutput` do KPI, **somente** quando `majorV >= 7`:
+
+##### Chamada 1 — Todos os items SNMP em templates (com hostid do template)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid"],
+    "filter": { "type": 20 },
+    "templated": true,
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `selectHosts: ["hostid"]` retorna, em cada item, o campo `hosts` com o `hostid` do template pai.
+- Usado para construir o conjunto de **todos os hostids de templates SNMP** (`allSnmpHostids`).
+
+##### Chamada 2 — Items SNMP que já usam get[]/walk[] (hostid do template)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid"],
+    "filter": { "type": 20 },
+    "search": { "snmp_oid": ["get[*", "walk[*"] },
+    "searchWildcardsEnabled": true,
+    "searchByAny": true,
+    "templated": true,
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `search` + `searchWildcardsEnabled` filtra apenas OIDs que **começam** com `get[` ou `walk[`.
+- Resultado → conjunto `modernHostids` (hostids dos templates que têm ao menos 1 item moderno).
+- A diferença `allSnmpHostids − modernHostids` = `legacyHostSet` (templates com apenas OIDs legados).
+
+##### Chamada 3 — Resolução dos nomes dos templates legados
+
+```json
+{
+  "method": "template.get",
+  "params": {
+    "output": ["templateid", "name"],
+    "templateids": ["<ids do legacyHostSet>"],
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `selectHosts: ["hostid"]` retorna o campo `hosts` por template.
+- Templates com `hosts == []` (sem vínculo com nenhum host) são **descartados** — não aparecem na lista.
+- Os nomes dos templates restantes são ordenados alfabeticamente e armazenados em `snmpMigrationTpls`.
+
+#### Fluxo completo de construção
+
+```
+Chamada 1 → allSnmpHostids   (todos os hostids de templates com items SNMP)
+Chamada 2 → modernHostids    (hostids de templates com ao menos 1 OID get[]/walk[])
+
+legacyHostSet = allSnmpHostids − modernHostids
+
+Chamada 3 → template.get(legacyHostSet)
+              → descarta len(hosts) == 0   (não vinculado a host)
+              → sort.Strings()
+              → snmpMigrationTpls
+```
+
+#### Variável Go resultante
+
+| Variável | Tipo | Conteúdo |
+|----------|------|----------|
+| `snmpMigrationTpls` | `[]string` | Lista ordenada A-Z de nomes de templates legados **em uso** |
+
+#### Condição de exibição no HTML
+
+```go
+if majorV >= 7 && len(snmpMigrationTpls) > 0 {
+    // renderiza h5 com titleWithInfo + <ul> com os nomes dos templates
+}
+```
+
+Se `snmpMigrationTpls` estiver vazio (todos os templates já migrados ou sem ambiente Zabbix 7), a subseção **não aparece** no relatório.
+
+#### Como interpretar a lista
+
+| Situação | Significado |
+|----------|-------------|
+| Subseção não exibida | Todos os templates SNMP em uso já usam `get[]`/`walk[]` — parabéns! |
+| Template aparece na lista | Tem ao menos 1 item SNMP com OID legado **e** está vinculado a ao menos 1 host |
+| KPI verde (≥ 80%) + lista presente | Maioria migrou, mas ainda há templates específicos com resquícios de OIDs antigos |
+| KPI vermelho (< 80%) + lista longa | Ambiente com grande parte dos templates SNMP ainda usando poller síncrono |
+
+#### Como adicionar/remover lógica de detecção
+
+O bloco completo está em `cmd/app/main.go`, logo após os dois `item.get countOutput` do KPI SNMP, dentro do `if majorV >= 7 { ... }`. Para alterar o critério de "legado" (ex.: incluir outro tipo de OID antigo), ajuste o `search.snmp_oid` da **Chamada 2**:
+
+```go
+// Chamada 2 — adicionar novo padrão de OID moderno:
+"search": map[string]interface{}{
+    "snmp_oid": []string{"get[*", "walk[*", "novo_formato[*"},
+},
+```
+
+---
+
 ## Relatórios Salvos (Persistência no Banco de Dados)
 
 ### Visão geral

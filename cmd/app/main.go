@@ -2951,6 +2951,89 @@ func generateZabbixReport(url, token string) (string, error) {
 		}
 	}
 
+// Busca itens SNMP em Templates que AINDA NÃO estão usando OIDs get[]/walk[], para montar a recomencaçao de migração de SNMP para versões mais modernas do Zabbix (que utilizam get[]/walk[] e não dependem do formato antigo de OID). A ideia é identificar quais templates SNMP ainda possuem itens usando o formato antigo (sem get[]/walk[]) e listar esses templates como candidatos à migração, já que eles provavelmente estão utilizando o método de coleta SNMP mais antigo e menos eficiente, para migrar para o poller assincrono.
+// Coletamos seus IDs de host, resolvemos os nomes dos Templates e removemos duplicatas.
+	snmpMigrationTpls := []string{} // sorted list of template names
+	if majorV >= 7 {
+		if respSnmpAll, errSnmpAll := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"output":    []string{"itemid", "hostid"},
+			"filter":    map[string]interface{}{"type": 20},
+			"templated": true,
+			"selectHosts": []string{"hostid"},
+		}); errSnmpAll == nil {
+			if respSnmpGW, errSnmpGW := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+				"output":                []string{"itemid", "hostid"},
+				"filter":                map[string]interface{}{"type": 20},
+				"search":                map[string]interface{}{"snmp_oid": []string{"get[*", "walk[*"}},
+				"searchWildcardsEnabled": true,
+				"searchByAny":           true,
+				"templated":             true,
+				"selectHosts": []string{"hostid"},
+			}); errSnmpGW == nil {
+				// Pesquisa e constrói o conjunto de hostids que já utilizam get[]/walk[]
+				modernHostids := map[string]struct{}{}
+				if rGW, ok := respSnmpGW["result"]; ok {
+					if arr, ok2 := rGW.([]interface{}); ok2 {
+						for _, raw := range arr {
+							if item, ok3 := raw.(map[string]interface{}); ok3 {
+								if hosts, ok4 := item["hosts"].([]interface{}); ok4 {
+									for _, h := range hosts {
+										if hm, ok5 := h.(map[string]interface{}); ok5 {
+											modernHostids[fmt.Sprintf("%v", hm["hostid"])] = struct{}{}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				// Coleta os hostids de TODOS os templates SNMP que possuem pelo menos um item não moderno
+				legacyHostSet := map[string]struct{}{}
+				if rAll, ok := respSnmpAll["result"]; ok {
+					if arr, ok2 := rAll.([]interface{}); ok2 {
+						for _, raw := range arr {
+							if item, ok3 := raw.(map[string]interface{}); ok3 {
+								if hosts, ok4 := item["hosts"].([]interface{}); ok4 {
+									for _, h := range hosts {
+										if hm, ok5 := h.(map[string]interface{}); ok5 {
+											hid := fmt.Sprintf("%v", hm["hostid"])
+											if _, isModern := modernHostids[hid]; !isModern {
+												legacyHostSet[hid] = struct{}{}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				if len(legacyHostSet) > 0 {
+					legacyIds := []string{}
+					for hid := range legacyHostSet { legacyIds = append(legacyIds, hid) }
+					if tplResp, tplErr := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{
+						"output":      []string{"templateid", "name"},
+						"templateids": legacyIds,
+						"selectHosts": []string{"hostid"}, // apenas templates vinculados a pelo menos um host
+					}); tplErr == nil {
+						if rTpl, ok := tplResp["result"]; ok {
+							if arr, ok2 := rTpl.([]interface{}); ok2 {
+								for _, raw := range arr {
+									if tm, ok3 := raw.(map[string]interface{}); ok3 {
+										// Descarta temtlates não utilizados por nenhum host
+										hosts, _ := tm["hosts"].([]interface{})
+										if len(hosts) == 0 { continue }
+										snmpMigrationTpls = append(snmpMigrationTpls, fmt.Sprintf("%v", tm["name"]))
+									}
+								}
+							}
+						}
+					}
+					sort.Strings(snmpMigrationTpls)
+				}
+			}
+		}
+	}
+
 	// --- Recommendations KPI row + lightweight cards (modern layout, anchors scroll to sections) ---
 	// KPI numbers (computed after attention and interval aggregates are available)
 	attentionCount := len(attention)
@@ -3122,16 +3205,19 @@ setTimeout(setupInfoTooltips,50);
 	itemsSub := 0
 	html += nextSec("card-items", "Items")
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items. Lista de itens na aba Items e LLD na opção "Items sem Template"</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente. Lista de itens na aba Items e LLD na opção "Items não suportados"</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento. Lista de itens na aba Items e LLD na opção "Items desabilitados"</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade. Lista de itens na aba Items e LLD na opção "Intervalo de Coleta"</p>`
 	if textCount > 0 {
-		html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente.</p>`
+		html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente. Lista de itens na aba Items e LLD na opção "Items Texto com Historico"</p>`
 	}
 	if majorV >= 7 && snmpTplCount > 0 {
-		tipSnmp := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
-		html += `<p>` + titleWithInfo("strong", nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):"), tipSnmp) + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total.</p>`
+		tipSnmp := htmlpkg.EscapeString("Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato.")
+		snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
+			`<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+			`<span class='info-tooltip'>` + tipSnmp + `</span></span>`
+		html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong>` + snmpIcon + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. Vericar os templates em "Templates passíveis para migração para SNMP-POLLER" na sessão Templates. </p>`
 	}
 	html += `</div>`
 
@@ -3149,7 +3235,7 @@ setTimeout(setupInfoTooltips,50);
 	html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
 	secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
 	html += `<div style='margin-left:6px;'>`
-	html += fmt.Sprintf("<h5>%d.%d) Templates para revisão</h5>", secNum, func() int { tplSub++; return tplSub }())
+	html += fmt.Sprintf("<h5>%d.%d) Templates para revisão - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
 	if len(topTemplates) == 0 {
 		html += `<p>Nenhum template problemático identificado.</p>`
 	} else {
@@ -3164,7 +3250,7 @@ setTimeout(setupInfoTooltips,50);
 		}
 		html += `</ul>`
 	}
-	html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns</h5>", secNum, func() int { tplSub++; return tplSub }())
+	html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
 	if len(topErrors) == 0 {
 		html += `<p>Nenhum erro identificado.</p>`
 	} else {
@@ -3180,6 +3266,15 @@ setTimeout(setupInfoTooltips,50);
 			if tplName == "" { tplName = tplId }
 			html += `<li>` + htmlpkg.EscapeString(errMsg) + ` - ` + htmlpkg.EscapeString(tplName) + `</li>`
 			cnt2++
+		}
+		html += `</ul>`
+	}
+	if majorV >= 7 && len(snmpMigrationTpls) > 0 {
+		tipSnmpMig := "Templates que possuem items SNMP ainda utilizando OID no formato antigo (sem get[] ou walk[]). Esses items usam o poller síncrono padrão. Migrar para o formato get[]/walk[] permite que o Zabbix 7 utilize o 'SNMP Poller' assíncrono, melhorando a performance de coleta em ambientes com muitos checks SNMP."
+		html += titleWithInfo("h5", fmt.Sprintf("%d.%d) Templates passíveis para migração para SNMP-POLLER", secNum, func() int { tplSub++; return tplSub }()), tipSnmpMig)
+		html += `<ul>`
+		for _, name := range snmpMigrationTpls {
+			html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
 		}
 		html += `</ul>`
 	}
