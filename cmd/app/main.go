@@ -664,7 +664,7 @@ func getProcessItemsBulkByHostids(apiUrl, token string, names []string, hostids 
 //	value_max → maior de todos os value_max
 //
 // Retorna map[itemid] → {"value_min", "value_avg", "value_max"} como strings.
-// Itens sem dados no período não aparecem no mapa (use esse ausência como
+// Items sem dados no período não aparecem no mapa (use esse ausência como
 // sinal para acionar o fallback getHistoryStatsBulkByType).
 //
 // O intervalo de tempo é controlado por checkTrendDurationSeconds (CHECKTRENDTIME).
@@ -864,7 +864,7 @@ func getProxies(apiUrl, token string) ([]map[string]interface{}, error) {
 }
 
 func generateZabbixReport(url, token string) (string, error) {
-		nItensNaoSuportados := "-"
+		nItemsNaoSuportados := "-"
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
 	apiUrl := url
 	// compute frontend base URL (ambienteUrl) early so links can be built
@@ -916,7 +916,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"countOutput": true,
 	})
 	if err == nil {
-		nItensNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
+		nItemsNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
 	// get Usuários
 	if progressCb != nil { progressCb("Coletando informações de Usuários...") }
@@ -1005,8 +1005,8 @@ func generateZabbixReport(url, token string) (string, error) {
 		templatesCount = fmt.Sprintf("%v", templatesCountResp["result"])
 	}
 
-	// get total de itens
-	if progressCb != nil { progressCb("Coletando informações de Itens...") }
+	// get total de items
+	if progressCb != nil { progressCb("Coletando informações de Items...") }
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
 	nItemsDisabled := "-"	
@@ -1041,8 +1041,8 @@ func generateZabbixReport(url, token string) (string, error) {
 		nItemsDisabled = fmt.Sprintf("%v", itemsDisabledResp["result"])
 	}
 
-	// get em Itens não suportados por host ID
-	if progressCb != nil { progressCb("Coletando itens não suportados...") }
+	// get em Items não suportados por host ID
+	if progressCb != nil { progressCb("Coletando items não suportados...") }
 	itemsResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": []string{"itemid","name","templateid","error","key_"},
 		"filter": map[string]interface{}{ "state": 1 },
@@ -1180,10 +1180,10 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Descrições (textos exibidos nas view-boxes)
 	descTemplates := "Revise os templates com maior número de itens problemáticos. Verifique se estão atualizados, compatíveis com a versão do Zabbix e se os itens monitorados ainda fazem sentido para o ambiente. Considere simplificar ou dividir templates muito grandes."
 	descHosts := "Analise os hosts com mais erros. Verifique conectividade, permissões, agentes instalados e se o host está ativo. Corrija configurações específicas ou remova hosts obsoletos do monitoramento."
-	descItens := "Itens recorrentes podem indicar falhas de configuração, incompatibilidade ou ausência de recursos no host. Revise a chave do item, parâmetros, dependências externas (scripts, drivers, diretórios) e ajuste o template conforme necessário."
+	descItems := "Items recorrentes podem indicar falhas de configuração, incompatibilidade ou ausência de recursos no host. Revise a chave do item, parâmetros, dependências externas (scripts, drivers, diretórios) e ajuste o template conforme necessário."
 	descErros := "Para cada tipo de erro, consulte a documentação do Zabbix e do sistema operacional/serviço monitorado. Corrija chaves inválidas, permissões, dependências, drivers ou scripts ausentes. Ajuste preprocessamento e tipos de dados conforme o erro apresentado. Para itens SNMP, verifique se o firmware do equipamento está atualizado, valide o OID utilizado e confirme se a comunidade SNMP está correta e configurada no dispositivo."
 	descDetalhamento := "Analise cada item e erro detalhado. Acesse o link para editar o item diretamente no Zabbix, revise a configuração, ajuste parâmetros e valide se o item é realmente necessário."
-	descNaoSuportados := "Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta houve um erro. Esses itens continuam consumindo os processos do Zabbix desnecessariamente. Clique no link e analise caso a caso para correção. Itens que não são mais necessários devem ser removidos para otimizar o desempenho do Zabbix."
+	descNaoSuportados := "Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta houve um erro. Esses itens continuam consumindo os processos do Zabbix desnecessariamente. Clique no link e analise caso a caso para correção. Items que não são mais necessários devem ser removidos para otimizar o desempenho do Zabbix."
 
 	// --- HTML moderno ---
 	html := `<div class='zabbix-report-modern'>`
@@ -1240,7 +1240,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<button class='tab-btn' data-tab='tab-proxys'>Zabbix Proxys</button>`
 	html += `<button class='tab-btn' data-tab='tab-items'>Items e LLDs</button>`
 	html += `<button class='tab-btn' data-tab='tab-templates'>Templates</button>`
-	html += `<button class='tab-btn' data-tab='tab-top'>Top Hosts/Templates/Itens</button>`	
+	html += `<button class='tab-btn' data-tab='tab-top'>Top Hosts/Templates/Items</button>`	
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes'>Recomendações</button>`
 	html += `</div>`
 
@@ -1252,8 +1252,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<tr><td>Número de hosts (habilitados/desabilitados)</td><td>` + fmt.Sprintf("%d", nTotalHosts) + `</td><td>` + fmt.Sprintf("%d / %d", nEnabledHosts, nDisabledHosts) + `</td></tr>`
 	// Templates
 	html += `<tr><td>Número de templates</td><td>` + templatesCount + `</td><td></td></tr>`
-	// Itens
-	html += `<tr><td>Número de itens (habilitados/desabilitados/não suportados)</td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItensNaoSuportados + `</td></tr>`
+	// Items
+	html += `<tr><td>Número de items (habilitados/desabilitados/não suportados)</td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItemsNaoSuportados + `</td></tr>`
 	// Proxys
 	if progressCb != nil { progressCb("Coletando informações de Proxys...") }
 	proxyCount := 0
@@ -1325,8 +1325,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	if nItemsTotal != "-" {
 		if v, err := strconv.Atoi(strings.TrimSpace(nItemsTotal)); err == nil { totalItemsVal = v }
 	}
-	if nItensNaoSuportados != "-" {
-		if v, err := strconv.Atoi(strings.TrimSpace(nItensNaoSuportados)); err == nil { unsupportedVal = v }
+	if nItemsNaoSuportados != "-" {
+		if v, err := strconv.Atoi(strings.TrimSpace(nItemsNaoSuportados)); err == nil { unsupportedVal = v }
 	}
 	if totalItemsVal < 0 { totalItemsVal = 0 }
 	if unsupportedVal < 0 { unsupportedVal = 0 }
@@ -1349,7 +1349,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>`
 	// Items gauge (right)
 	html += `<div class='card' style='background:#fff;color:#222;padding:12px;border-radius:8px;min-width:220px;box-shadow:0 1px 6px rgba(0,0,0,0.04);'>`
-	html += `<h4 style='margin:0 0 8px 0;'>Itens: Não Suportados</h4>`
+	html += `<h4 style='margin:0 0 8px 0;'>Items: Não Suportados</h4>`
 	html += `<canvas id='items-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='Não suportados' data-supported-label='Suportados' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
 	// legend lines for items
 	itemsUnsupportedPct := 0.0
@@ -1895,7 +1895,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	// show all proxies in the details list, with Status column based on state
 	if len(proxies) > 0 {
 		html += `<h4>Proxys</h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Itens</th><th>Items não suportados</th><th>Queue-10m</th><th>Status</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Items</th><th>Items não suportados</th><th>Queue-10m</th><th>Status</th></tr></thead><tbody>`
 			// parallelize per-proxy item calls to improve throughput
 			type proxyRow struct{ idx int; html string }
 			resultsP := make(chan proxyRow, len(proxies))
@@ -2340,11 +2340,11 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	html += `</div>` // end tab-proxys
 
-	// --- Items tab (Itens não suportados + Intervalo de Coleta) ---
-	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Itens não suportados...") }
+	// --- Items tab (Items não suportados + Intervalo de Coleta) ---
+	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Items não suportados...") }
 	html += `<div id='tab-items' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title'>Items e LLDs</h2>`
-	// --- Itens não suportados (nova categoria) ---
+	// --- Items não suportados (nova categoria) ---
 	// Choose the frontend path depending on Zabbix major version (>=7 use zabbix.php, older use items.php)
 	itemsPath := ""
 	if majorV >= 7 {
@@ -2387,13 +2387,13 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += titleWithInfo("h3", "Items sem Template", "Item sem template não afeta performance de Processos do Zabbix, porem para melhor organização é importante um item ter template e não ser criado a nivel de Host.")
 	if itemsNoTplCount > 0 {
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Descrição</th><th>Quantidade</th><th>Link</th></tr></thead><tbody>`
-		html += `<tr><td>Itens sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank'>Abrir</a></td></tr>`
+		html += `<tr><td>Items sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank'>Abrir</a></td></tr>`
 		html += `</tbody></table></div>`
 	} else {
 		html += ``
 	}
 
-	html += titleWithInfo("h3", "Itens não suportados", "Como corrigir: " + descNaoSuportados)
+	html += titleWithInfo("h3", "Items não suportados", "Como corrigir: " + descNaoSuportados)
 	// (legend use .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Tipo de Item</th><th>Total</th><th>Não suportados</th><th>Link</th></tr></thead><tbody>`
 
@@ -2670,7 +2670,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Items Texto com Histórico ---
 	// Busca items do tipo Texto (value_type = 4) com intervalo de coleta menor ou igual a 300s
-	html += titleWithInfo("h3", "Items Texto com Historico", "Itens do tipo Texto, tem um custo elevado espaço em disco em Banco de Dados, com intervalo de checagem baixo, há muita retenção de informação. Esta coleta verifica items do tipo Texto, com History(1h, 1d, 7d ou 31d) e Intervalo de Coleta menor que 5m (não há validade de preprocessamento).")
+	html += titleWithInfo("h3", "Items Texto com Historico", "Items do tipo Texto, tem um custo elevado espaço em disco em Banco de Dados, com intervalo de checagem baixo, há muita retenção de informação. Esta coleta verifica items do tipo Texto, com History(1h, 1d, 7d ou 31d) e Intervalo de Coleta menor que 5m (não há validade de preprocessamento).")
 
 	// request host linkage for items so we can fetch templates in one call
 	paramsTextItems := map[string]interface{}{
@@ -2825,9 +2825,9 @@ func generateZabbixReport(url, token string) (string, error) {
 	// close templates tab and main container
 	html += `</div>` // end tab-templates
 
-	// --- Top Templates/Itens tab ---
+	// --- Top Templates/Items tab ---
 	html += `<div id='tab-top' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Top Hosts/Templates/Itens</h2>`
+	html += `<h2 class='tab-print-title'>Top Hosts/Templates/Items</h2>`
 	// Top Templates Ofensores
 	html += titleWithInfo("h3", "Top Templates Ofensores", "Como corrigir: " + descTemplates)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
@@ -2858,8 +2858,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 	html += `</tbody></table></div>`
 
-	// Top Itens Problemáticos
-	html += titleWithInfo("h3", "Top Itens Problemáticos", "Como corrigir: " + descItens)
+	// Top Items Problemáticos
+	html += titleWithInfo("h3", "Top Items Problemáticos", "Como corrigir: " + descItems)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
 	for _, item := range topItems {
 		parts := strings.SplitN(item.Key, "|", 2)
@@ -2995,14 +2995,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Process/Pollers com AVG alto</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
 	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
-	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Itens não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Itens Não Suportados</div></div>`
+	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Items não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Items Não Suportados</div></div>`
 	// show SNMP KPI only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		kclass := "kpi-crit"
 		if snmpPct >= 80.0 { kclass = "kpi-ok" }
 		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
 	}
-	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Itens Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Itens Texto c/ Histórico</div></div>`
+	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Items Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Items Texto c/ Histórico</div></div>`
 	html += `</div>`	
 
 	html += `<script>
@@ -3122,12 +3122,12 @@ setTimeout(setupInfoTooltips,50);
 	itemsSub := 0
 	html += nextSec("card-items", "Items")
 	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Itens sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` itens sem template. Validar a necessidade de criação de template para estes itens; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos itens.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Itens não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` itens não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São itens ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Itens desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` itens desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento.</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Itens com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` itens com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento.</p>`
+	html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade.</p>`
 	if textCount > 0 {
-		html += `<p><strong>` + nextSub(&itemsSub, "Itens Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` itens do tipo Texto com retenção de histórico e intervalo ≤ 300s. Itens de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente.</p>`
+		html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente.</p>`
 	}
 	if majorV >= 7 && snmpTplCount > 0 {
 		tipSnmp := "Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato."
