@@ -603,31 +603,43 @@ Sugestões automáticas geradas com base em todos os dados coletados. Organizada
 
 ### KPI cards
 
-| KPI | Cor | Dado |
-|-----|-----|------|
-| Process/Pollers com AVG alto | Amarelo | `len(attention)` — processos com avg ≥ 50% |
-| Proxys Offline | Vermelho | `offline` |
-| Proxys Unknown | Neutro | `unknown` |
-| Itens Não Suportados | Vermelho | `unsupportedVal` |
-| Items SNMP-POLLER (%) | Verde/Vermelho | `snmpGetWalkCount / snmpTplCount * 100` (só Zabbix 7) |
-| Itens Texto c/ Histórico | Amarelo | `textCount` |
+Os KPIs são exibidos em uma faixa horizontal no topo da guia Recomendações. Cada card é **clicável** e rola a página até a seção correspondente. A ordem de exibição é sempre a mesma:
+
+| # | Label | Cor | Variável Go | Clique leva para | Condição de exibição |
+|---|-------|-----|-------------|-----------------|----------------------|
+| 1 | Zabbix Server - Process/Pollers com AVG alto | 🟡 Amarelo (`kpi-warn`) | `attentionCount` = `len(attention)` | Seção Zabbix Server | Sempre |
+| 2 | Proxys Offline | 🔴 Vermelho (`kpi-crit`) | `proxyOfflineCount` | Seção Zabbix Proxys | Sempre |
+| 3 | Proxys Unknown | ⚪ Neutro | `proxyUnknownCount` | Seção Zabbix Proxys | Sempre |
+| 4 | Proxys - Process/Pollers com AVG alto | 🟢 Verde / 🟡 Amarelo | `len(proxyProcAttnList)` | Seção Zabbix Proxys | Sempre |
+| 5 | Items Não Suportados | 🔴 Vermelho (`kpi-crit`) | `unsupportedCount` | Seção Items | Sempre |
+| 6 | Templates SNMP p/ Poller Assíncrono | 🟢 Verde / 🟡 Amarelo | `len(snmpMigrationTpls)` | Seção Templates | **Zabbix ≥ 7 apenas** |
+| 7 | Items - SNMP-POLLER | 🟢 Verde / 🔴 Vermelho | `snmpPct` (%) | Seção Items | **Zabbix ≥ 7 apenas** |
+| 8 | Items Texto c/ Histórico | 🟡 Amarelo (`kpi-warn`) | `textItemsCount` | Seção Items | Sempre |
+
+### Lógica de cor dos KPIs
+
+| KPI | Condição | Classe CSS | Borda |
+|-----|----------|------------|-------|
+| Zabbix Server - Process/Pollers | sempre amarelo | `kpi-warn` | amarelo `#ffcc00` |
+| Proxys Offline | sempre vermelho | `kpi-crit` | vermelho `#ff6666` |
+| Proxys Unknown | sempre neutro | _(sem classe)_ | cinza |
+| Proxys - Process/Pollers | `len(proxyProcAttnList) == 0` → verde; `> 0` → amarelo | `kpi-ok` / `kpi-warn` | verde / amarelo |
+| Items Não Suportados | sempre vermelho | `kpi-crit` | vermelho `#ff6666` |
+| Templates SNMP p/ Poller Assíncrono | `len(snmpMigrationTpls) == 0` → verde; `> 0` → amarelo | `kpi-ok` / `kpi-warn` | verde / amarelo |
+| Items - SNMP-POLLER (%) | `snmpPct >= 80%` → verde; `< 80%` → vermelho | `kpi-ok` / `kpi-crit` | verde / vermelho |
+| Items Texto c/ Histórico | sempre amarelo | `kpi-warn` | amarelo `#ffcc00` |
+
+> **Referência de limiar:** processos do **Zabbix Server** em atenção usam avg ≥ 50% (variável `attention`); processos dos **Proxys** usam avg ≥ 60% (variável `proxyProcAttnList`).
 
 ### Chamadas à API do Zabbix (exclusivas desta guia)
 
-Apenas para Zabbix ≥ 7, dois `item.get` para o KPI de SNMP:
+Apenas para Zabbix ≥ 7, dois `item.get` para os KPIs de SNMP (compartilhados com o item "3.x) Items SNMP-POLLER" na Seção Items e com a subseção "Templates passíveis para migração para SNMP-POLLER"):
 
-| Chamada | Parâmetros relevantes | Dado extraído |
-|---------|-----------------------|---------------|
-| `item.get` | `filter:{type:20}, templated:true, countOutput:true` | Total de items SNMP em templates |
-| `item.get` | `filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true` | Items SNMP usando OID get[] ou walk[] (poller assíncrono) |
-
-### Lógica do KPI SNMP
-
-```
-snmpPct = snmpGetWalkCount / snmpTplCount * 100
-≥ 80% → kpi-ok (verde)   — maioria já usa poller assíncrono
-< 80% → kpi-crit (vermelho) — muitos items SNMP ainda usam OID antigo
-```
+| Chamada | Parâmetros relevantes | Variável Go preenchida |
+|---------|-----------------------|------------------------|
+| `item.get` | `filter:{type:20}, templated:true, countOutput:true` | `snmpTplCount` |
+| `item.get` | `filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true` | `snmpGetWalkCount` |
+| `item.get` ×2 + `template.get` | _(ver subseção "Templates passíveis para migração")_ | `snmpMigrationTpls` |
 
 ### Funções auxiliares usadas
 
@@ -635,6 +647,18 @@ snmpPct = snmpGetWalkCount / snmpTplCount * 100
 |--------|-----------|
 | `pct(part, total int) string` | Formata percentual `"0.00%"`; retorna `"0%"` se total=0 |
 | `titleWithInfo(tag, title, tip string) string` | Gera heading HTML com ícone `?` e tooltip |
+
+### Como adicionar um novo KPI
+
+1. **Calcule o dado** antes do bloco `html += "<div class='rec-kpis'>"` em `cmd/app/main.go`.
+2. **Defina a classe CSS** (`kpi-ok`, `kpi-warn`, `kpi-crit` ou vazio para neutro) com base no valor.
+3. **Insira o `<div>`** na posição desejada dentro do bloco `rec-kpis`, seguindo o padrão:
+```go
+html += `<div class='kpi ` + classe + `' data-target='#card-<seção>' title='<tooltip>'>`+
+    `<div class='kpi-num'>` + valor + `</div>`+
+    `<div class='kpi-label'>Label do KPI</div></div>`
+```
+4. O clique para rolar até a seção é gerenciado automaticamente pelo JavaScript inline logo após o bloco `rec-kpis` — **nenhuma alteração de JS é necessária**.
 
 ---
 

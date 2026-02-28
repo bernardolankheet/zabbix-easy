@@ -2808,7 +2808,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div id='tab-templates' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title'>Templates</h2>`
 	// Detalhamento dos Principais Templates
-	html += titleWithInfo("h3", "Detalhamento dos Principais Templates", descDetalhamento)
+	html += titleWithInfo("h3", "Erros mais comuns dos Principais Templates Ofendores", descDetalhamento)
 		// legend moved into tooltip via titleWithInfo
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
@@ -3073,11 +3073,15 @@ func generateZabbixReport(url, token string) (string, error) {
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
-	
+	Detalhamento dos Principais Templates
 	html += `<div class='rec-kpis'>`
-	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Process/Pollers com AVG alto</div></div>`
+	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Zabbix Server - Process/Pollers com AVG alto</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
 	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
+	// KPI: processos dos proxys com AVG alto (≥ 60%)
+	proxyAttnClass := "kpi-ok"
+	if len(proxyProcAttnList) > 0 { proxyAttnClass = "kpi-warn" }
+	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' title='Proxys - Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label'>Proxys - Process/Pollers com AVG alto</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Items não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Items Não Suportados</div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
