@@ -3079,8 +3079,13 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
 	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
 	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Items não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Items Não Suportados</div></div>`
-	// show SNMP KPI only for Zabbix 7 (we computed counts earlier)
+	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
+		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
+		migClass := "kpi-ok"
+		if len(snmpMigrationTpls) > 0 { migClass = "kpi-warn" }
+		html += `<div class='kpi ` + migClass + `' data-target='#card-templates' title='Templates SNMP para Poller Assíncrono'><div class='kpi-num'>` + fmt.Sprintf("%d", len(snmpMigrationTpls)) + `</div><div class='kpi-label'>Templates SNMP p/ Poller Assíncrono</div></div>`
+		// KPI: Percentual de items SNMP em templates já usando get[]/walk[]
 		kclass := "kpi-crit"
 		if snmpPct >= 80.0 { kclass = "kpi-ok" }
 		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
