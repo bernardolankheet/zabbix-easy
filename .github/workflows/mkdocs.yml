@@ -4,17 +4,33 @@ on:
   push:
     branches: [ dev ]
 
+#Isso é para ter permissão de escrita para o mkdocs gh-deploy fazer push no gh-pages
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
         with:
-          python-version: '3.x'
+          fetch-depth: 0   # é necessario para o o gh-deploy comparar histórico e fazer o push corretamente
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install dependencies
         run: |
-          pip install mkdocs mkdocs-material
+          pip install "mkdocs==1.6.1" "mkdocs-material==9.5.50"
+
+      - name: Configure git para deploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Build and Deploy
         run: |
           mkdocs gh-deploy --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
