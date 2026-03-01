@@ -306,6 +306,20 @@ function checkProgress(taskId, progress) {
         });
 }
 
+// Ao carregar a página, verifica se o banco está configurado.
+// Se DB_HOST não estiver definido no servidor, o card "Relatórios Salvos" é ocultado automaticamente.
+(function checkDbStatus() {
+    fetch('/api/db-status')
+        .then(res => res.json())
+        .then(data => {
+            if (!data.db_enabled) {
+                var dbControls = document.querySelector('.db-controls');
+                if (dbControls) dbControls.style.display = 'none';
+            }
+        })
+        .catch(function() { /* ignora erro — mantém card visível como fallback seguro */ });
+})();
+
 // Load list of reports from server DB and populate selector
 document.getElementById('btn-load-db').addEventListener('click', function() {
     fetch('/api/reports')

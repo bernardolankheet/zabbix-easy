@@ -3500,10 +3500,15 @@ func main() {
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
 				})
 
+				// db-status: informa ao frontend se o banco está configurado
+				r.GET("/api/db-status", func(c *gin.Context) {
+					c.JSON(http.StatusOK, gin.H{"db_enabled": db != nil})
+				})
+
 				// list reports stored in DB (most recent first)
 				r.GET("/api/reports", func(c *gin.Context) {
 					if db == nil {
-						c.JSON(http.StatusOK, gin.H{"reports": []interface{}{}})
+						c.JSON(http.StatusOK, gin.H{"db_enabled": false, "reports": []interface{}{}})
 						return
 					}
 					limit := 20
@@ -3522,7 +3527,7 @@ func main() {
 							out = append(out, map[string]interface{}{"id": id, "name": name, "format": format, "zabbix_url": zurl, "created_at": created})
 						}
 					}
-					c.JSON(http.StatusOK, gin.H{"reports": out})
+					c.JSON(http.StatusOK, gin.H{"db_enabled": true, "reports": out})
 				})
 
 // fetch report content from DB by id
