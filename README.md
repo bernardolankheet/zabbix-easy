@@ -11,10 +11,8 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
 
 ## Como funciona
 1. O usuário informa a URL/token do Zabbix via Web UI
-2. O backend Go envia tarefas de coleta para o RabbitMQ
-3. Workers Go processam as tarefas, coletam dados do Zabbix e armazenam no Postgres
+2. Workers Go processam as tarefas, coletam dados do Zabbix e armazenam no Postgres
 4. Após a coleta, o relatório é gerado e exibido na interface
-
 
 ## Funcionalidades:
 ✅ Coleta de dados do Zabbix via API;
@@ -36,21 +34,21 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
 ✅ Links para integração com o Frontend do Zabbix, filtrando informações especificas;
 ✅ Paralelização de coleta e processamento para otimização de chamadas à API do Zabbix, melhorando significativamente peformance;
 ✅ Exportação HTML e PDF;
+✅ Banco de dados Postgres para armazenamento de dados, por enquanto somente html armazenado;
+✅ Trends dos Pollers Proxys para analise de comportamento e performance do ambiente;
+✅ Banco de Dados para armazenamento de relatórios (no momento só armazena os HTML), permitindo comparação e histórico de análises anteriores;
 ✅ Recomendação de ações corretivas;
     - Processos e Threads do Zabbix Server (recomendação para habilitar conforme a versão do Zabbix, exemplo habilitar snmp poller no Zabbix 7);
     - Sugestões de correções em Items e Templates;
     -Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
 
 Proximas Funcionalidades:
-⬜ Banco de dados Postgres para armazenamento de dados, garantindo performance e escalabilidade;
 ⬜ Botão de refresh para atualizar o relatório ou consulta específica sem precisar reiniciar a coleta;
-⬜ imagem do fluxo de processos do zabbix;
-⬜ trends dos Pollers Proxys;
+⬜ Imagem do fluxo de processos do zabbix;
 ⬜ Preprocessamento de item texto com discardunchanged - https://www.zabbix.com/documentation/current/en/manual/api/reference/item/get#retrieving-items-with-preprocessing-rules;
-
+⬜ Melhoria no Banco de Dados para armazenar os dados coletados, permitindo análises mais avançadas e customizadas, além de comparação entre relatórios;
 
 ## Observações
-- Os dados no atualmente são temporários, não há retencao de dados ou cache, usados apenas para geração do relatório
-- O sistema é escalável e pronto para ambientes com grande volume de dados
-
+- Os dados no atualmente podem ser armazenados apenas em HTML;
+- O sistema é escalável e pronto para ambientes com grande volume de dados.
 ---

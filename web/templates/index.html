@@ -23,6 +23,35 @@
                 </span>
             </div>
             <button type="submit">Gerar Relatório</button>
+            <div class="db-controls">
+                <div class="db-controls-header">
+                    <span class="db-controls-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                        Relatórios Salvos
+                    </span>
+                    <button type="button" id="btn-load-db" class="db-btn db-btn-secondary" title="Recarregar lista do banco">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Carregar lista
+                    </button>
+                </div>
+                <div class="db-controls-row">
+                    <select id="reportSelect" class="db-select"><option value="">-- nenhum relatório carregado --</option></select>
+                    <div class="db-actions">
+                        <button type="button" id="btn-open-db" class="db-btn db-btn-primary" title="Abrir relatório selecionado">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            Abrir
+                        </button>
+                        <button type="button" id="btn-delete-db" class="db-btn db-btn-danger" title="Excluir relatório selecionado">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            Excluir
+                        </button>
+                        <button type="button" id="btn-delete-all-db" class="db-btn db-btn-danger-ghost" title="Excluir todos os relatórios do banco">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            Excluir Todos
+                        </button>
+                    </div>
+                </div>
+            </div>
         </form>
         <div id="progress-bar" class="progress-bar" style="display:none;">
             <div class="progress"></div>

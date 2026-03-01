@@ -83,6 +83,92 @@ label {
     background: #1a6dc2;
 }
 
+/* ---- DB Controls card ---- */
+.db-controls {
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+.db-controls-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.db-controls-title {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.db-controls-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.db-select {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.92em;
+    background: #fff;
+    color: #334155;
+    height: 36px;
+    box-sizing: border-box;
+}
+.db-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.db-btn {
+    margin-top: 0 !important;
+    width: auto !important;
+    padding: 7px 13px !important;
+    font-size: 0.88em !important;
+    border-radius: 6px !important;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 36px;
+    box-sizing: border-box;
+    font-weight: 500;
+}
+.db-btn-secondary {
+    background: #e2e8f0;
+    color: #334155;
+}
+.db-btn-secondary:hover { background: #cbd5e1; }
+.db-btn-primary {
+    background: #2d8cf0;
+    color: #fff;
+}
+.db-btn-primary:hover { background: #1a6dc2; }
+.db-btn-danger {
+    background: #e53e3e;
+    color: #fff;
+}
+.db-btn-danger:hover { background: #c53030; }
+.db-btn-danger-ghost {
+    background: #fff1f0;
+    color: #c53030;
+    border: 1px solid #fca5a5 !important;
+}
+.db-btn-danger-ghost:hover { background: #fee2e2; }
+
 .progress-bar {
     margin: 30px 0 0 0;
     width: 100%;
@@ -561,7 +647,171 @@ label {
     }
 }
 
+/* ─── Paginação das tabelas ─── */
+.dt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 2px;
+    margin-bottom: 2px;
+}
+
+.dt-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 180px;
+    max-width: 300px;
+}
+
+.dt-search svg {
+    position: absolute;
+    left: 9px;
+    color: #9ab0bf;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.dt-search-input {
+    width: 100%;
+    padding: 6px 10px 6px 30px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    font-size: 0.875em;
+    background: #f7fafd;
+    color: #2d3e50;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+
+.dt-search-input::placeholder { color: #b0bec5; }
+
+.dt-search-input:focus {
+    border-color: #2d8cf0;
+    box-shadow: 0 0 0 3px rgba(45,140,240,0.1);
+    background: #fff;
+}
+
+.dt-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dt-info {
+    font-size: 0.82em;
+    color: #8a9daa;
+    white-space: nowrap;
+}
+
+.dt-page-size {
+    padding: 5px 8px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    font-size: 0.85em;
+    background: #f7fafd;
+    color: #2d3e50;
+    cursor: pointer;
+    outline: none;
+}
+
+.dt-page-size:focus {
+    border-color: #2d8cf0;
+    box-shadow: 0 0 0 3px rgba(45,140,240,0.1);
+}
+
+.dt-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.dt-sortable:hover { background: #e8f2fb !important; }
+
+.dt-sort-icon {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 0.75em;
+    color: #b0bec5;
+    vertical-align: middle;
+    transition: color 0.12s;
+}
+
+.dt-sort-asc .dt-sort-icon,
+.dt-sort-desc .dt-sort-icon { color: #2d8cf0; }
+
+.dt-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 2px 2px;
+}
+
+.dt-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 7px;
+    border: 1px solid #d4e1eb;
+    border-radius: 6px;
+    background: #fff;
+    color: #2d3e50;
+    font-size: 0.84em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    line-height: 1;
+}
+
+.dt-btn:hover:not(:disabled):not(.active) {
+    background: #eaf3fb;
+    border-color: #2d8cf0;
+    color: #2d8cf0;
+}
+
+.dt-btn.active {
+    background: #2d8cf0;
+    border-color: #2d8cf0;
+    color: #fff;
+    cursor: default;
+    font-weight: 700;
+}
+
+.dt-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.dt-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 30px;
+    color: #9ab0bf;
+    font-size: 0.9em;
+}
+
+.dt-no-results {
+    text-align: center;
+    color: #9ab0bf;
+    font-size: 0.9em;
+    padding: 20px;
+    font-style: italic;
+}
+
 /* Print Styles */
+.tab-print-title {
+    display: none;
+}
+
 @media print {
     html, body {
         background: #fff;
@@ -603,6 +853,36 @@ label {
     }
     .action-group, .frame-actions {
         display: none !important;
+    }
+    .dt-toolbar, .dt-pagination {
+        display: none !important;
+    }
+    .dt-sort-icon {
+        display: none !important;
+    }
+    .modern-table[data-dt-enhanced] tbody tr {
+        display: table-row !important;
+    }
+    /* Each tab section starts on a new page — target all tab-panels except the first */
+    .tab-panel + .tab-panel {
+        page-break-before: always;
+        break-before: page;
+    }
+    /* Prevent table rows from being split across pages */
+    .modern-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .tab-print-title {
+        display: block !important;
+        font-size: 18px;
+        font-weight: 700;
+        color: #102a43;
+        border-bottom: 2px solid #0b69d6;
+        padding-bottom: 6px;
+        margin: 0 0 14px 0;
+        page-break-after: avoid;
+        break-after: avoid;
     }
     .report-layout-cols {
         display: block !important;
