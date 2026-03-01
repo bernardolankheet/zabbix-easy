@@ -833,7 +833,14 @@ O bloco completo está em `cmd/app/main.go`, logo após os dois `item.get countO
 
 Toda vez que um relatório é gerado com sucesso, ele é **salvo automaticamente** no PostgreSQL — sem nenhuma ação extra do usuário. Isso permite acessar relatórios anteriores a qualquer momento, mesmo após reiniciar a aplicação.
 
-> **Pré-requisito:** A variável de ambiente `DB_HOST` deve estar configurada (veja o `docker-compose.yml`). Se não estiver, os relatórios só ficam disponíveis na sessão atual (in-memory) e se perdem ao reiniciar.
+> **O banco de dados é opcional.** O app funciona normalmente sem PostgreSQL — os relatórios ficam disponíveis apenas na sessão atual (in-memory) e se perdem ao reiniciar o container.
+>
+> Para habilitar a persistência, defina `DB_HOST` (e opcionalmente as demais variáveis `DB_*`) e suba o serviço `postgres` com o profile `db` (veja detalhes em [docker.md](docker.md)).
+
+Quando `DB_HOST` **não** está configurada:
+- O card **Relatórios Salvos** é **ocultado automaticamente** na interface web
+- Os endpoints `/api/reports`, `/api/reportdb/:id` e `DELETE /api/reports` retornam `db_enabled: false` ou `404`
+- Nenhum erro é exibido ao usuário — o app simplesmente opera sem banco
 
 ---
 
@@ -892,15 +899,20 @@ Se o banco não estiver disponível, o relatório ainda é exibido na tela norma
 | `DB_PASSWORD` | `postgres` | Senha do banco. |
 | `DB_NAME`   | `zabbix_report` | Nome do banco de dados. |
 
-Exemplo no `docker-compose.yml`:
+Exemplo no `docker-compose.yml` (as variáveis ficam **comentadas por padrão**; descomente para ativar):
 ```yaml
 environment:
-  - DB_HOST=postgres
-  - DB_PORT=5432
-  - DB_USER=postgres
-  - DB_PASSWORD=postgres
-  - DB_NAME=zabbix_report
+  # Descomente para habilitar persistência de relatórios no PostgreSQL:
+  #- DB_HOST=postgres
+  #- DB_PORT=5432
+  #- DB_USER=postgres
+  #- DB_PASSWORD=postgres
+  #- DB_NAME=zabbix_report
 ```
+
+> **Como subir com banco:** `docker compose --profile db up --build -d`
+> O profile `db` é necessário porque o serviço `postgres` só é iniciado quando explicitamente solicitado.
+> O `go-app` **não** depende do postgres no `depends_on` — se o banco não estiver disponível, o app sobe normalmente sem persistência.
 
 ---
 
@@ -927,16 +939,17 @@ CREATE TABLE reports (
 
 Para integrações externas ou automações, os endpoints disponíveis são:
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `POST /api/start` | POST | Inicia geração; corpo `{"zabbix_url":"...","zabbix_token":"..."}` → retorna `{"task_id":"..."}` |
-| `GET /api/progress/:id` | GET | Polling do status da tarefa → `{"status":"done\|running\|error","progress_msg":"..."}` |
-| `GET /api/report/:id` | GET | Retorna o HTML do relatório da sessão atual (in-memory, perde ao reiniciar) |
-| `GET /api/reports` | GET | Lista os últimos 20 relatórios salvos no banco → `{"reports":[{"id":1,"name":"...","zabbix_url":"...","created_at":"..."},...]}` |
-| `GET /api/reportdb/:id` | GET | Retorna o relatório salvo como documento HTML completo (para abrir no browser diretamente) |
-| `GET /api/reportdb/:id?raw=1` | GET | Retorna apenas o fragment HTML interno (usado pelo JS para renderizar inline com o layout padrão) |
-| `DELETE /api/reportdb/:id` | DELETE | Remove um relatório específico pelo ID → `{"deleted":"<id>"}` ou `404` se não encontrado |
-| `DELETE /api/reports` | DELETE | Remove **todos** os relatórios → `{"deleted":<contagem>}` |
+| Endpoint | Método | Banco necessário | Descrição |
+|----------|--------|------------------|-----------|
+| `POST /api/start` | POST | Não | Inicia geração; corpo `{"zabbix_url":"...","zabbix_token":"..."}` → retorna `{"task_id":"..."}` |
+| `GET /api/progress/:id` | GET | Não | Polling do status da tarefa → `{"status":"done\|running\|error","progress_msg":"..."}` |
+| `GET /api/report/:id` | GET | Não | Retorna o HTML do relatório da sessão atual (in-memory, perde ao reiniciar) |
+| `GET /api/db-status` | GET | Não | Informa ao frontend se o banco está ativo → `{"db_enabled": true\|false}` |
+| `GET /api/reports` | GET | Opcional | Sem banco: `{"db_enabled":false,"reports":[]}`. Com banco: `{"db_enabled":true,"reports":[...]}` |
+| `GET /api/reportdb/:id` | GET | **Sim** | Retorna o relatório salvo como documento HTML completo (para abrir no browser diretamente) |
+| `GET /api/reportdb/:id?raw=1` | GET | **Sim** | Retorna apenas o fragment HTML interno (usado pelo JS para renderizar inline com o layout padrão) |
+| `DELETE /api/reportdb/:id` | DELETE | **Sim** | Remove um relatório específico pelo ID → `{"deleted":"<id>"}` ou `404` se não encontrado |
+| `DELETE /api/reports` | DELETE | **Sim** | Remove **todos** os relatórios → `{"deleted":<contagem>}` |
 
 #### Exemplo: listar e abrir um relatório via curl
 

@@ -2,7 +2,6 @@ version: '3.8'
 services:
   go-app:
     build: .
-    profiles: ["app"]
     #image: bernardolankheet/zabbix-easy:latest
     container_name: go-zabbix-app
     ports:
@@ -18,7 +17,7 @@ services:
       - MAX_CCONCURRENT=200
       - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
       #- ZABBIX_SERVER_HOSTID=23423
-      - APP_DEBUG=1 # Habilita logs de debug da API do Zabbix
+      - APP_DEBUG=false # true ou false Habilita logs de debug da API do Zabbix
       - CHECKTRENDTIME=15d # Tempo para verificar tendência de dados, não utilize history (<7d), leva em consideracão o valor que é definido no zabbix para Trends ou o Valor Utilizado no Particionamento do banco de dados.
     restart: unless-stopped
   postgres:
