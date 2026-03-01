@@ -1,4 +1,4 @@
-﻿// Toggle show/hide token with eye icon
+// Toggle show/hide token with eye icon
 const toggleToken = document.getElementById('toggle-token');
 const tokenInput = document.getElementById('zabbix_token');
 const eyeIcon = document.getElementById('eye-icon');
