@@ -9,11 +9,11 @@ services:
     environment:
       # Descomente as variáveis abaixo para habilitar persistência de relatórios no PostgreSQL.
       # Para subir com banco: docker compose --profile db up --build -d
-      #- DB_HOST=postgres
-      #- DB_PORT=5432
-      #- DB_USER=postgres
-      #- DB_PASSWORD=postgres
-      #- DB_NAME=zabbix_report
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=zabbix_report
       - MAX_CCONCURRENT=200
       - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
       #- ZABBIX_SERVER_HOSTID=23423

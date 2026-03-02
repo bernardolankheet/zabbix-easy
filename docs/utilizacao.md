@@ -870,6 +870,26 @@ Na tela inicial, abaixo do botão **Gerar Relatório**, existe o card **Relatór
 
 ---
 
+### Barra de ações do relatório
+
+Sempre que um relatório é exibido (gerado pela API ou carregado do banco), uma barra de ações aparece no cabeçalho do relatório com três botões:
+
+```
+┌─ Relatório Zabbix ── Gerado em: dd/mm/aaaa hh:mm:ss ──────────────────────────────────┐
+│                                                            [NOVO] [HTML] [PDF]        │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Botão | Ícone | Ação | Disponível no HTML exportado? |
+|-------|-------|------|-------------------------------|
+| **Novo Relatório** | Documento com `+` | Fecha o relatório atual, limpa a tela e retorna ao formulário de geração | ❌ Não |
+| **Exportar HTML** | Ícone de arquivo HTML | Gera um arquivo `.html` estático e autossuficiente (CSS embutido, gráficos funcionando) e faz download automático | ❌ Não |
+| **Gerar PDF** | Ícone de impressora | Abre o diálogo de impressão do navegador — recomenda-se selecionar "Salvar como PDF" | ❌ Não |
+
+> O botão **Novo Relatório** **não existe** em arquivos HTML exportados. Ele é criado dinamicamente apenas quando o relatório é exibido inline na interface web — seja via geração pela API, seja via carregamento do banco.
+
+---
+
 ### Quando os relatórios são salvos
 
 O salvamento acontece automaticamente ao final da função `generateZabbixReportWithProgress`, no fluxo:

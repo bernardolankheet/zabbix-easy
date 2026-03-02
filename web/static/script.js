@@ -78,6 +78,14 @@ function renderReport(html, titleHint, createdAt) {
     const actionGroup = document.createElement('div');
     actionGroup.className = 'action-group';
     actionGroup.innerHTML = `
+        <button class="btn small icon-btn" data-action="new-report" aria-label="Novo Relatório" title="Novo Relatório">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14 2 14 8 20 8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="12" y1="11" x2="12" y2="17" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                <line x1="9" y1="14" x2="15" y2="14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
         <button class="btn small icon-btn" data-action="export" aria-label="Exportar HTML" title="Exportar HTML">
             <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
                 <path d="M6 2h7l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
@@ -100,8 +108,9 @@ function renderReport(html, titleHint, createdAt) {
     frameActions.appendChild(inserted);
     try {
         const btns = inserted.querySelectorAll('button');
-        if (btns[0]) btns[0].id = 'btn-export-html';
-        if (btns[1]) btns[1].id = 'btn-print';
+        if (btns[0]) btns[0].id = 'btn-new-report';
+        if (btns[1]) btns[1].id = 'btn-export-html';
+        if (btns[2]) btns[2].id = 'btn-print';
     } catch(e) {}
 
     // assemble container
@@ -205,6 +214,19 @@ function renderReport(html, titleHint, createdAt) {
     const ambienteSafe = ('' + ambienteName).replace(/[^0-9A-Za-z-_\. ]+/g, '_').slice(0, 80);
     const documentTitleEscaped = (`Relat\u00f3rio Zabbix - ${ambienteName}`).replace(/"/g, '');
 
+    // wire Novo Relatório button — returns to the generation form
+    const btnNewReport = document.getElementById('btn-new-report');
+    if (btnNewReport) btnNewReport.addEventListener('click', function() {
+        const ra = document.getElementById('report-area');
+        if (ra) { ra.style.display = 'none'; ra.innerHTML = ''; }
+        const pb = document.getElementById('progress-bar');
+        if (pb) pb.style.display = 'none';
+        const form = document.getElementById('zabbix-form');
+        if (form) form.style.display = '';
+        try { document.body.classList.add('show-login'); } catch(e) {}
+        window.scrollTo(0, 0);
+    });
+
     // wire Print button
     const btnPrint = document.getElementById('btn-print');
     if (btnPrint) btnPrint.addEventListener('click', function() {
@@ -266,8 +288,8 @@ function renderReport(html, titleHint, createdAt) {
         } catch(err) { alert('Erro ao exportar: ' + err); }
     });
 
-    // keyboard accessibility for both buttons
-    ['btn-print', 'btn-export-html'].forEach(id => {
+    // keyboard accessibility for all action buttons
+    ['btn-new-report', 'btn-print', 'btn-export-html'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.setAttribute('tabindex', '0');

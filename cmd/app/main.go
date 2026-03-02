@@ -16,8 +16,8 @@ import (
 	neturl "net/url"
 	"sync"
 	"os"
-    "database/sql"
-    _ "github.com/lib/pq"
+	"database/sql"
+	_ "github.com/lib/pq"
 )
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
@@ -105,7 +105,7 @@ func initHttpClient() {
 //
 // Parâmetros:
 //
-//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.empresa.com/api_jsonrpc.php"
+//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.dominio.com/api_jsonrpc.php"
 //	token   — token de autenticação (campo "auth" no JSON-RPC). Passe "" para
 //	           chamadas que não requerem autenticação, como apiinfo.version.
 //	method  — método da API Zabbix, ex: "item.get", "trend.get", "host.get"
@@ -122,14 +122,6 @@ func initHttpClient() {
 //	• Usa httpClient global (reutilização de conexão, TLS sem verificação).
 //	• Se APP_DEBUG=1, loga o request e os primeiros 4096 bytes da resposta.
 //	• Sempre loga o tempo de execução de cada chamada.
-//
-// ─── Como adicionar uma nova chamada à API ────────────────────────────────
-// Chame diretamente esta função com o método e params desejados:
-//
-//	resp, err := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
-//	    "output": []string{"triggerid", "description"},
-//	    "filter": map[string]interface{}{"value": 1},
-//	})
 func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
 	req := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -393,7 +385,7 @@ func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (
 	result := map[string]map[string]interface{}{}
 	if r, ok := resp["result"]; ok {
 		arr, _ := r.([]interface{})
-		log.Printf("[DEBUG] getProxyProcessItems hostid=%s: %d type=5 items returned", hostid, len(arr))
+		if debugApi { log.Printf("[DEBUG] getProxyProcessItems hostid=%s: %d type=5 items returned", hostid, len(arr)) }
 		for _, raw := range arr {
 			item, _ := raw.(map[string]interface{})
 			if item == nil { continue }
@@ -1492,7 +1484,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			desc := procDesc[baseName]
 			if desc == "" { desc = "Poller process" }
 			words := strings.Fields(name)
-			for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
+			for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
 			friendly := strings.Join(words, " ")
 
 			pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
@@ -1675,7 +1667,7 @@ func generateZabbixReport(url, token string) (string, error) {
 
 			// friendly name (title case), with special-case for LLD
 			words := strings.Fields(strings.TrimSpace(name))
-			for wi, w := range words { words[wi] = strings.Title(strings.TrimSpace(w)) }
+			for wi, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[wi] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
 			if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
 			friendly := strings.Join(words, " ") + " Internal Processes"
 
@@ -2230,7 +2222,7 @@ func generateZabbixReport(url, token string) (string, error) {
 					}
 				}
 				words := strings.Fields(displayName)
-				for i, w := range words { words[i] = strings.Title(strings.TrimSpace(w)) }
+				for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
 				if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
 				friendly := strings.Join(words, " ")
 				desc := procDesc[dispBaseName]
@@ -3330,8 +3322,11 @@ func main() {
 		dbPort := os.Getenv("DB_PORT")
 		if dbPort == "" { dbPort = "5432" }
 		dbUser := os.Getenv("DB_USER")
+		if dbUser == "" { dbUser = "postgres" }
 		dbPass := os.Getenv("DB_PASSWORD")
+		if dbPass == "" { dbPass = "postgres" }
 		dbName := os.Getenv("DB_NAME")
+		if dbName == "" { dbName = "zabbix_report" }
 		conn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPass, dbName)
 
 		// Attempt to connect with retries. If still unavailable after attempts, exit so container stops.
@@ -3421,13 +3416,22 @@ func main() {
 
 	// In-memory task store (keeps recent tasks until process restart)
 	type Task struct {
-		ID     string
-		Status string // "pending", "processing", "done", "error"
-		Report string
+		ID          string
+		Status      string // "pending", "processing", "done", "error"
+		Report      string
 		ProgressMsg string // mensagem de progresso
-		DBID   int
+		DBID        int
 	}
 	var tasks = make(map[string]*Task)
+	var tasksMu sync.RWMutex
+	getTask := func(id string) *Task {
+		tasksMu.RLock(); defer tasksMu.RUnlock()
+		return tasks[id]
+	}
+	setTask := func(id string, t *Task) {
+		tasksMu.Lock(); defer tasksMu.Unlock()
+		tasks[id] = t
+	}
 
 	r.POST("/api/start", func(c *gin.Context) {
 		type Req struct {
@@ -3440,29 +3444,39 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
 			return
 		}
-		log.Printf("[DEBUG] Requisição recebida: url=%s, token=%s", req.ZabbixURL, req.ZabbixToken)
+		if debugApi {
+			log.Printf("[DEBUG] Requisição recebida: url=%s, token=<redacted>", req.ZabbixURL)
+		}
 		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
-		tasks[id] = &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."}
+		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."})
 		go func(taskID string, url, token string) {
 			setProgress := func(msg string) {
-				if t, ok := tasks[taskID]; ok { t.ProgressMsg = msg }
+				if t := getTask(taskID); t != nil { t.ProgressMsg = msg }
 			}
 			setProgress("Detectando versão do Zabbix...")
 			report, err := generateZabbixReportWithProgress(url, token, setProgress)
 			if err != nil {
 				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
-				tasks[taskID].Status = "error"
-				if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
-					tasks[taskID].Report = "<div style='color:red;'>Token Invalido</div>"
-				} else {
-					tasks[taskID].Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
+				if t := getTask(taskID); t != nil {
+					tasksMu.Lock()
+					t.Status = "error"
+					if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
+						t.Report = "<div style='color:red;'>Token Invalido</div>"
+					} else {
+						t.Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
+					}
+					tasksMu.Unlock()
 				}
 				return
 			}
 			log.Printf("[DEBUG] Tarefa %s concluída", taskID)
-			tasks[taskID].Status = "done"
-			tasks[taskID].Report = report
-			tasks[taskID].ProgressMsg = "Relatório gerado." // final
+			if t := getTask(taskID); t != nil {
+				tasksMu.Lock()
+				t.Status = "done"
+				t.Report = report
+				t.ProgressMsg = "Relatório gerado." // final
+				tasksMu.Unlock()
+			}
 			// save to DB if available
 			if db != nil {
 				name := "report-" + fmt.Sprintf("%d", time.Now().Unix())
@@ -3480,8 +3494,8 @@ func main() {
 				// progress endpoint for in-memory tasks
 				r.GET("/api/progress/:id", func(c *gin.Context) {
 					id := c.Param("id")
-					task, ok := tasks[id]
-					if !ok {
+					task := getTask(id)
+					if task == nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Tarefa não encontrada"})
 						return
 					}
@@ -3492,8 +3506,8 @@ func main() {
 				// return report HTML generated in this session (in-memory)
 				r.GET("/api/report/:id", func(c *gin.Context) {
 					id := c.Param("id")
-					task, ok := tasks[id]
-					if !ok || task.Status != "done" {
+					task := getTask(id)
+					if task == nil || task.Status != "done" {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Relatório não disponível"})
 						return
 					}
@@ -3555,9 +3569,11 @@ func main() {
 				if c.Query("raw") == "1" {
 					fragment := s
 					if isFullDoc {
-						// extract <body> content from the stored full document
-						bi := strings.Index(low, "<body")
-						ei := strings.LastIndex(low, "</body>")
+						// Buscar <body e </body> diretamente em s (case-insensitive via lowS)
+						// para garantir que os índices correspondem ao string original s.
+						lowS := strings.ToLower(s)
+						bi := strings.Index(lowS, "<body")
+						ei := strings.LastIndex(lowS, "</body>")
 						if bi != -1 && ei != -1 {
 							// advance past the closing ">" of the <body ...> tag
 							bodyTagEnd := strings.Index(s[bi:], ">")
