@@ -447,17 +447,15 @@
 
 
 <h1 id="zabbix-easy-healthcheck-report">Zabbix Easy HealthCheck Report</h1>
-<p>Projeto moderno para geração de relatórios HealthCheck do Zabbix usando Go, RabbitMQ e Postgres.</p>
+<p>Projeto moderno para geração de relatórios HealthCheck do Zabbix usando Go e Postgres.</p>
 <h2 id="componentes">Componentes</h2>
 <ul>
 <li>Go Backend: API, workers, coleta Zabbix</li>
-<li>RabbitMQ: Orquestração de tarefas</li>
 <li>Postgres: Armazenamento temporário</li>
 </ul>
 <h2 id="fluxo">Fluxo</h2>
 <ol>
 <li>Usuário informa URL/token do Zabbix via Web UI</li>
-<li>Backend envia tarefas para RabbitMQ</li>
 <li>Workers coletam dados e armazenam no Postgres</li>
 <li>Relatório gerado e exibido na interface</li>
 </ol>

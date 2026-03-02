@@ -1137,6 +1137,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#barra-de-acoes-do-relatorio" class="md-nav__link">
+    <span class="md-ellipsis">
+      Barra de ações do relatório
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#quando-os-relatorios-sao-salvos" class="md-nav__link">
     <span class="md-ellipsis">
       Quando os relatórios são salvos
@@ -2288,6 +2297,15 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#barra-de-acoes-do-relatorio" class="md-nav__link">
+    <span class="md-ellipsis">
+      Barra de ações do relatório
+    </span>
+  </a>
   
 </li>
         
@@ -4134,6 +4152,46 @@ Chamada 3 → template.get(legacyHostSet)
 </table>
 <blockquote>
 <p><strong>Dica:</strong> Após abrir um relatório salvo, todos os botões de <strong>Exportar HTML</strong> e <strong>Gerar PDF</strong> funcionam normalmente — o relatório reabre com o mesmo layout e funcionalidades da geração original.</p>
+</blockquote>
+<hr />
+<h3 id="barra-de-acoes-do-relatorio">Barra de ações do relatório</h3>
+<p>Sempre que um relatório é exibido (gerado pela API ou carregado do banco), uma barra de ações aparece no cabeçalho do relatório com três botões:</p>
+<pre><code>┌─ Relatório Zabbix ── Gerado em: dd/mm/aaaa hh:mm:ss ──────────────────────────────────┐
+│                                                            [NOVO] [HTML] [PDF]        │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Botão</th>
+<th>Ícone</th>
+<th>Ação</th>
+<th>Disponível no HTML exportado?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Novo Relatório</strong></td>
+<td>Documento com <code>+</code></td>
+<td>Fecha o relatório atual, limpa a tela e retorna ao formulário de geração</td>
+<td>❌ Não</td>
+</tr>
+<tr>
+<td><strong>Exportar HTML</strong></td>
+<td>Ícone de arquivo HTML</td>
+<td>Gera um arquivo <code>.html</code> estático e autossuficiente (CSS embutido, gráficos funcionando) e faz download automático</td>
+<td>❌ Não</td>
+</tr>
+<tr>
+<td><strong>Gerar PDF</strong></td>
+<td>Ícone de impressora</td>
+<td>Abre o diálogo de impressão do navegador — recomenda-se selecionar "Salvar como PDF"</td>
+<td>❌ Não</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>O botão <strong>Novo Relatório</strong> <strong>não existe</strong> em arquivos HTML exportados. Ele é criado dinamicamente apenas quando o relatório é exibido inline na interface web — seja via geração pela API, seja via carregamento do banco.</p>
 </blockquote>
 <hr />
 <h3 id="quando-os-relatorios-sao-salvos">Quando os relatórios são salvos</h3>
