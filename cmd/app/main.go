@@ -1872,7 +1872,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<tr><td style='` + offlineTdStyle + `'>Proxys Offline</td><td style='` + offlineTdStyle + `'>` + fmt.Sprintf("%d", offline) + `</td></tr>`
 	html += `<tr><td style='` + activeTdStyle + `'>Proxys Ativos</td><td style='` + activeTdStyle + `'>` + fmt.Sprintf("%d", active) + `</td></tr>`
 	html += `<tr><td style='` + passiveTdStyle + `'>Proxys Passivos</td><td style='` + passiveTdStyle + `'>` + fmt.Sprintf("%d", passive) + `</td></tr>`
-	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list' target='_blank'>Abrir lista de Proxys</a></td></tr>`
+	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list&filter_rst=1' target='_blank'>Abrir lista de Proxys</a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// Proxys details table (list)
