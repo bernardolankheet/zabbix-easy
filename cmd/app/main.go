@@ -105,7 +105,7 @@ func initHttpClient() {
 //
 // Parâmetros:
 //
-//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.empresa.com/api_jsonrpc.php"
+//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.dominio.com/api_jsonrpc.php"
 //	token   — token de autenticação (campo "auth" no JSON-RPC). Passe "" para
 //	           chamadas que não requerem autenticação, como apiinfo.version.
 //	method  — método da API Zabbix, ex: "item.get", "trend.get", "host.get"
@@ -122,14 +122,6 @@ func initHttpClient() {
 //	• Usa httpClient global (reutilização de conexão, TLS sem verificação).
 //	• Se APP_DEBUG=1, loga o request e os primeiros 4096 bytes da resposta.
 //	• Sempre loga o tempo de execução de cada chamada.
-//
-// ─── Como adicionar uma nova chamada à API ────────────────────────────────
-// Chame diretamente esta função com o método e params desejados:
-//
-//	resp, err := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
-//	    "output": []string{"triggerid", "description"},
-//	    "filter": map[string]interface{}{"value": 1},
-//	})
 func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
 	req := map[string]interface{}{
 		"jsonrpc": "2.0",

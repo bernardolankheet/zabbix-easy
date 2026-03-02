@@ -876,8 +876,8 @@ Sempre que um relatório é exibido (gerado pela API ou carregado do banco), uma
 
 ```
 ┌─ Relatório Zabbix ── Gerado em: dd/mm/aaaa hh:mm:ss ──────────────────────────────────┐
-│                                                            [NOVO] [HTML] [PDF]           │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+│                                                            [NOVO] [HTML] [PDF]        │
+└───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Botão | Ícone | Ação | Disponível no HTML exportado? |
