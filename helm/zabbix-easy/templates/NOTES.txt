@@ -1,0 +1,61 @@
+ZBX-Easy foi instalado com sucesso!
+
+Release : {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 Recursos criados:
+  - Deployment : {{ .Release.Name }}
+{{- if .Values.postgres.enabled }}
+  - Deployment : {{ include "zabbix-easy.postgresHost" . }} (PostgreSQL)
+  - Service    : {{ include "zabbix-easy.postgresHost" . }} (ClusterIP interno)
+  - PVC        : {{ include "zabbix-easy.postgresHost" . }}-pvc ({{ .Values.postgres.storage.size }})
+  - Secret     : {{ include "zabbix-easy.dbSecret" . }} (credenciais do banco)
+{{- end }}
+  - Service    : {{ .Release.Name }} ({{ .Values.service.spec.type }})
+{{- if .Values.ingress.enabled }}
+  - Ingress    : {{ .Release.Name }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 Acesso à aplicação:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.rules }}
+  http{{ if $.Values.ingress.tlsenabled }}s{{ end }}://{{ .host }}.{{ .domain }}{{ .path }}
+{{- end }}
+{{- else }}
+  kubectl port-forward svc/{{ .Release.Name }} 8080:8080 -n {{ .Release.Namespace }}
+  Acesse: http://localhost:8080
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 Comandos úteis:
+
+  # Ver status dos pods
+  kubectl get pods -n {{ .Release.Namespace }} -l app={{ .Release.Name }}
+
+  # Logs da aplicação
+  kubectl logs -n {{ .Release.Namespace }} -l app={{ .Release.Name }} --tail=50
+
+{{- if .Values.postgres.enabled }}
+  # Logs do PostgreSQL
+  kubectl logs -n {{ .Release.Namespace }} -l app={{ .Release.Name }},component=postgres --tail=50
+
+  # Conectar ao PostgreSQL (psql)
+  kubectl exec -n {{ .Release.Namespace }} \
+    deploy/{{ include "zabbix-easy.postgresHost" . }} \
+    -- psql -U postgres -d {{ .Values.db.name }}
+{{- end }}
+
+  # Atualizar release
+  helm upgrade {{ .Release.Name }} ./helm/zabbix-easy \
+    -f helm/zabbix-easy/values-prod.yaml \
+    -n {{ .Release.Namespace }}
+
+  # Remover release
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

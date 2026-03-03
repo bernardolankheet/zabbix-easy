@@ -1,0 +1,19 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zabbix-easy.postgresHost" . }}
+  labels:
+    {{- include "zabbix-easy.labels" . | nindent 4 }}
+    component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}
+    component: postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+{{- end }}
