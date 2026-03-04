@@ -95,12 +95,19 @@ func initHttpClient() {
 	if httpClient != nil {
 		return
 	}
+	// Timeout padrão de 60s: trend.get e history.get em ambientes grandes podem levar 30-50s.
+	// Configurável via ENV API_TIMEOUT_SECONDS para ajuste sem rebuild.
+	timeoutSec := 60
+	if v := os.Getenv("API_TIMEOUT_SECONDS"); v != "" {
+		if n, e := strconv.Atoi(v); e == nil && n > 0 { timeoutSec = n }
+	}
+	log.Printf("[DEBUG] HTTP client timeout=%ds (API_TIMEOUT_SECONDS)", timeoutSec)
 	httpTransport = &http.Transport{
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxIdleConnsPerHost: 8,
 		IdleConnTimeout:     30 * time.Second,
 	}
-	httpClient = &http.Client{Transport: httpTransport, Timeout: 20 * time.Second}
+	httpClient = &http.Client{Transport: httpTransport, Timeout: time.Duration(timeoutSec) * time.Second}
 }
 
 // isIdleConnError detecta erros transientes de conexão idle que ocorrem quando
@@ -115,6 +122,17 @@ func isIdleConnError(err error) bool {
 		strings.Contains(s, "EOF") ||
 		strings.Contains(s, "connection reset by peer") ||
 		strings.Contains(s, "broken pipe")
+}
+
+// isDeadlineError detecta erros de timeout do cliente HTTP.
+// NÃO se deve retentar nesses casos: a API já está sob carga;
+// retentar aumentaria a pressão e pioraria o problema.
+func isDeadlineError(err error) bool {
+	if err == nil { return false }
+	s := err.Error()
+	return strings.Contains(s, "context deadline exceeded") ||
+		strings.Contains(s, "Client.Timeout exceeded") ||
+		strings.Contains(s, "i/o timeout")
 }
 
 // zabbixApiRequest é o ponto central de comunicação com a API JSON-RPC do Zabbix.
@@ -174,6 +192,10 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 		resp, err = httpClient.Do(req)
 		if err == nil {
 			break // sucesso
+		}
+		if isDeadlineError(err) {
+			log.Printf("[ZABBIX API] %s timeout (tentativa %d/%d) — n\u00e3o retenta (API sobrecarregada): %v", method, attempt, maxRetries, err)
+			break
 		}
 		if isIdleConnError(err) && attempt < maxRetries {
 			log.Printf("[ZABBIX API] %s idle-conn error (tentativa %d/%d), repetindo: %v", method, attempt, maxRetries, err)
@@ -905,7 +927,9 @@ func generateZabbixReport(url, token string) (string, error) {
 		ambienteUrl = ambienteUrl[:len(ambienteUrl)-len("/api_jsonrpc.php")]
 	}
 	// Concurrency limit for parallel API calls (can be configured with env MAX_CCONCURRENT)
-	maxConcurrent := 6
+	// Default 4: evita sobrecarregar a API do Zabbix com muitas chamadas simultâneas.
+	// Com 4 goroutines e 3-4 chamadas seriais cada, são até ~16 requests em paralelo.
+	maxConcurrent := 4
 	if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
 	}

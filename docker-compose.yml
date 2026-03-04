@@ -14,10 +14,12 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=zabbix_report
-      - MAX_CCONCURRENT=200
+      - MAX_CCONCURRENT=3
+      - API_TIMEOUT_SECONDS=20   # se o Zabbix for mais lento
       - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
       #- ZABBIX_SERVER_HOSTID=23423
-      - APP_DEBUG=false # true ou false Habilita logs de debug da API do Zabbix
+      #- ZABBIX_SERVER_HOSTID=19882   
+      - APP_DEBUG=true # true ou false Habilita logs de debug da API do Zabbix
       - CHECKTRENDTIME=15d # Tempo para verificar tendência de dados, não utilize history (<7d), leva em consideracão o valor que é definido no zabbix para Trends ou o Valor Utilizado no Particionamento do banco de dados.
     restart: unless-stopped
   postgres:
