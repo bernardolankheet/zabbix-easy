@@ -83,6 +83,7 @@ func parseCheckTrendEnv() {
 
 // Reusable HTTP client to improve performance (connection reuse)
 var httpClient *http.Client
+var httpTransport *http.Transport
 
 // Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
 var itemLookupCache sync.Map
@@ -94,12 +95,12 @@ func initHttpClient() {
 	if httpClient != nil {
 		return
 	}
-	tr := &http.Transport{
+	httpTransport = &http.Transport{
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxIdleConnsPerHost: 8,
-		IdleConnTimeout:     10 * time.Second, // abaixo do keep-alive do servidor
+		IdleConnTimeout:     30 * time.Second,
 	}
-	httpClient = &http.Client{Transport: tr, Timeout: 20 * time.Second}
+	httpClient = &http.Client{Transport: httpTransport, Timeout: 20 * time.Second}
 }
 
 // isIdleConnError detecta erros transientes de conexão idle que ocorrem quando
@@ -161,7 +162,16 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	var err error
 	start := time.Now()
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		resp, err = httpClient.Post(apiUrl, "application/json", strings.NewReader(string(reqBytes)))
+		// Para forçar uma nova conexão TCP no retry (sem afetar as conexões das outras goroutines),
+		// adicionamos "Connection: close" no retry — o servidor fecha após responder e o Go não
+		// recoloca a conexão no pool, evitando reusar stale connections sem CloseIdleConnections() global.
+		req, reqErr := http.NewRequest("POST", apiUrl, strings.NewReader(string(reqBytes)))
+		if reqErr != nil { err = reqErr; break }
+		req.Header.Set("Content-Type", "application/json")
+		if attempt > 1 {
+			req.Header.Set("Connection", "close")
+		}
+		resp, err = httpClient.Do(req)
 		if err == nil {
 			break // sucesso
 		}
@@ -505,7 +515,7 @@ func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[
 		"history":   histType,
 		"itemids":   []string{itemid},
 		"time_from": from,
-		"time_to":   now,
+		"time_till": now, // history.get usa time_till (não time_to) no Zabbix 6 e 7
 		"sortfield": "clock",
 		"sortorder": "ASC",
 		"limit":     2000,
@@ -806,7 +816,7 @@ func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[
 			"history":   histType,
 			"itemids":   iids,
 			"time_from": from,
-			"time_to":   now,
+			"time_till": now, // history.get usa time_till (não time_to) no Zabbix 6 e 7
 			"sortfield": "clock",
 			"sortorder": "ASC",
 			"limit":     limit,
@@ -2235,6 +2245,9 @@ func generateZabbixReport(url, token string) (string, error) {
 
 			// ── Step 4: single trend.get for all items of this proxy (CHECKTRENDTIME respected) ──
 			trendMap, _ := getTrendsBulkStats(apiUrl, token, iids)
+			if trendMap == nil {
+				trendMap = map[string]map[string]interface{}{}
+			}
 
 			// ── Step 5: history.get fallback for items without trend data ──
 			missingH := map[string]int{}
@@ -3232,31 +3245,6 @@ setTimeout(setupInfoTooltips,50);
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 {
 		proxySub := 0
 		html += nextSec("card-proxys", "Zabbix Proxys")
-		if len(proxyNoTemplateList) > 0 {
-			// build link to template search in the Zabbix frontend
-			tplSearchPath := "/zabbix.php?action=template.list&filter_set=1&filter_name=Zabbix+Proxy+Health"
-			if majorV < 7 {
-				tplSearchPath = "/templates.php?filter_set=1&filter_name=Zabbix+Proxy+Health"
-			}
-			tplSearchLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+tplSearchPath) + `' target='_blank' rel='noopener'>Zabbix Proxy Health</a>`
-			tipNoTpl := "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" no Zabbix 6) fornece os itens internos " +
-				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
-				"não é possível coletar métricas de pollers e processos."
-			html += titleWithInfo("h5", nextSub(&proxySub, "Zabbix Proxy sem Monitoramento"), tipNoTpl)
-			html += `<p>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
-				`Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy.</p>`
-			html += `<ol style='margin-left:18px;'>`
-			for _, pt := range proxyNoTemplateList {
-				hostLinkPath := "/zabbix.php?action=host.list&filter_set=1&filter_name=" + htmlpkg.EscapeString(pt.ProxyName)
-				if majorV < 7 {
-					hostLinkPath = "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName)
-				}
-				hostLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+hostLinkPath) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(pt.ProxyName) + `</a>`
-				html += `<li>` + hostLink + ` (hostid=` + htmlpkg.EscapeString(pt.HostId) + `) — ` +
-					`acesse o host, clique em <strong>Templates</strong> e vincule ` + tplSearchLink + `</li>`
-			}
-			html += `</ol>`
-		}
 		if len(proxyProcAttnList) > 0 {
 			tipProxyProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendStr, checkTrendDisplay)
 			html += titleWithInfo("h5", nextSub(&proxySub, "Customizar Processos e Threads"), tipProxyProc)
@@ -3280,11 +3268,37 @@ setTimeout(setupInfoTooltips,50);
 			tipOffline := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
 				"Confirme versões e compatibilidade (campo version no registro do proxy)."
-			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Status Proxys Offline"))
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Proxys Offline"))
 			html += `<p>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
 			html += `<ul>`
 			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
+		}
+		if len(proxyNoTemplateList) > 0 {
+			// build link to template search in the Zabbix frontend
+			tplSearchPath := "/zabbix.php?action=template.list&filter_set=1&filter_name=Zabbix+Proxy+Health"
+			if majorV < 7 {
+				tplSearchPath = "/templates.php?filter_set=1&filter_name=Zabbix+Proxy+Health"
+			}
+			tplSearchLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+tplSearchPath) + `' target='_blank' rel='noopener'>Zabbix Proxy Health</a>`
+			tipNoTpl := "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" no Zabbix 6) fornece os itens internos " +
+				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
+				"não é possível coletar métricas de pollers e processos."
+			html += titleWithInfo("h5", nextSub(&proxySub, "Zabbix Proxy sem Monitoramento"), tipNoTpl)
+			html += `<p>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
+				`Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy.</p>`
+			html += `<ol style='margin-left:18px;'>`
+			for _, pt := range proxyNoTemplateList {
+				// Zabbix 7: filter_name (campo display name); Zabbix 6: filter_host (campo technical name)
+				// Ambos recebem &filter_set=1 para aplicar o filtro automaticamente
+				hostLinkPath := "/zabbix.php?action=host.list&filter_name=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_set=1"
+				if majorV < 7 {
+					hostLinkPath = "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_set=1"
+				}
+				hostLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+hostLinkPath) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(pt.ProxyName) + `</a>`
+				html += `<li>` + hostLink + `</li>`
+			}
+			html += `</ol>`
 		}
 		html += `<div style='height:8px'></div>`
 	}
