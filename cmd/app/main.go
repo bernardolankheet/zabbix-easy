@@ -1530,7 +1530,8 @@ func generateZabbixReport(url, token string) (string, error) {
 					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
 				} else if majorV < 7 {
 					switch strings.ToLower(strings.TrimSpace(name)) {
-					case "agent poller", "browser poller", "http agent poller", "snmp poller":
+					// para Zabbix 6, alguns pollers e workers não existem para versão, este é um bypass.
+					case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
 						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
 					default:
 						pr.DisabledMsg = "Processo não habilitado"
@@ -2293,7 +2294,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				// skip v7-only on v6
 				if majorV < 7 {
 					switch dispBaseName {
-					case "agent poller", "browser poller", "http agent poller", "snmp poller":
+					case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
 						continue
 					}
 				}
