@@ -2056,6 +2056,10 @@ func generateZabbixReport(url, token string) (string, error) {
 					itemsUnsupportedVal = "-"
 					totalItemsVal = "-"
 				}
+				// Proxy online mas chave não encontrada no template — orienta criação
+				if effState == "2" && itemsUnsupportedVal == "-" {
+					itemsUnsupportedVal = "Criar chave zabbix[items_unsupported] no Template de Proxy"
+				}
 
 				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
 				resultsP <- proxyRow{idx: i, html: rowHTML}
@@ -2123,10 +2127,11 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	type proxyMetaP struct {
-		Idx     int
-		ProxyId string
-		Name    string
-		Online  bool
+		Idx      int
+		ProxyId  string
+		Name     string
+		Online   bool
+		EffState string // "0"=Unknown, "1"=Offline, "2"=Online — mesma lógica da tabela Proxy
 	}
 	var proxyMetaList []proxyMetaP
 	for i, p := range proxies {
@@ -2134,19 +2139,25 @@ func generateZabbixReport(url, token string) (string, error) {
 		if pid == "" || pid == "<nil>" { continue }
 		nm := fmt.Sprintf("%v", p["name"])
 		if nm == "<nil>" || nm == "" { nm = fmt.Sprintf("%v", p["host"]) }
-		stateVal  := fmt.Sprintf("%v", p["state"])
-		statusVal := fmt.Sprintf("%v", p["status"])
-		lastAccess := fmt.Sprintf("%v", p["lastaccess"])
-		// Zabbix 7: 'state' Verifica se o proxy está online; state==2 corresponde a online.
-		// Zabbix 6: 'state' se nao retornar quando recebe o proxy.get, é definido como online se status for 5 (active) ou 6 (passive) E lastaccess > 0 (indicando que o proxy já se conectou ao server pelo menos uma vez).
-		var online bool
-		if stateVal != "" && stateVal != "<nil>" {
-			online = stateVal == "2"
+		// Reutiliza exatamente a mesma lógica de effState da tabela Proxy (não faz nova chamada à API):
+		// Zabbix 7: campo 'state' retornado diretamente (0=Unknown, 1=Offline, 2=Online).
+		// Zabbix 6: 'state' não existe — deriva de lastaccess com threshold de 300s.
+		stateRaw   := fmt.Sprintf("%v", p["state"])
+		lastAccRaw := fmt.Sprintf("%v", p["lastaccess"])
+		var effState string
+		if stateRaw != "" && stateRaw != "<nil>" {
+			effState = stateRaw
 		} else {
-			online = (statusVal == "5" || statusVal == "6") &&
-				lastAccess != "" && lastAccess != "0" && lastAccess != "<nil>"
+			la, laErr := strconv.ParseInt(lastAccRaw, 10, 64)
+			if laErr != nil || la == 0 {
+				effState = "0"
+			} else if time.Now().Unix()-la > 300 {
+				effState = "1"
+			} else {
+				effState = "2"
+			}
 		}
-		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: online})
+		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: effState == "2", EffState: effState})
 	}
 
 	ppCh := make(chan proxyProcResult, len(proxyMetaList)+1)
@@ -2228,7 +2239,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			if len(itemsMap) == 0 {
-				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado (hostid=%s). Verifique se o Template \"Zabbix Proxy Health\" está vinculado ao host.", hostId)
+				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado. Verifique se o Host Existe ou se o Template \"Zabbix Proxy Health\" está vinculado ao host.", hostId)
 				ppCh <- res
 				return
 			}
@@ -2369,9 +2380,16 @@ func generateZabbixReport(url, token string) (string, error) {
 		html += `<div style='display:flex;flex-direction:column;gap:10px;margin-top:8px;'>`
 		for _, pm := range proxyMetaList {
 			res := ppResults[pm.Idx]
-			// Online/Offline badge
-			connBadge := `<span style='margin-left:8px;background:#ff6666;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Offline/Unknown</span>`
-			if pm.Online { connBadge = `<span style='margin-left:8px;background:#66c28a;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Online</span>` }
+			// Online/Offline/Unknown badge — reutiliza pm.EffState calculado com a mesma lógica da tabela Proxy (sem nova chamada à API)
+			var connBadge string
+			switch pm.EffState {
+			case "2":
+				connBadge = `<span style='margin-left:8px;background:#66c28a;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Online</span>`
+			case "1":
+				connBadge = `<span style='margin-left:8px;background:#ff6666;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Offline</span>`
+			default:
+				connBadge = `<span style='margin-left:8px;background:#aaaaaa;color:#000;padding:2px 8px;border-radius:4px;font-size:0.82em;'>Unknown</span>`
+			}
 			// Status badge (OK / Atenção) — computed from worst vavg across all rows
 			statusBadge := ``
 			if pm.Online {
