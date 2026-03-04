@@ -1835,13 +1835,28 @@ func generateZabbixReport(url, token string) (string, error) {
     offlineNames := []string{}
 	if len(proxies) > 0 {
 		for _, p := range proxies {
-			// Prefer 'state' (newer API) but fall back to 'status' when absent
-			stVal := fmt.Sprintf("%v", p["state"])
-			stAlt := fmt.Sprintf("%v", p["status"])
-			if stVal == "" { stVal = stAlt }
+			// Zabbix 7 retorna o campo 'state' (0=Unknown, 1=Offline, 2=Online).
+			// Zabbix 6 não retorna 'state' — deriva o estado a partir de 'lastaccess'.
+			stateRaw   := fmt.Sprintf("%v", p["state"])
+			lastAccRaw := fmt.Sprintf("%v", p["lastaccess"])
+			var effectiveState string
+			if stateRaw != "" && stateRaw != "<nil>" {
+				effectiveState = stateRaw
+			} else {
+				la, laErr := strconv.ParseInt(lastAccRaw, 10, 64)
+				if laErr != nil || la == 0 {
+					effectiveState = "0" // Unknown — nunca conectou
+				} else if time.Now().Unix()-la > 300 {
+					effectiveState = "1" // Offline — última conexão > 5 min atrás
+				} else {
+					effectiveState = "2" // Online
+				}
+			}
+			proxyName := fmt.Sprintf("%v", p["name"])
+			if proxyName == "<nil>" || proxyName == "" { proxyName = fmt.Sprintf("%v", p["host"]) }
 			// count status-based categories (0=Unknown, 1=Offline)
-			if stVal == "0" { unknown++; unknownNames = append(unknownNames, fmt.Sprintf("%v", p["name"])) }
-			if stVal == "1" { offline++; offlineNames = append(offlineNames, fmt.Sprintf("%v", p["name"])) }
+			if effectiveState == "0" { unknown++; unknownNames = append(unknownNames, proxyName) }
+			if effectiveState == "1" { offline++; offlineNames = append(offlineNames, proxyName) }
 
 			// determine active/passive depending on Zabbix major version
 			if majorV >= 7 {
@@ -1963,11 +1978,25 @@ func generateZabbixReport(url, token string) (string, error) {
 						log.Printf("[DEBUG] item.get (total) for proxy %s failed: %v", proxyid, terr)
 					}
 
-				// Status column based on state (0=Unknown, 1=Offline, 2=Online)
-				st := fmt.Sprintf("%v", p["state"])
-				if st == "" || st == "<nil>" { st = fmt.Sprintf("%v", p["status"]) }
+				// Status column: Zabbix 7 returns 'state' (0=Unknown,1=Offline,2=Online).
+				// Zabbix 6 não retorna 'state' — deriva o estado a partir de 'lastaccess'.
+				stateRaw2   := fmt.Sprintf("%v", p["state"])
+				lastAccRaw2 := fmt.Sprintf("%v", p["lastaccess"])
+				var effState string
+				if stateRaw2 != "" && stateRaw2 != "<nil>" {
+					effState = stateRaw2
+				} else {
+					la2, laErr2 := strconv.ParseInt(lastAccRaw2, 10, 64)
+					if laErr2 != nil || la2 == 0 {
+						effState = "0"
+					} else if time.Now().Unix()-la2 > 300 {
+						effState = "1"
+					} else {
+						effState = "2"
+					}
+				}
 				var statusLabel, statusStyle string
-				switch st {
+				switch effState {
 				case "2":
 					statusLabel = "Online"
 					statusStyle = "background:#66c28a;color:#000;padding:4px 8px;border-radius:4px;text-align:center;"
@@ -1978,8 +2007,8 @@ func generateZabbixReport(url, token string) (string, error) {
 					statusLabel = "Unknown"
 					statusStyle = "background:#ff6666;color:#000;padding:4px 8px;border-radius:4px;text-align:center;"
 				}
-				// For offline/unknown proxies, dash out metric columns (no data collected)
-				if st != "2" {
+				// Para proxies offline/desconhecidos, para coluna de State da tabela (nenhum dado coletado), mandraque para versão 6 e 7: mostra como offline/desconecido, e para as colunas de dados (queue, items unsupported, total items) mostra "-" para indicar que os dados não estão disponíveis devido ao estado do proxy. Para proxies online, mostra os valores reais.
+				if effState != "2" {
 					queueVal = "-"
 					itemsUnsupportedVal = "-"
 					totalItemsVal = "-"
@@ -2062,9 +2091,19 @@ func generateZabbixReport(url, token string) (string, error) {
 		if pid == "" || pid == "<nil>" { continue }
 		nm := fmt.Sprintf("%v", p["name"])
 		if nm == "<nil>" || nm == "" { nm = fmt.Sprintf("%v", p["host"]) }
-		st := fmt.Sprintf("%v", p["state"])
-		if st == "" || st == "<nil>" { st = fmt.Sprintf("%v", p["status"]) }
-		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: st == "2"})
+		stateVal  := fmt.Sprintf("%v", p["state"])
+		statusVal := fmt.Sprintf("%v", p["status"])
+		lastAccess := fmt.Sprintf("%v", p["lastaccess"])
+		// Zabbix 7: 'state' Verifica se o proxy está online; state==2 corresponde a online.
+		// Zabbix 6: 'state' se nao retornar quando recebe o proxy.get, é definido como online se status for 5 (active) ou 6 (passive) E lastaccess > 0 (indicando que o proxy já se conectou ao server pelo menos uma vez).
+		var online bool
+		if stateVal != "" && stateVal != "<nil>" {
+			online = stateVal == "2"
+		} else {
+			online = (statusVal == "5" || statusVal == "6") &&
+				lastAccess != "" && lastAccess != "0" && lastAccess != "<nil>"
+		}
+		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: online})
 	}
 
 	ppCh := make(chan proxyProcResult, len(proxyMetaList)+1)
@@ -2146,7 +2185,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			if len(itemsMap) == 0 {
-				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado (hostid=%s). Verifique se o template de auto-monitoramento do proxy está vinculado ao host.", hostId)
+				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado (hostid=%s). Verifique se o Template \"Zabbix Proxy Health\" está vinculado ao host.", hostId)
 				ppCh <- res
 				return
 			}
@@ -2258,9 +2297,15 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Build list of proxy processes in Atenção for the Recommendations section
 	type proxyProcAttnItem struct{ ProxyName, ProcFriendly string; Vavg float64 }
 	var proxyProcAttnList []proxyProcAttnItem
+	// Proxies online mas sem itens de processo (template não vinculado)
+	type proxyNoTemplateItem struct{ ProxyName, HostId string }
+	var proxyNoTemplateList []proxyNoTemplateItem
 	for _, pm := range proxyMetaList {
 		if !pm.Online { continue }
 		res := ppResults[pm.Idx]
+		if res.noItemsNote != "" {
+			proxyNoTemplateList = append(proxyNoTemplateList, proxyNoTemplateItem{ProxyName: pm.Name, HostId: pm.ProxyId})
+		}
 		for _, row := range res.rows {
 			if row.vavg >= 59.9 {
 				proxyProcAttnList = append(proxyProcAttnList, proxyProcAttnItem{
@@ -3151,10 +3196,35 @@ setTimeout(setupInfoTooltips,50);
 		html += `</ul></div>`
 	}
 
-	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção) ---
-	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 {
+	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
+	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 {
 		proxySub := 0
 		html += nextSec("card-proxys", "Zabbix Proxys")
+		if len(proxyNoTemplateList) > 0 {
+			// build link to template search in the Zabbix frontend
+			tplSearchPath := "/zabbix.php?action=template.list&filter_set=1&filter_name=Zabbix+Proxy+Health"
+			if majorV < 7 {
+				tplSearchPath = "/templates.php?filter_set=1&filter_name=Zabbix+Proxy+Health"
+			}
+			tplSearchLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+tplSearchPath) + `' target='_blank' rel='noopener'>Zabbix Proxy Health</a>`
+			tipNoTpl := "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" no Zabbix 6) fornece os itens internos " +
+				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
+				"não é possível coletar métricas de pollers e processos."
+			html += titleWithInfo("h5", nextSub(&proxySub, "Template de Auto-Monitoramento não Vinculado"), tipNoTpl)
+			html += `<p>Os proxies abaixo estão <strong>online</strong> mas não possuem o template ` + tplSearchLink + ` vinculado ao seu host de auto-monitoramento. ` +
+				`Sem este template, os dados de processo/poller não são coletados e a seção de processos fica vazia.</p>`
+			html += `<ol style='margin-left:18px;'>`
+			for _, pt := range proxyNoTemplateList {
+				hostLinkPath := "/zabbix.php?action=host.list&filter_set=1&filter_name=" + htmlpkg.EscapeString(pt.ProxyName)
+				if majorV < 7 {
+					hostLinkPath = "/hosts.php?filter_set=1&filter_search=" + htmlpkg.EscapeString(pt.ProxyName)
+				}
+				hostLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+hostLinkPath) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(pt.ProxyName) + `</a>`
+				html += `<li>` + hostLink + ` (hostid=` + htmlpkg.EscapeString(pt.HostId) + `) — ` +
+					`acesse o host, clique em <strong>Templates</strong> e vincule ` + tplSearchLink + `</li>`
+			}
+			html += `</ol>`
+		}
 		if len(proxyProcAttnList) > 0 {
 			tipProxyProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendStr, checkTrendDisplay)
 			html += titleWithInfo("h5", nextSub(&proxySub, "Customizar Processos e Threads"), tipProxyProc)
