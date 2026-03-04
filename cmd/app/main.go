@@ -94,8 +94,26 @@ func initHttpClient() {
 	if httpClient != nil {
 		return
 	}
-	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	tr := &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConnsPerHost: 8,
+		IdleConnTimeout:     10 * time.Second, // abaixo do keep-alive do servidor
+	}
 	httpClient = &http.Client{Transport: tr, Timeout: 20 * time.Second}
+}
+
+// isIdleConnError detecta erros transientes de conexão idle que ocorrem quando
+// o servidor fecha uma conexão keep-alive antes que o cliente tente reutilizá-la.
+// Nesse caso é seguro retentar a mesma requisição com uma conexão nova.
+func isIdleConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "server closed idle connection") ||
+		strings.Contains(s, "EOF") ||
+		strings.Contains(s, "connection reset by peer") ||
+		strings.Contains(s, "broken pipe")
 }
 
 // zabbixApiRequest é o ponto central de comunicação com a API JSON-RPC do Zabbix.
@@ -123,9 +141,9 @@ func initHttpClient() {
 func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
 	req := map[string]interface{}{
 		"jsonrpc": "2.0",
-		"method": method,
-		"params": params,
-		"id": 1,
+		"method":  method,
+		"params":  params,
+		"id":      1,
 	}
 	if token != "" {
 		req["auth"] = token
@@ -137,9 +155,23 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	if httpClient == nil {
 		initHttpClient()
 	}
+	// Função para tentar uma requisição e repetir se for um erro de idle connection (conexão fechada pelo servidor antes de concluirr a requisição). Limite de 3 tentativas para evitar loops infinitos.
+	const maxRetries = 3
 	var resp *http.Response
+	var err error
 	start := time.Now()
-	resp, err := httpClient.Post(apiUrl, "application/json", strings.NewReader(string(reqBytes)))
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err = httpClient.Post(apiUrl, "application/json", strings.NewReader(string(reqBytes)))
+		if err == nil {
+			break // sucesso
+		}
+		if isIdleConnError(err) && attempt < maxRetries {
+			log.Printf("[ZABBIX API] %s idle-conn error (tentativa %d/%d), repetindo: %v", method, attempt, maxRetries, err)
+			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
+			continue
+		}
+		break
+	}
 	if err != nil {
 		log.Printf("[ZABBIX API] %s failed after %s: %v", method, time.Since(start), err)
 		return nil, err
@@ -3210,14 +3242,14 @@ setTimeout(setupInfoTooltips,50);
 			tipNoTpl := "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" no Zabbix 6) fornece os itens internos " +
 				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
 				"não é possível coletar métricas de pollers e processos."
-			html += titleWithInfo("h5", nextSub(&proxySub, "Template de Auto-Monitoramento não Vinculado"), tipNoTpl)
-			html += `<p>Os proxies abaixo estão <strong>online</strong> mas não possuem o template ` + tplSearchLink + ` vinculado ao seu host de auto-monitoramento. ` +
-				`Sem este template, os dados de processo/poller não são coletados e a seção de processos fica vazia.</p>`
+			html += titleWithInfo("h5", nextSub(&proxySub, "Zabbix Proxy sem Monitoramento"), tipNoTpl)
+			html += `<p>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
+				`Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy.</p>`
 			html += `<ol style='margin-left:18px;'>`
 			for _, pt := range proxyNoTemplateList {
 				hostLinkPath := "/zabbix.php?action=host.list&filter_set=1&filter_name=" + htmlpkg.EscapeString(pt.ProxyName)
 				if majorV < 7 {
-					hostLinkPath = "/hosts.php?filter_set=1&filter_search=" + htmlpkg.EscapeString(pt.ProxyName)
+					hostLinkPath = "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName)
 				}
 				hostLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+hostLinkPath) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(pt.ProxyName) + `</a>`
 				html += `<li>` + hostLink + ` (hostid=` + htmlpkg.EscapeString(pt.HostId) + `) — ` +
