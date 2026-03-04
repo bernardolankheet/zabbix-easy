@@ -1996,7 +1996,7 @@ func generateZabbixReport(url, token string) (string, error) {
 										}
 										if strings.Contains(key, "items_unsupported") || key == "zabbix[items_unsupported]" {
 											if lv, lok := m["lastvalue"]; lok {
-												itemsUnsupportedVal = fmt.Sprintf("%v", lv)
+												itemsUnsupportedVal = htmlpkg.EscapeString(fmt.Sprintf("%v", lv))
 											}
 										}
 									}
@@ -2056,12 +2056,14 @@ func generateZabbixReport(url, token string) (string, error) {
 					itemsUnsupportedVal = "-"
 					totalItemsVal = "-"
 				}
-				// Proxy online mas chave não encontrada no template — orienta criação
+				// Proxy online mas chave não encontrada no template — exibe "-" com ícone de aviso no tooltip
 				if effState == "2" && itemsUnsupportedVal == "-" {
-					itemsUnsupportedVal = "Criar chave zabbix[items_unsupported] no Template de Proxy"
+					itemsUnsupportedVal = `-<span class='info-icon' tabindex='0' style='margin-left:4px;'>` +
+						`<svg viewBox='0 0 16 16' width='14' height='14'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
+						`<span class='info-tooltip'>Criar chave zabbix[items_unsupported] no Template de Proxy</span></span>`
 				}
 
-				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(itemsUnsupportedVal) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
+				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
 				resultsP <- proxyRow{idx: i, html: rowHTML}
 			}()
 		}
