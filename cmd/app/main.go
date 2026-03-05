@@ -1560,119 +1560,46 @@ func generateZabbixReport(url, token string) (string, error) {
 		DisabledMsg string
 		Err bool
 	}
-	// Parallelize poller collection using shared semaphore `sem`
+	// ── Phase 1: resolver metadados dos pollers a partir de serverItemsMap (sem chamadas à API) ──
+	// A busca de items já foi feita em bulk acima; aqui apenas mapeamos nome→row e coletamos itemids.
+	type serverItemRef struct{ slice string; idx int; itemid string; vtype int }
+	var serverItemRefs []serverItemRef
 	pollRows := []pollRow{}
-	type pollRes struct{ Idx int; Row pollRow }
-	resultsPoll := make(chan pollRes, len(pollerNames))
-	var wgPoll sync.WaitGroup
 	for idx, name := range pollerNames {
-		idx, name := idx, name
-		wgPoll.Add(1)
-		go func() {
-			defer wgPoll.Done()
-			sem <- struct{}{}
-			defer func(){ <-sem }()
-
-			baseName := strings.ToLower(strings.TrimSpace(name))
-			desc := procDesc[baseName]
-			if desc == "" { desc = "Poller process" }
-			words := strings.Fields(name)
-			for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
-			friendly := strings.Join(words, " ")
-
-			pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
-
-			item := serverItemsMap[strings.ToLower(strings.TrimSpace(name))]
-			if item == nil {
-				pr.Disabled = true
-				if serverHost != "" && !serverHostExists {
-					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
-				} else if majorV < 7 {
-					switch strings.ToLower(strings.TrimSpace(name)) {
-					// para Zabbix 6, alguns pollers e workers não existem para versão, este é um bypass.
-					case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
-						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-					default:
-						pr.DisabledMsg = "Processo não habilitado"
-					}
-				} else {
+		baseName := strings.ToLower(strings.TrimSpace(name))
+		desc := procDesc[baseName]
+		if desc == "" { desc = "Poller process" }
+		words := strings.Fields(name)
+		for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
+		friendly := strings.Join(words, " ")
+		pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
+		item := serverItemsMap[baseName]
+		if item == nil {
+			pr.Disabled = true
+			if serverHost != "" && !serverHostExists {
+				pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+			} else if majorV < 7 {
+				switch baseName {
+				case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
+					pr.DisabledMsg = "Não existe nesta versão do Zabbix"
+				default:
 					pr.DisabledMsg = "Processo não habilitado"
-				}
-				resultsPoll <- pollRes{Idx: idx, Row: pr}
-				return
-			}
-			itemid := fmt.Sprintf("%v", item["itemid"])
-			log.Printf("[DEBUG] poller '%s': key_=%v itemid=%s", name, item["key_"], itemid)
-			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
-			if terr != nil {
-				log.Printf("[DEBUG] trend.get failed for poller '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)
-				trend = nil // força fallback para history abaixo
-			}
-			if trend == nil {
-				// fallback: busca history quando trends não estão disponíveis (trends=0 no item ou erro)
-				histType := 0 // float para itens zabbix[process,...]
-				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
-				var herr error
-				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
-				if herr != nil {
-					log.Printf("[DEBUG] history.get also failed for poller '%s' (itemid=%s): %v — marking disabled", name, itemid, herr)
-					pr.Disabled = true
-					pr.DisabledMsg = "Processo não habilitado"
-					resultsPoll <- pollRes{Idx: idx, Row: pr}
-					return
-				}
-				if trend == nil {
-					pr.Disabled = true
-					pr.DisabledMsg = "Processo não habilitado"
-					resultsPoll <- pollRes{Idx: idx, Row: pr}
-					return
-				}
-			}
-			parseVal := func(k string) float64 {
-				if v, ok := trend[k]; ok {
-					s := fmt.Sprintf("%v", v)
-					if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
-				}
-				return -1
-			}
-			vmin := parseVal("value_min")
-			vavg := parseVal("value_avg")
-			vmax := parseVal("value_max")
-			pr.Vmax = vmax
-			pr.Vavg = vavg
-			fmtVal := func(f float64) string {
-				if f < 0 { return "-" }
-				return fmt.Sprintf("%.2f%%", f)
-			}
-			pr.Smin = fmtVal(vmin)
-			pr.Savg = fmtVal(vavg)
-			pr.Smax = fmtVal(vmax)
-			if vavg >= 0 {
-				if vavg < 59.9 {
-					pr.StatusText = "OK"
-					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
-				} else {
-					pr.StatusText = "Atenção"
-					pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
 				}
 			} else {
-				pr.StatusText = "-"
+				pr.DisabledMsg = "Processo não habilitado"
 			}
-			resultsPoll <- pollRes{Idx: idx, Row: pr}
-		}()
+		} else {
+			iid := fmt.Sprintf("%v", item["itemid"])
+			vt := 0
+			if fmt.Sprintf("%v", item["value_type"]) == "3" { vt = 3 }
+			serverItemRefs = append(serverItemRefs, serverItemRef{slice: "poll", idx: idx, itemid: iid, vtype: vt})
+		}
+		pollRows = append(pollRows, pr)
 	}
-	wgPoll.Wait()
-	close(resultsPoll)
-	tempPoll := make(map[int]pollRow)
-	for r := range resultsPoll { tempPoll[r.Idx] = r.Row }
-	for i := 0; i < len(pollerNames); i++ { if v, ok := tempPoll[i]; ok { pollRows = append(pollRows, v) } }
-	// sort by Vavg desc (items with -1 go last)
-	sort.Slice(pollRows, func(i, j int) bool {
-		return pollRows[i].Vavg > pollRows[j].Vavg
-	})
-	// render
-	       for _, pr := range pollRows {
-		       nameCell := `<td style='position:relative;padding:0;'>` +
+	// render pollRows via closure — chamada após Phase 3 (stats corretos)
+	renderPollRows := func() {
+		for _, pr := range pollRows {
+			nameCell := `<td style='position:relative;padding:0;'>` +
 		       `<div style='display:flex;align-items:center;gap:4px;'>` +
 		       `<span>` + pr.Friendly + `</span>` +
 		       `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
@@ -1727,10 +1654,8 @@ func generateZabbixReport(url, token string) (string, error) {
 			       continue
 		       }
 		       html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
-	       }
-	html += `</tbody></table></div>`
-	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
+		}
+	}
 	// procDesc
 	type procRow struct{
 		Friendly string
@@ -1746,119 +1671,118 @@ func generateZabbixReport(url, token string) (string, error) {
 		DisabledMsg string
 		Err bool
 	}
+	// ── Phase 1 (procs): resolver metadados dos processos internos (sem chamadas à API) ──
 	procRows := []procRow{}
-	// Parallelize internal process lookups/trends using shared semaphore
-	type procResult struct{ idx int; pr procRow }
-	results := make(chan procResult, len(procNames))
-	var pwg sync.WaitGroup
 	for i, name := range procNames {
-		i := i; name := name
-		pwg.Add(1)
-		go func() {
-			defer pwg.Done()
-			sem <- struct{}{}
-			defer func(){ <-sem }()
-
-			// friendly name (title case), with special-case for LLD
-			words := strings.Fields(strings.TrimSpace(name))
-			for wi, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[wi] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
-			if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
-			friendly := strings.Join(words, " ") + " Internal Processes"
-
-			baseName := strings.ToLower(strings.TrimSpace(name))
-			desc := procDesc[baseName]
-			if desc == "" { desc = "Internal process" }
-
-			pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1}
-
-			item := serverItemsMap[strings.ToLower(strings.TrimSpace(name))]
-			if item == nil {
-				pr.Disabled = true
-				if serverHost != "" && !serverHostExists {
-					pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
-				} else if majorV < 7 {
-					n := strings.ToLower(strings.TrimSpace(name))
-					if n == "lld manager" || n == "lld worker" || n == "configuration syncer worker" {
-						pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-					} else {
-						pr.DisabledMsg = "Processo não habilitado"
-					}
+		words := strings.Fields(strings.TrimSpace(name))
+		for wi, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[wi] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
+		if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
+		friendly := strings.Join(words, " ") + " Internal Processes"
+		baseName := strings.ToLower(strings.TrimSpace(name))
+		desc := procDesc[baseName]
+		if desc == "" { desc = "Internal process" }
+		pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
+		item := serverItemsMap[baseName]
+		if item == nil {
+			pr.Disabled = true
+			if serverHost != "" && !serverHostExists {
+				pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+			} else if majorV < 7 {
+				if baseName == "lld manager" || baseName == "lld worker" || baseName == "configuration syncer worker" {
+					pr.DisabledMsg = "Não existe nesta versão do Zabbix"
 				} else {
 					pr.DisabledMsg = "Processo não habilitado"
-				}
-				results <- procResult{idx: i, pr: pr}
-				return
-			}
-			itemid := fmt.Sprintf("%v", item["itemid"])
-			log.Printf("[DEBUG] internal process '%s': key_=%v itemid=%s", name, item["key_"], itemid)
-			trend, terr := getLastTrend(apiUrl, token, itemid, 30)
-			if terr != nil {
-				log.Printf("[DEBUG] trend.get failed for process '%s' (itemid=%s): %v — falling back to history.get", name, itemid, terr)
-				trend = nil // força fallback para history abaixo
-			}
-			if trend == nil {
-				// fallback: busca history quando trends não estão disponíveis (trends=0 no item ou erro)
-				histType := 0 // float para itens zabbix[process,...]
-				if vt := fmt.Sprintf("%v", item["value_type"]); vt == "3" { histType = 3 }
-				var herr error
-				trend, herr = getHistoryStats(apiUrl, token, itemid, histType, 30)
-				if herr != nil {
-					log.Printf("[DEBUG] history.get also failed for process '%s' (itemid=%s): %v — marking disabled", name, itemid, herr)
-					pr.Disabled = true
-					pr.DisabledMsg = "Processo não habilitado"
-					results <- procResult{idx: i, pr: pr}
-					return
-				}
-				if trend == nil {
-					pr.Disabled = true
-					pr.DisabledMsg = "Processo não habilitado"
-					results <- procResult{idx: i, pr: pr}
-					return
-				}
-			}
-			parseVal := func(k string) float64 {
-				if v, ok := trend[k]; ok {
-					s := fmt.Sprintf("%v", v)
-					if f, err := strconv.ParseFloat(s, 64); err == nil { return f }
-				}
-				return -1
-			}
-			vmin := parseVal("value_min")
-			vavg := parseVal("value_avg")
-			vmax := parseVal("value_max")
-			pr.Vmax = vmax
-			pr.Vavg = vavg
-			fmtVal := func(f float64) string {
-				if f < 0 { return "-" }
-				return fmt.Sprintf("%.2f%%", f)
-			}
-			pr.Smin = fmtVal(vmin)
-			pr.Savg = fmtVal(vavg)
-			pr.Smax = fmtVal(vmax)
-			if vavg >= 0 {
-				if vavg < 59.9 {
-					pr.StatusText = "OK"
-					pr.StatusStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
-				} else {
-					pr.StatusText = "Atenção"
-					pr.StatusStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
 				}
 			} else {
-				pr.StatusText = "-"
+				pr.DisabledMsg = "Processo não habilitado"
 			}
-			results <- procResult{idx: i, pr: pr}
-		}()
+		} else {
+			iid := fmt.Sprintf("%v", item["itemid"])
+			vt := 0
+			if fmt.Sprintf("%v", item["value_type"]) == "3" { vt = 3 }
+			serverItemRefs = append(serverItemRefs, serverItemRef{slice: "proc", idx: i, itemid: iid, vtype: vt})
+		}
+		procRows = append(procRows, pr)
 	}
-	pwg.Wait()
-	close(results)
-	// collect in original order
-	tempMap := make(map[int]procRow)
-	idxs := []int{}
-	for r := range results { tempMap[r.idx] = r.pr; idxs = append(idxs, r.idx) }
-	sort.Ints(idxs)
-	for _, ii := range idxs { procRows = append(procRows, tempMap[ii]) }
-	// sort by Vmax desc
+
+	// ── Phase 2: um único trend.get para TODOS os itens do Server (pollers + internos) ──
+	// Substitui ~N chamadas individuais getLastTrend por 1 getTrendsBulkStats + 1 getHistoryStatsBulkByType.
+	srvIids := make([]string, 0, len(serverItemRefs))
+	srvVtypes := map[string]int{}
+	for _, ref := range serverItemRefs {
+		srvIids = append(srvIids, ref.itemid)
+		srvVtypes[ref.itemid] = ref.vtype
+	}
+	srvTrendMap, _ := getTrendsBulkStats(apiUrl, token, srvIids)
+	if srvTrendMap == nil { srvTrendMap = map[string]map[string]interface{}{} }
+	// Fallback: history.get bulk para itens sem dados de trend
+	missingSrvH := map[string]int{}
+	for _, iid := range srvIids {
+		if _, ok := srvTrendMap[iid]; !ok { missingSrvH[iid] = srvVtypes[iid] }
+	}
+	if len(missingSrvH) > 0 {
+		histSrv, _ := getHistoryStatsBulkByType(apiUrl, token, missingSrvH)
+		if histSrv != nil {
+			for iid, stats := range histSrv {
+				if _, exists := srvTrendMap[iid]; !exists { srvTrendMap[iid] = stats }
+			}
+		}
+	}
+
+	// ── Phase 3: popular stats nas rows (pollRows e procRows) ──
+	parseSrvStat := func(iid string) (smin, savg, smax string, vavg, vmx float64, stText, stStyle string) {
+		vavg, vmx = -1, -1
+		smin, savg, smax = "-", "-", "-"
+		stText = "-"
+		tr := srvTrendMap[iid]
+		if tr == nil { return }
+		pv := func(k string) float64 {
+			if v, ok := tr[k]; ok {
+				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f }
+			}
+			return -1
+		}
+		fv := func(f float64) string {
+			if f < 0 { return "-" }
+			return fmt.Sprintf("%.2f%%", f)
+		}
+		vmin := pv("value_min")
+		vavg = pv("value_avg")
+		vmx = pv("value_max")
+		smin, savg, smax = fv(vmin), fv(vavg), fv(vmx)
+		if vavg >= 0 {
+			if vavg < 59.9 {
+				stText = "OK"; stStyle = "background:#66c28a;color:#000;padding:6px;border-radius:4px;text-align:center;"
+			} else {
+				stText = "Atenção"; stStyle = "background:#ff6666;color:#000;padding:6px;border-radius:4px;text-align:center;"
+			}
+		}
+		return
+	}
+	for _, ref := range serverItemRefs {
+		smin, savg, smax, vavg, vmx, stText, stStyle := parseSrvStat(ref.itemid)
+		if ref.slice == "poll" {
+			pr := &pollRows[ref.idx]
+			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
+			pr.Vavg, pr.Vmax = vavg, vmx
+			pr.StatusText, pr.StatusStyle = stText, stStyle
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "Processo não habilitado" }
+		} else {
+			pr := &procRows[ref.idx]
+			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
+			pr.Vavg, pr.Vmax = vavg, vmx
+			pr.StatusText, pr.StatusStyle = stText, stStyle
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "Processo não habilitado" }
+		}
+	}
+	// Ordena por Vavg desc (rows desabilitadas com Vavg=-1 vão para o fim)
+	sort.Slice(pollRows, func(i, j int) bool { return pollRows[i].Vavg > pollRows[j].Vavg })
 	sort.Slice(procRows, func(i, j int) bool { return procRows[i].Vavg > procRows[j].Vavg })
+	// Render pollRows com stats corretos (Phase 3 já atualizou as rows)
+	renderPollRows()
+	html += `</tbody></table></div>`
+	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
 	// render
 	for _, pr := range procRows {
 		nameCell := `<td style='position:relative;padding:0;'>` +
