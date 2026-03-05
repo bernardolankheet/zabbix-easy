@@ -15,7 +15,8 @@ Estas variáveis afetam o comportamento de toda a geração do relatório:
 |-----------------------|---------|---------------------------------------------------------------------------------------------|
 | `ZABBIX_SERVER_HOSTID`| _(vazio)_ | ID do host do Zabbix Server. Usado para filtrar chamadas de item por host. Se não definido, a busca ocorre sem filtro de host. |
 | `CHECKTRENDTIME`      | `30d`   | Janela de tempo para análise de trends/histórico. Aceita sufixo `d` (dias), `h` (horas), `m` (minutos). Ex: `7d`, `24h`. |
-| `MAX_CCONCURRENT`     | `6`     | Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente.      |
+| `MAX_CCONCURRENT`     | `4`     | Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente. Reduzir para `2`–`3` se o Zabbix ficar lento ou retornar timeouts. |
+| `API_TIMEOUT_SECONDS` | `60`    | Timeout em segundos de cada requisição HTTP à API do Zabbix. Timeouts de rede são registrados em log e não tentam retry. Aumentar para `90`–`120` em ambientes com muitos hosts/itens. |
 | `APP_DEBUG`           | _(vazio)_ | `1` ou `true` para ativar logs detalhados de cada requisição/resposta da API Zabbix.        |
 
 ---
@@ -107,7 +108,7 @@ Exibe o nível de utilização dos processos internos do Zabbix Server, dividido
 - **Pollers (Data Collectors):** processos que coletam métricas ativamente (`poller`, `http poller`, `icmp pinger`, `agent poller`, `snmp poller`, etc.)
 - **Internal Processes:** processos de infraestrutura do servidor (`history syncer`, `housekeeper`, `escalator`, `trapper`, `lld manager`, etc.)
 
-Para cada processo é exibido `min`, `avg` e `max` de utilização (%), além de status visual **OK** (avg < 50%) ou **Atenção** (avg ≥ 50%).
+Para cada processo é exibido `min`, `avg` e `max` de utilização (%), além de status visual **OK** (avg < 60%) ou **Atenção** (avg ≥ 60%).
 
 ### Tabela exibida
 
@@ -153,39 +154,46 @@ Antes de disparar as goroutines de trend/history, o código faz **uma única cha
 - Os items retornados são mapeados de volta a cada nome via `wildcardMatch` (client-side), priorizando o padrão mais específico (mais palavras) para evitar colisões entre `*poller*` e `*agent*poller*`.
 - Se `ZABBIX_SERVER_HOSTID` não estiver definida, o parâmetro `hostids` é omitido.
 
-#### 2a. `trend.get` — estatísticas do período (primária)
+#### 2a. `trend.get` bulk — **1 chamada** para todos os processos (pollers + internos)
+
+Após o `item.get` da fase 1, todos os `itemid`s resolvidos são agrupados e enviados numa **única chamada** `trend.get`:
 
 ```json
 {
   "method": "trend.get",
   "params": {
     "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
-    "itemids": ["<itemid>"],
+    "itemids": ["<id1>", "<id2>", "..."],
     "time_from": "<agora - CHECKTRENDTIME>",
-    "time_to": "<agora>",
-    "limit": 1
+    "time_to": "<agora>"
   }
 }
 ```
 
-#### 2b. `history.get` — fallback quando `trends=0` no item
+Todos os registros do período são retornados de uma vez. O código agrega os pontos de cada `itemid` separadamente: `value_min` = mínimo global, `value_avg` = média das médias, `value_max` = máximo global.
+
+#### 2b. `history.get` bulk — **1 chamada** de fallback para itens sem dados de trend
+
+Quando um `itemid` não retornou registros no `trend.get` (item com `trends=0` ou retenção expirada), os ids faltantes são agrupados por `value_type` e buscados em **no máximo 2 chamadas** `history.get` (uma por tipo: float `0` e inteiro `3`):
 
 ```json
 {
   "method": "history.get",
   "params": {
-    "output": ["value"],
+    "output": ["itemid", "clock", "value"],
     "history": 0,
-    "itemids": ["<itemid>"],
+    "itemids": ["<id_sem_trend1>", "<id_sem_trend2>", "..."],
     "time_from": "<agora - CHECKTRENDTIME>",
-    "time_to": "<agora>",
+    "time_till": "<agora>",
     "sortorder": "ASC",
-    "limit": 2000
+    "limit": 5000
   }
 }
 ```
 
-Quando o `trend.get` retorna vazio (item com `trends=0` ou retenção expirada), o código coleta até 2.000 pontos do histórico e calcula `min/avg/max` manualmente.
+O `min/avg/max` é calculado manualmente a partir dos pontos retornados, por `itemid`.
+
+> **Resultado:** toda a seção Zabbix Server gera **no máximo 3 chamadas à API** — 1 `item.get` + 1 `trend.get` + 1 `history.get` — independentemente do número de processos monitorados.
 
 ### Funções Go responsáveis
 
@@ -194,8 +202,8 @@ Quando o `trend.get` retorna vazio (item com `trends=0` ou retenção expirada),
 | `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
 | `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome de processo |
 | `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna `map[nomeLowercase]item` |
-| `getLastTrend(apiUrl, token, itemid, days)` | `trend.get` no período configurado |
-| `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: `history.get` + cálculo manual de min/avg/max |
+| `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids. Agrega todos os pontos do período por itemid (min/avg/max). Retorna `map[itemid]stats` |
+| `getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)` | Fallback: agrupa ids por `value_type`, faz **no máximo 2 `history.get`**. Calcula min/avg/max por itemid. Retorna `map[itemid]stats` |
 
 ### Lógica de versão
 
@@ -211,8 +219,8 @@ Quando o `trend.get` retorna vazio (item com `trends=0` ou retenção expirada),
 | `item.get` retorna vazio | Cinza — "Processo não habilitado" |
 | `trend.get` e `history.get` vazios | Cinza — "Processo não habilitado" |
 | `ZABBIX_SERVER_HOSTID` definido mas hostid inválido | Cinza — "Hostid X não encontrado" |
-| avg < 50% | Verde — OK |
-| avg ≥ 50% | Vermelho — Atenção |
+| avg < 60% | Verde — OK |
+| avg ≥ 60% | Vermelho — Atenção |
 | Erro em qualquer chamada | "Erro ao obter dados" |
 
 ### Como adicionar um novo processo
