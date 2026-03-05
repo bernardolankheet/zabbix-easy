@@ -725,7 +725,7 @@ Sem <code>--profile db</code>, o postgres não sobe — mesmo com as variáveis 
 <tbody>
 <tr>
 <td><code>ZABBIX_SERVER_HOSTID</code></td>
-<td><em>(vazio)</em></td>
+<td>10048 - Default</td>
 <td>HostID do Zabbix Server para coleta de dados de performance.</td>
 </tr>
 <tr>
@@ -735,8 +735,13 @@ Sem <code>--profile db</code>, o postgres não sobe — mesmo com as variáveis 
 </tr>
 <tr>
 <td><code>MAX_CCONCURRENT</code></td>
-<td><code>6</code></td>
-<td>Goroutines paralelas para chamadas à API do Zabbix.</td>
+<td><code>4</code></td>
+<td>Goroutines paralelas para chamadas à API do Zabbix. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento ou retornar timeouts.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>20</code></td>
+<td>Timeout em segundos de cada requisição HTTP à API do Zabbix. Aumentar para <code>90</code>–<code>120</code> em ambientes com muitos hosts/itens.</td>
 </tr>
 <tr>
 <td><code>APP_DEBUG</code></td>
