@@ -1526,6 +1526,21 @@ func generateZabbixReport(url, token string) (string, error) {
 		"vmware collector",
 		"ha manager",
 	}
+	// Para Zabbix < 7, remover processos que não existem nessa versão — em vez de exibi-los como desabilitados.
+	if majorV < 7 {
+		v6skip := map[string]bool{
+			"configuration syncer worker": true,
+			"lld manager":                 true,
+			"lld worker":                  true,
+		}
+		filtered := procNames[:0:0]
+		for _, n := range procNames {
+			if !v6skip[strings.ToLower(strings.TrimSpace(n))] {
+				filtered = append(filtered, n)
+			}
+		}
+		procNames = filtered
+	}
 	// Single bulk item.get for ALL server process items (pollers + internal processes)
 	allServerNames := append(append([]string{}, pollerNames...), procNames...)
 	serverItemsMap, serverItemsErr := getProcessItemsBulk(apiUrl, token, allServerNames, serverHost)
@@ -1687,12 +1702,6 @@ func generateZabbixReport(url, token string) (string, error) {
 			pr.Disabled = true
 			if serverHost != "" && !serverHostExists {
 				pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
-			} else if majorV < 7 {
-				if baseName == "lld manager" || baseName == "lld worker" || baseName == "configuration syncer worker" {
-					pr.DisabledMsg = "Não existe nesta versão do Zabbix"
-				} else {
-					pr.DisabledMsg = "Processo não habilitado"
-				}
 			} else {
 				pr.DisabledMsg = "Processo não habilitado"
 			}
