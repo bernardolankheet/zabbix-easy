@@ -573,6 +573,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Lógica de versão">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tipo-do-proxy-active-passive" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tipo do proxy (Active / Passive)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estado-de-conectividade-online-offline-unknown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Estado de conectividade (Online / Offline / Unknown)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1736,6 +1760,30 @@
       Lógica de versão
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Lógica de versão">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tipo-do-proxy-active-passive" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tipo do proxy (Active / Passive)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estado-de-conectividade-online-offline-unknown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Estado de conectividade (Online / Offline / Unknown)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3139,6 +3187,7 @@ if majorV &gt;= 7 {
 </tbody>
 </table>
 <h3 id="logica-de-versao_1">Lógica de versão</h3>
+<h4 id="tipo-do-proxy-active-passive">Tipo do proxy (Active / Passive)</h4>
 <table>
 <thead>
 <tr>
@@ -3149,17 +3198,58 @@ if majorV &gt;= 7 {
 </thead>
 <tbody>
 <tr>
-<td>Tipo (Active/Passive)</td>
+<td>Tipo</td>
 <td><code>operating_mode</code> (<code>0</code>=Active, <code>1</code>=Passive)</td>
 <td><code>status</code> (<code>5</code>=Active, <code>6</code>=Passive)</td>
 </tr>
+</tbody>
+</table>
+<h4 id="estado-de-conectividade-online-offline-unknown">Estado de conectividade (Online / Offline / Unknown)</h4>
+<p>O Zabbix 7 retorna o campo <code>state</code> diretamente no <code>proxy.get</code>. O Zabbix 6 <strong>não retorna <code>state</code></strong>, portanto o estado é derivado do campo <code>lastaccess</code> (Unix timestamp da última comunicação com o servidor):</p>
+<table>
+<thead>
 <tr>
-<td>Estado (Unknown/Offline)</td>
-<td><code>state</code> (<code>0</code>=Unknown, <code>1</code>=Offline, <code>2</code>=Online)</td>
-<td><code>state</code> ou <code>status</code> como fallback</td>
+<th>Condição</th>
+<th>Estado inferido</th>
+<th>Zabbix 7 equivalente</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code> presente e <code>state == "2"</code></td>
+<td><strong>Online</strong></td>
+<td><code>state=2</code></td>
+</tr>
+<tr>
+<td><code>state</code> presente e <code>state == "1"</code></td>
+<td><strong>Offline</strong></td>
+<td><code>state=1</code></td>
+</tr>
+<tr>
+<td><code>state</code> presente e <code>state == "0"</code></td>
+<td><strong>Unknown</strong></td>
+<td><code>state=0</code></td>
+</tr>
+<tr>
+<td><code>state</code> ausente e <code>lastaccess == 0</code></td>
+<td><strong>Unknown</strong> — nunca conectou</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>state</code> ausente e <code>now - lastaccess &gt; 300s</code></td>
+<td><strong>Offline</strong> — perdeu conexão</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>state</code> ausente e <code>now - lastaccess ≤ 300s</code></td>
+<td><strong>Online</strong></td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p>O threshold de 300 s (5 min) é conservador: proxies ativos reportam ao servidor a cada poucos segundos por padrão.</p>
+</blockquote>
 <h3 id="como-funciona-no-codigo">Como funciona no código</h3>
 <p>As linhas por proxy são geradas em goroutines paralelas com o semáforo <code>sem</code>. Os resultados são reordenados pelo índice original para manter a ordem de exibição.</p>
 <hr />
