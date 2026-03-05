@@ -466,18 +466,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2a-trendget-estatisticas-do-periodo-primaria" class="md-nav__link">
+  <a href="#2a-trendget-bulk-1-chamada-para-todos-os-processos-pollers-internos" class="md-nav__link">
     <span class="md-ellipsis">
-      2a. trend.get — estatísticas do período (primária)
+      2a. trend.get bulk — 1 chamada para todos os processos (pollers + internos)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#2b-historyget-fallback-quando-trends0-no-item" class="md-nav__link">
+  <a href="#2b-historyget-bulk-1-chamada-de-fallback-para-itens-sem-dados-de-trend" class="md-nav__link">
     <span class="md-ellipsis">
-      2b. history.get — fallback quando trends=0 no item
+      2b. history.get bulk — 1 chamada de fallback para itens sem dados de trend
     </span>
   </a>
   
@@ -1654,18 +1654,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2a-trendget-estatisticas-do-periodo-primaria" class="md-nav__link">
+  <a href="#2a-trendget-bulk-1-chamada-para-todos-os-processos-pollers-internos" class="md-nav__link">
     <span class="md-ellipsis">
-      2a. trend.get — estatísticas do período (primária)
+      2a. trend.get bulk — 1 chamada para todos os processos (pollers + internos)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#2b-historyget-fallback-quando-trends0-no-item" class="md-nav__link">
+  <a href="#2b-historyget-bulk-1-chamada-de-fallback-para-itens-sem-dados-de-trend" class="md-nav__link">
     <span class="md-ellipsis">
-      2b. history.get — fallback quando trends=0 no item
+      2b. history.get bulk — 1 chamada de fallback para itens sem dados de trend
     </span>
   </a>
   
@@ -2711,8 +2711,13 @@
 </tr>
 <tr>
 <td><code>MAX_CCONCURRENT</code></td>
-<td><code>6</code></td>
-<td>Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente.</td>
+<td><code>4</code></td>
+<td>Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento ou retornar timeouts.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Timeout em segundos de cada requisição HTTP à API do Zabbix. Timeouts de rede são registrados em log e não tentam retry. Aumentar para <code>90</code>–<code>120</code> em ambientes com muitos hosts/itens.</td>
 </tr>
 <tr>
 <td><code>APP_DEBUG</code></td>
@@ -2905,7 +2910,7 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <li><strong>Pollers (Data Collectors):</strong> processos que coletam métricas ativamente (<code>poller</code>, <code>http poller</code>, <code>icmp pinger</code>, <code>agent poller</code>, <code>snmp poller</code>, etc.)</li>
 <li><strong>Internal Processes:</strong> processos de infraestrutura do servidor (<code>history syncer</code>, <code>housekeeper</code>, <code>escalator</code>, <code>trapper</code>, <code>lld manager</code>, etc.)</li>
 </ul>
-<p>Para cada processo é exibido <code>min</code>, <code>avg</code> e <code>max</code> de utilização (%), além de status visual <strong>OK</strong> (avg &lt; 50%) ou <strong>Atenção</strong> (avg ≥ 50%).</p>
+<p>Para cada processo é exibido <code>min</code>, <code>avg</code> e <code>max</code> de utilização (%), além de status visual <strong>OK</strong> (avg &lt; 60%) ou <strong>Atenção</strong> (avg ≥ 60%).</p>
 <h3 id="tabela-exibida_1">Tabela exibida</h3>
 <table>
 <thead>
@@ -2967,33 +2972,38 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <li>Os items retornados são mapeados de volta a cada nome via <code>wildcardMatch</code> (client-side), priorizando o padrão mais específico (mais palavras) para evitar colisões entre <code>*poller*</code> e <code>*agent*poller*</code>.</li>
 <li>Se <code>ZABBIX_SERVER_HOSTID</code> não estiver definida, o parâmetro <code>hostids</code> é omitido.</li>
 </ul>
-<h4 id="2a-trendget-estatisticas-do-periodo-primaria">2a. <code>trend.get</code> — estatísticas do período (primária)</h4>
+<h4 id="2a-trendget-bulk-1-chamada-para-todos-os-processos-pollers-internos">2a. <code>trend.get</code> bulk — <strong>1 chamada</strong> para todos os processos (pollers + internos)</h4>
+<p>Após o <code>item.get</code> da fase 1, todos os <code>itemid</code>s resolvidos são agrupados e enviados numa <strong>única chamada</strong> <code>trend.get</code>:</p>
 <pre><code class="language-json">{
   &quot;method&quot;: &quot;trend.get&quot;,
   &quot;params&quot;: {
     &quot;output&quot;: [&quot;itemid&quot;, &quot;clock&quot;, &quot;value_min&quot;, &quot;value_avg&quot;, &quot;value_max&quot;],
-    &quot;itemids&quot;: [&quot;&lt;itemid&gt;&quot;],
+    &quot;itemids&quot;: [&quot;&lt;id1&gt;&quot;, &quot;&lt;id2&gt;&quot;, &quot;...&quot;],
     &quot;time_from&quot;: &quot;&lt;agora - CHECKTRENDTIME&gt;&quot;,
-    &quot;time_to&quot;: &quot;&lt;agora&gt;&quot;,
-    &quot;limit&quot;: 1
+    &quot;time_to&quot;: &quot;&lt;agora&gt;&quot;
   }
 }
 </code></pre>
-<h4 id="2b-historyget-fallback-quando-trends0-no-item">2b. <code>history.get</code> — fallback quando <code>trends=0</code> no item</h4>
+<p>Todos os registros do período são retornados de uma vez. O código agrega os pontos de cada <code>itemid</code> separadamente: <code>value_min</code> = mínimo global, <code>value_avg</code> = média das médias, <code>value_max</code> = máximo global.</p>
+<h4 id="2b-historyget-bulk-1-chamada-de-fallback-para-itens-sem-dados-de-trend">2b. <code>history.get</code> bulk — <strong>1 chamada</strong> de fallback para itens sem dados de trend</h4>
+<p>Quando um <code>itemid</code> não retornou registros no <code>trend.get</code> (item com <code>trends=0</code> ou retenção expirada), os ids faltantes são agrupados por <code>value_type</code> e buscados em <strong>no máximo 2 chamadas</strong> <code>history.get</code> (uma por tipo: float <code>0</code> e inteiro <code>3</code>):</p>
 <pre><code class="language-json">{
   &quot;method&quot;: &quot;history.get&quot;,
   &quot;params&quot;: {
-    &quot;output&quot;: [&quot;value&quot;],
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;clock&quot;, &quot;value&quot;],
     &quot;history&quot;: 0,
-    &quot;itemids&quot;: [&quot;&lt;itemid&gt;&quot;],
+    &quot;itemids&quot;: [&quot;&lt;id_sem_trend1&gt;&quot;, &quot;&lt;id_sem_trend2&gt;&quot;, &quot;...&quot;],
     &quot;time_from&quot;: &quot;&lt;agora - CHECKTRENDTIME&gt;&quot;,
-    &quot;time_to&quot;: &quot;&lt;agora&gt;&quot;,
+    &quot;time_till&quot;: &quot;&lt;agora&gt;&quot;,
     &quot;sortorder&quot;: &quot;ASC&quot;,
-    &quot;limit&quot;: 2000
+    &quot;limit&quot;: 5000
   }
 }
 </code></pre>
-<p>Quando o <code>trend.get</code> retorna vazio (item com <code>trends=0</code> ou retenção expirada), o código coleta até 2.000 pontos do histórico e calcula <code>min/avg/max</code> manualmente.</p>
+<p>O <code>min/avg/max</code> é calculado manualmente a partir dos pontos retornados, por <code>itemid</code>.</p>
+<blockquote>
+<p><strong>Resultado:</strong> toda a seção Zabbix Server gera <strong>no máximo 3 chamadas à API</strong> — 1 <code>item.get</code> + 1 <code>trend.get</code> + 1 <code>history.get</code> — independentemente do número de processos monitorados.</p>
+</blockquote>
 <h3 id="funcoes-go-responsaveis_1">Funções Go responsáveis</h3>
 <table>
 <thead>
@@ -3016,12 +3026,12 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <td>Faz <strong>1 <code>item.get</code></strong> com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna <code>map[nomeLowercase]item</code></td>
 </tr>
 <tr>
-<td><code>getLastTrend(apiUrl, token, itemid, days)</code></td>
-<td><code>trend.get</code> no período configurado</td>
+<td><code>getTrendsBulkStats(apiUrl, token, itemids)</code></td>
+<td><strong>1 <code>trend.get</code></strong> para todos os itemids. Agrega todos os pontos do período por itemid (min/avg/max). Retorna <code>map[itemid]stats</code></td>
 </tr>
 <tr>
-<td><code>getHistoryStats(apiUrl, token, itemid, histType, days)</code></td>
-<td>Fallback: <code>history.get</code> + cálculo manual de min/avg/max</td>
+<td><code>getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)</code></td>
+<td>Fallback: agrupa ids por <code>value_type</code>, faz <strong>no máximo 2 <code>history.get</code></strong>. Calcula min/avg/max por itemid. Retorna <code>map[itemid]stats</code></td>
 </tr>
 </tbody>
 </table>
@@ -3066,11 +3076,11 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <td>Cinza — "Hostid X não encontrado"</td>
 </tr>
 <tr>
-<td>avg &lt; 50%</td>
+<td>avg &lt; 60%</td>
 <td>Verde — OK</td>
 </tr>
 <tr>
-<td>avg ≥ 50%</td>
+<td>avg ≥ 60%</td>
 <td>Vermelho — Atenção</td>
 </tr>
 <tr>
