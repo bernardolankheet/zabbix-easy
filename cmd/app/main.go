@@ -606,19 +606,54 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 		from = now - int64(days*24*60*60)
 	}
 	params := map[string]interface{}{
-		"output": []string{"itemid", "clock", "value_min", "value_avg", "value_max"},
-		"itemids": []string{itemid},
-		"limit": 1,
+		"output":    []string{"itemid", "clock", "value_min", "value_avg", "value_max"},
+		"itemids":   []string{itemid},
 		"time_from": from,
-		"time_to": now,
+		"time_to":   now,
+		// sem "limit":1 — busca todos os registros do período e agrega (igual a getTrendsBulkStats)
+		// com limit:1 retornava apenas um ponto de trend (1h), dando valores erráticos
 	}
 	resp, err := zabbixApiRequest(apiUrl, token, "trend.get", params)
 	if err != nil { return nil, err }
 	if r, ok := resp["result"]; ok {
 		arr, _ := r.([]interface{})
-		if len(arr) > 0 {
-			return arr[0].(map[string]interface{}), nil
+		if len(arr) == 0 { return nil, nil }
+		// Agrega todos os registros do período: min=menor, avg=média dos avgs, max=maior
+		type aggState struct {
+			vmin, vmax float64
+			vavgSum    float64
+			count      int
 		}
+		var agg *aggState
+		parseF := func(row map[string]interface{}, k string) (float64, bool) {
+			if v, ok2 := row[k]; ok2 {
+				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
+			}
+			return 0, false
+		}
+		for _, raw := range arr {
+			row, _ := raw.(map[string]interface{})
+			if row == nil { continue }
+			vmin, ok1 := parseF(row, "value_min")
+			vavg, ok2 := parseF(row, "value_avg")
+			vmax, ok3 := parseF(row, "value_max")
+			if !ok1 && !ok2 && !ok3 { continue }
+			if agg == nil {
+				agg = &aggState{vmin: vmin, vmax: vmax, vavgSum: vavg, count: 1}
+			} else {
+				if ok1 && vmin < agg.vmin { agg.vmin = vmin }
+				if ok3 && vmax > agg.vmax { agg.vmax = vmax }
+				if ok2 { agg.vavgSum += vavg; agg.count++ }
+			}
+		}
+		if agg == nil { return nil, nil }
+		vavgFinal := 0.0
+		if agg.count > 0 { vavgFinal = agg.vavgSum / float64(agg.count) }
+		return map[string]interface{}{
+			"value_min": fmt.Sprintf("%f", agg.vmin),
+			"value_avg": fmt.Sprintf("%f", vavgFinal),
+			"value_max": fmt.Sprintf("%f", agg.vmax),
+		}, nil
 	}
 	return nil, nil
 }
