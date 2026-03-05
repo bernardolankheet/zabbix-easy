@@ -3320,84 +3320,101 @@ setTimeout(setupInfoTooltips,50);
 		if total <= 0 { return "0%" }
 		return fmt.Sprintf("%.2f%%", (float64(part)*100.0)/float64(total))
 	}
-	itemsSub := 0
-	html += nextSec("card-items", "Items")
-	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items. Lista de itens na aba Items e LLD na opção "Items sem Template"</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente. Lista de itens na aba Items e LLD na opção "Items não suportados"</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento. Lista de itens na aba Items e LLD na opção "Items desabilitados"</p>`
-	html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade. Lista de itens na aba Items e LLD na opção "Intervalo de Coleta"</p>`
-	if textCount > 0 {
-		html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente. Lista de itens na aba Items e LLD na opção "Items Texto com Historico"</p>`
+	// --- Seção: Items (só aparece quando há subitem com dado) ---
+	itemsHasData := itemsNoTplCount > 0 || unsupportedVal > 0 || disabledCount > 0 || itemsLe60 > 0 || textCount > 0 || (majorV >= 7 && snmpTplCount > 0)
+	if itemsHasData {
+		itemsSub := 0
+		html += nextSec("card-items", "Items")
+		html += `<div style='margin-left:6px;'>`
+		if itemsNoTplCount > 0 {
+			html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items. Lista de itens na aba Items e LLD na opção "Items sem Template"</p>`
+		}
+		if unsupportedVal > 0 {
+			html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente. Lista de itens na aba Items e LLD na opção "Items não suportados"</p>`
+		}
+		if disabledCount > 0 {
+			html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento. Lista de itens na aba Items e LLD na opção "Items desabilitados"</p>`
+		}
+		if itemsLe60 > 0 {
+			html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade. Lista de itens na aba Items e LLD na opção "Intervalo de Coleta"</p>`
+		}
+		if textCount > 0 {
+			html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store) ou use preprocessamento/item dependente. Lista de itens na aba Items e LLD na opção "Items Texto com Historico"</p>`
+		}
+		if majorV >= 7 && snmpTplCount > 0 {
+			tipSnmp := htmlpkg.EscapeString("Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato.")
+			snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
+				`<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+				`<span class='info-tooltip'>` + tipSnmp + `</span></span>`
+			html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong>` + snmpIcon + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. Vericar os templates em "Templates passíveis para migração para SNMP-POLLER" na sessão Templates. </p>`
+		}
+		html += `</div>`
 	}
-	if majorV >= 7 && snmpTplCount > 0 {
-		tipSnmp := htmlpkg.EscapeString("Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato.")
-		snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
-			`<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-			`<span class='info-tooltip'>` + tipSnmp + `</span></span>`
-		html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong>` + snmpIcon + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. Vericar os templates em "Templates passíveis para migração para SNMP-POLLER" na sessão Templates. </p>`
-	}
-	html += `</div>`
 
-	// --- Seção: Regras de LLD ---
-	lldSub := 0
-	html += nextSec("card-lld", "Regras de LLD")
-	html += `<div style='margin-left:6px;'>`
-	html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD com Intervalo ≤ 300s:") + `</strong> Existem ` + fmt.Sprintf("%d", lldLe300) + ` regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager.</p>`
-	html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD não suportadas:") + `</strong> Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager.</p>`
-	html += `</div>`
+	// --- Seção: Regras de LLD (só aparece quando há dado) ---
+	if lldLe300 > 0 || lldNotSupCnt > 0 {
+		lldSub := 0
+		html += nextSec("card-lld", "Regras de LLD")
+		html += `<div style='margin-left:6px;'>`
+		if lldLe300 > 0 {
+			html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD com Intervalo ≤ 300s:") + `</strong> Existem ` + fmt.Sprintf("%d", lldLe300) + ` regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager.</p>`
+		}
+		if lldNotSupCnt > 0 {
+			html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD não suportadas:") + `</strong> Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager.</p>`
+		}
+		html += `</div>`
+	}
 
-	// --- Seção: Templates ---
-	tplSub := 0
-	html += "<div id='card-templates'></div>"
-	html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
-	secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
-	html += `<div style='margin-left:6px;'>`
-	html += fmt.Sprintf("<h5>%d.%d) Templates para revisão - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
-	if len(topTemplates) == 0 {
-		html += `<p>Nenhum template problemático identificado.</p>`
-	} else {
-		html += `<ul>`
-		cnt := 0
-		for _, t := range topTemplates {
-			if cnt >= 10 { break }
-			name := templateNames[t.Key]
-			if name == "" { name = t.Key }
-			html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
-			cnt++
+	// --- Seção: Templates (só aparece quando há dado) ---
+	tplHasData := len(topTemplates) > 0 || len(topErrors) > 0 || (majorV >= 7 && len(snmpMigrationTpls) > 0)
+	if tplHasData {
+		tplSub := 0
+		html += "<div id='card-templates'></div>"
+		html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
+		secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
+		html += `<div style='margin-left:6px;'>`
+		if len(topTemplates) > 0 {
+			html += fmt.Sprintf("<h5>%d.%d) Templates para revisão - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
+			html += `<ul>`
+			cnt := 0
+			for _, t := range topTemplates {
+				if cnt >= 10 { break }
+				name := templateNames[t.Key]
+				if name == "" { name = t.Key }
+				html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
+				cnt++
+			}
+			html += `</ul>`
 		}
-		html += `</ul>`
-	}
-	html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
-	if len(topErrors) == 0 {
-		html += `<p>Nenhum erro identificado.</p>`
-	} else {
-		html += `<ul>`
-		cnt2 := 0
-		for _, e := range topErrors {
-			if cnt2 >= 10 { break }
-			parts := strings.SplitN(e.Key, "|", 2)
-			errMsg := parts[0]
-			tplId := ""
-			if len(parts) > 1 { tplId = parts[1] }
-			tplName := templateNames[tplId]
-			if tplName == "" { tplName = tplId }
-			html += `<li>` + htmlpkg.EscapeString(errMsg) + ` - ` + htmlpkg.EscapeString(tplName) + `</li>`
-			cnt2++
+		if len(topErrors) > 0 {
+			html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
+			html += `<ul>`
+			cnt2 := 0
+			for _, e := range topErrors {
+				if cnt2 >= 10 { break }
+				parts := strings.SplitN(e.Key, "|", 2)
+				errMsg := parts[0]
+				tplId := ""
+				if len(parts) > 1 { tplId = parts[1] }
+				tplName := templateNames[tplId]
+				if tplName == "" { tplName = tplId }
+				html += `<li>` + htmlpkg.EscapeString(errMsg) + ` - ` + htmlpkg.EscapeString(tplName) + `</li>`
+				cnt2++
+			}
+			html += `</ul>`
 		}
-		html += `</ul>`
-	}
-	if majorV >= 7 && len(snmpMigrationTpls) > 0 {
-		tipSnmpMig := "Templates que possuem items SNMP ainda utilizando OID no formato antigo (sem get[] ou walk[]). Esses items usam o poller síncrono padrão. Migrar para o formato get[]/walk[] permite que o Zabbix 7 utilize o 'SNMP Poller' assíncrono, melhorando a performance de coleta em ambientes com muitos checks SNMP."
-		html += titleWithInfo("h5", fmt.Sprintf("%d.%d) Templates passíveis para migração para SNMP-POLLER", secNum, func() int { tplSub++; return tplSub }()), tipSnmpMig)
-		html += `<ul>`
-		for _, name := range snmpMigrationTpls {
-			html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
+		if majorV >= 7 && len(snmpMigrationTpls) > 0 {
+			tipSnmpMig := "Templates que possuem items SNMP ainda utilizando OID no formato antigo (sem get[] ou walk[]). Esses items usam o poller síncrono padrão. Migrar para o formato get[]/walk[] permite que o Zabbix 7 utilize o 'SNMP Poller' assíncrono, melhorando a performance de coleta em ambientes com muitos checks SNMP."
+			html += titleWithInfo("h5", fmt.Sprintf("%d.%d) Templates passíveis para migração para SNMP-POLLER", secNum, func() int { tplSub++; return tplSub }()), tipSnmpMig)
+			html += `<ul>`
+			for _, name := range snmpMigrationTpls {
+				html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
+			}
+			html += `</ul>`
 		}
-		html += `</ul>`
+		html += `</div>`
 	}
-	html += `</div>`
-	html += `</div>`
+	html += `</div>` // fecha tab-recomendacoes
 
 	// small JS to handle tab switching (keeps markup simple and UX clean)
 	html += `<script>` +

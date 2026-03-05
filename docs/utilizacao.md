@@ -617,13 +617,13 @@ O Top N é 10 por padrão (constante `topN = 10`).
 
 ### O que é
 
-Sugestões automáticas geradas com base em todos os dados coletados. Organizada em até 5 seções numeradas (exibidas somente quando há recomendação) com KPI cards no topo para visão rápida:
+Sugestões automáticas geradas com base em todos os dados coletados. Todas as seções e subitens são **exibidos somente quando há recomendação** — se o valor for 0, nem a seção nem o subitem aparecem. KPI cards no topo para visão rápida.
 
-1. **Zabbix Server** — processos em Atenção + sugestão de pollers assíncronos (Zabbix 7) — **exibida apenas quando há recomendação**
-2. **Zabbix Proxys** — lista proxies Unknown/Offline com orientações — **exibida apenas quando há recomendação**
-3. **Items** — itens sem template, não suportados, desabilitados, intervalo curto, texto com histórico, SNMP get/walk
-4. **Regras de LLD** — LLD com intervalo curto e LLD não suportadas
-5. **Templates** — lista dos top templates para revisão e erros mais comuns
+1. **Zabbix Server** — processos em Atenção + sugestão de pollers assíncronos (Zabbix 7) — só aparece se há processos com avg ≥ 60% ou pollers assíncronos desabilitados
+2. **Zabbix Proxys** — proxies Unknown/Offline + processos em Atenção + proxies sem template — só aparece se há algum problema
+3. **Items** — cada subitem (sem template, não suportados, desabilitados, intervalo curto, texto com histórico, SNMP) só aparece individualmente se seu contador for > 0; a seção toda some se todos forem 0
+4. **Regras de LLD** — cada subitem (intervalo curto, não suportadas) só aparece individualmente se > 0; seção some se ambos forem 0
+5. **Templates** — só aparece se há templates para revisão, erros identificados ou templates SNMP para migração (Zabbix 7)
 
 ### KPI cards
 
@@ -741,7 +741,71 @@ Ou seja, a seção só é gerada quando ao menos uma das condições for verdade
 
 ---
 
+### Seção 3 — Items
 
+#### Condição de exibição da seção
+
+A seção inteira só é gerada quando pelo menos um subitem possui dado:
+
+```go
+itemsHasData := itemsNoTplCount > 0 || unsupportedVal > 0 || disabledCount > 0 ||
+                itemsLe60 > 0 || textCount > 0 || (majorV >= 7 && snmpTplCount > 0)
+```
+
+#### Subitens e suas condições individuais
+
+| Subitem | Condição para aparecer | Variável Go |
+|---------|------------------------|-------------|
+| Items sem Template | `itemsNoTplCount > 0` | `itemsNoTplCount` |
+| Items não suportados | `unsupportedVal > 0` | `unsupportedVal` |
+| Items desabilitados | `disabledCount > 0` | `disabledCount` |
+| Items com Intervalo ≤ 60s | `itemsLe60 > 0` | `itemsLe60` |
+| Items Texto com Histórico (≤ 300s) | `textCount > 0` | `textCount` |
+| Items SNMP-POLLER (Zabbix 7) | `majorV >= 7 && snmpTplCount > 0` | `snmpTplCount` |
+
+---
+
+### Seção 4 — Regras de LLD
+
+#### Condição de exibição da seção
+
+A seção inteira só é gerada quando pelo menos um subitem possui dado:
+
+```go
+lldLe300 > 0 || lldNotSupCnt > 0
+```
+
+#### Subitens e suas condições individuais
+
+| Subitem | Condição para aparecer | Variável Go |
+|---------|------------------------|-------------|
+| Regras de LLD com Intervalo ≤ 300s | `lldLe300 > 0` | `lldLe300` |
+| Regras de LLD não suportadas | `lldNotSupCnt > 0` | `lldNotSupCnt` |
+
+---
+
+### Seção 5 — Templates
+
+#### Condição de exibição da seção
+
+A seção inteira só é gerada quando pelo menos um subitem possui dado:
+
+```go
+tplHasData := len(topTemplates) > 0 || len(topErrors) > 0 ||
+              (majorV >= 7 && len(snmpMigrationTpls) > 0)
+```
+
+#### Subitens e suas condições individuais
+
+| Subitem | Condição para aparecer | Variável Go |
+|---------|------------------------|-------------|
+| Templates para revisão | `len(topTemplates) > 0` | `topTemplates` |
+| Erros Mais Comuns | `len(topErrors) > 0` | `topErrors` |
+| Templates passíveis para migração SNMP-POLLER | `majorV >= 7 && len(snmpMigrationTpls) > 0` | `snmpMigrationTpls` |
+
+---
+
+### Item "Items SNMP-POLLER (Zabbix 7)" — Seção 3 (Items)
 
 #### O que é
 
