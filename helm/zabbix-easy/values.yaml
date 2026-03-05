@@ -1,0 +1,114 @@
+# Default values for zabbix-easy.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+objects:
+  secret:
+    enabled: true
+
+metadata:
+  annotations: {}
+  labels: {}
+
+image:
+  repository: bernardolankheet/zabbix-easy
+  pullPolicy: Always
+  tag: latest
+
+imagePullSecrets: []
+
+nodeSelector: {}
+
+spec:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 728Mi
+
+container:
+  args: []
+
+port: 8080
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+service:
+  annotations: {}
+  spec:
+    type: ClusterIP
+    ports:
+      - port: 8080
+        targetPort: 8080
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/ingress.allow-http: "true"
+  rules:
+    - host: zabbix-easy
+      domain: example.com
+      path: /
+  tlsenabled: false
+  tls: []
+  # tls:
+  #   - host: zabbix-easy
+  #     domain: example.com
+  #     cert: zabbix-easy-example-com
+
+# Application environment variables (non-sensitive).
+# DB_HOST, DB_USER e DB_PASSWORD são injetados automaticamente via Secret/postgres.enabled.
+env:
+  MAX_CCONCURRENT: "200"
+  ZABBIX_SERVER_HOSTID: "10084"
+  APP_DEBUG: "false"
+  CHECKTRENDTIME: "15d"
+  DB_PORT: "5432"
+  DB_NAME: "zabbix_report"
+
+# Database credentials — armazenados em um Secret Kubernetes.
+db:
+  user: postgres
+  password: postgres
+  name: zabbix_report
+
+# PostgreSQL — deployment interno ao chart.
+# Defina postgres.enabled: false para usar um banco externo
+# e configure DB_HOST manualmente em env:.
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "18-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 3Gi
+    # storageClassName: "" usa o StorageClass padrão do cluster.
+    storageClassName: ""

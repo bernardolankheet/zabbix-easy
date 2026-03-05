@@ -1,0 +1,13 @@
+apiVersion: v2
+name: zabbix-easy
+description: Helm chart para zabbix-easy — geração de relatórios automatizados para ambientes Zabbix com persistência PostgreSQL.
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - zabbix
+  - monitoring
+  - report
+  - postgresql
+maintainers:
+  - name: Bernardo Lankheet

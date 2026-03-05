@@ -285,10 +285,26 @@ A lista de proxies já foi coletada no início (Resumo). Por proxy ativo, são f
 
 ### Lógica de versão
 
+#### Tipo do proxy (Active / Passive)
+
 | Campo | Zabbix ≥ 7 | Zabbix 6 |
 |-------|-----------|---------|
-| Tipo (Active/Passive) | `operating_mode` (`0`=Active, `1`=Passive) | `status` (`5`=Active, `6`=Passive) |
-| Estado (Unknown/Offline) | `state` (`0`=Unknown, `1`=Offline, `2`=Online) | `state` ou `status` como fallback |
+| Tipo | `operating_mode` (`0`=Active, `1`=Passive) | `status` (`5`=Active, `6`=Passive) |
+
+#### Estado de conectividade (Online / Offline / Unknown)
+
+O Zabbix 7 retorna o campo `state` diretamente no `proxy.get`. O Zabbix 6 **não retorna `state`**, portanto o estado é derivado do campo `lastaccess` (Unix timestamp da última comunicação com o servidor):
+
+| Condição | Estado inferido | Zabbix 7 equivalente |
+|----------|----------------|----------------------|
+| `state` presente e `state == "2"` | **Online** | `state=2` |
+| `state` presente e `state == "1"` | **Offline** | `state=1` |
+| `state` presente e `state == "0"` | **Unknown** | `state=0` |
+| `state` ausente e `lastaccess == 0` | **Unknown** — nunca conectou | — |
+| `state` ausente e `now - lastaccess > 300s` | **Offline** — perdeu conexão | — |
+| `state` ausente e `now - lastaccess ≤ 300s` | **Online** | — |
+
+> O threshold de 300 s (5 min) é conservador: proxies ativos reportam ao servidor a cada poucos segundos por padrão.
 
 ### Como funciona no código
 
