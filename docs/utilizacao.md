@@ -617,10 +617,10 @@ O Top N é 10 por padrão (constante `topN = 10`).
 
 ### O que é
 
-Sugestões automáticas geradas com base em todos os dados coletados. Organizada em 5 seções numeradas com KPI cards no topo para visão rápida:
+Sugestões automáticas geradas com base em todos os dados coletados. Organizada em até 5 seções numeradas (exibidas somente quando há recomendação) com KPI cards no topo para visão rápida:
 
-1. **Zabbix Server** — processos em Atenção + sugestão de pollers assíncronos (Zabbix 7)
-2. **Zabbix Proxys** — lista proxies Unknown/Offline com orientações
+1. **Zabbix Server** — processos em Atenção + sugestão de pollers assíncronos (Zabbix 7) — **exibida apenas quando há recomendação**
+2. **Zabbix Proxys** — lista proxies Unknown/Offline com orientações — **exibida apenas quando há recomendação**
 3. **Items** — itens sem template, não suportados, desabilitados, intervalo curto, texto com histórico, SNMP get/walk
 4. **Regras de LLD** — LLD com intervalo curto e LLD não suportadas
 5. **Templates** — lista dos top templates para revisão e erros mais comuns
@@ -631,7 +631,7 @@ Os KPIs são exibidos em uma faixa horizontal no topo da guia Recomendações. C
 
 | # | Label | Cor | Variável Go | Clique leva para | Condição de exibição |
 |---|-------|-----|-------------|-----------------|----------------------|
-| 1 | Zabbix Server - Process/Pollers com AVG alto | 🟡 Amarelo (`kpi-warn`) | `attentionCount` = `len(attention)` | Seção Zabbix Server | Sempre |
+| 1 | Zabbix Server - Process/Pollers com AVG alto | 🟡 Amarelo / 🟢 Verde (`kpi-warn` / `kpi-ok`) | `attentionCount` = `len(attention)` | Seção Zabbix Server | Sempre (verde se 0) |
 | 2 | Proxys Offline | 🔴 Vermelho (`kpi-crit`) | `proxyOfflineCount` | Seção Zabbix Proxys | Sempre |
 | 3 | Proxys Unknown | ⚪ Neutro | `proxyUnknownCount` | Seção Zabbix Proxys | Sempre |
 | 4 | Proxys - Process/Pollers com AVG alto | 🟢 Verde / 🟡 Amarelo | `len(proxyProcAttnList)` | Seção Zabbix Proxys | Sempre |
@@ -644,7 +644,7 @@ Os KPIs são exibidos em uma faixa horizontal no topo da guia Recomendações. C
 
 | KPI | Condição | Classe CSS | Borda |
 |-----|----------|------------|-------|
-| Zabbix Server - Process/Pollers | sempre amarelo | `kpi-warn` | amarelo `#ffcc00` |
+| Zabbix Server - Process/Pollers | `attentionCount == 0` → verde; `> 0` → amarelo | `kpi-ok` / `kpi-warn` | verde / amarelo |
 | Proxys Offline | sempre vermelho | `kpi-crit` | vermelho `#ff6666` |
 | Proxys Unknown | sempre neutro | _(sem classe)_ | cinza |
 | Proxys - Process/Pollers | `len(proxyProcAttnList) == 0` → verde; `> 0` → amarelo | `kpi-ok` / `kpi-warn` | verde / amarelo |
@@ -653,7 +653,7 @@ Os KPIs são exibidos em uma faixa horizontal no topo da guia Recomendações. C
 | Items - SNMP-POLLER (%) | `snmpPct >= 80%` → verde; `< 80%` → vermelho | `kpi-ok` / `kpi-crit` | verde / vermelho |
 | Items Texto c/ Histórico | sempre amarelo | `kpi-warn` | amarelo `#ffcc00` |
 
-> **Referência de limiar:** processos do **Zabbix Server** em atenção usam avg ≥ 50% (variável `attention`); processos dos **Proxys** usam avg ≥ 60% (variável `proxyProcAttnList`).
+> **Referência de limiar:** processos do **Zabbix Server** e dos **Proxys** em atenção usam avg ≥ 60% (variáveis `attention` e `proxyProcAttnList`).
 
 ### Chamadas à API do Zabbix (exclusivas desta guia)
 
@@ -686,7 +686,62 @@ html += `<div class='kpi ` + classe + `' data-target='#card-<seção>' title='<t
 
 ---
 
-### Item "Items SNMP-POLLER (Zabbix 7)" — Seção 3 (Items)
+### Seção 1 — Zabbix Server
+
+#### Condição de exibição
+
+A seção **não aparece** quando não há nada a recomendar. O bloco inteiro é omitido se:
+
+```
+len(attention) == 0  AND  len(missingAsync) == 0
+```
+
+Ou seja, a seção só é gerada quando ao menos uma das condições for verdadeira:
+- Há processos/pollers com `value_avg ≥ 60%` (lista `attention`)
+- Há pollers assíncronos (`Agent Poller`, `HTTP Agent Poller`, `SNMP Poller`) desabilitados no Zabbix 7+ (lista `missingAsync`)
+
+#### Hierarquia HTML gerada
+
+```
+1) Zabbix Server
+  1.1) Sugestões zabbix_server.conf:         ← só aparece se len(attention) > 0
+       Customizar Processos e Threads: ⓘ     ← texto em negrito com tooltip, sem numeração própria
+         1. <Nome do processo> — média: X%
+         2. <Nome do processo> — média: X%
+  1.2) Utilizar Pollers Assíncronos: ⓘ       ← só aparece se len(missingAsync) > 0
+       • Agent Poller
+       • SNMP Poller
+```
+
+> Quando ambos existem, os subnúmeros são `1.1)` e `1.2)`. Quando apenas um deles existe, só aparece `1.1)`.
+
+#### Subitem "Sugestões zabbix_server.conf"
+
+- Numerado como `1.1)` via `nextSub(&serverSub, "Sugestões zabbix_server.conf:")`
+- Exibido apenas quando `len(attention) > 0`
+- Logo abaixo do header numerado aparece o texto **"Customizar Processos e Threads:"** como `<strong>` com ícone `?` (tooltip com orientação sobre quando aumentar o processo)
+- Seguido de `<ol>` com um item por processo em Atenção: `Nome do processo — média: X%`
+- Processos são ordenados por `value_avg` decrescente (maior utilização primeiro)
+
+#### Subitem "Utilizar Pollers Assíncronos"
+
+- Numerado como `1.1)` ou `1.2)` dependendo se "Sugestões" também aparece
+- Exibido apenas quando `len(missingAsync) > 0`
+- Só relevante para **Zabbix ≥ 7** (pollers assíncronos não existem no Zabbix 6)
+- Lista os pollers desabilitados: `Agent Poller`, `HTTP Agent Poller`, `SNMP Poller`
+- Cada item tem ícone `?` com descrição de uso
+
+#### Variáveis Go envolvidas
+
+| Variável | Tipo | Origem |
+|----------|------|--------|
+| `attention` | `[]struct{Name string; Vavg float64}` | Construída iterando `pollRows` + `procRows` com `StatusText == "Atenção"` |
+| `missingAsync` | `[]string` | Construída verificando se `Agent Poller`, `HTTP Agent Poller`, `SNMP Poller` estão em `pollRows` com `Disabled == true` |
+| `pollMap` | `map[string]pollRow` | Mapa auxiliar `friendly_name_lowercase → pollRow` para lookup de `missingAsync` |
+
+---
+
+
 
 #### O que é
 

@@ -3202,56 +3202,51 @@ setTimeout(setupInfoTooltips,50);
 		return fmt.Sprintf("%d.%d)", secNum, *sub) + " " + label
 	}
 
-	// --- Seção: Zabbix Server (sempre mostrada) ---
-	serverSub := 0
-	html += nextSec("card-server", "Zabbix Server")
-	html += fmt.Sprintf("<h5>%d.%d) Sugestões zabbix_server.conf:</h5>", secNum, 1)
-	serverSub = 1
+	// Pré-computa missingAsync para decidir se a seção Zabbix Server aparece
 	checkTrendEnvVal := os.Getenv("CHECKTRENDTIME")
 	if checkTrendEnvVal == "" { checkTrendEnvVal = "15d" }
-	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendEnvVal, checkTrendDisplay)
-	html += titleWithInfo("h5", nextSub(&serverSub, "Customizar Processos e Threads"), tipProc)
-	if len(attention) == 0 {
-		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
-	} else {
-		html += `<ol style='margin-left:18px;'>`
-		for _, a := range attention {
-			html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
-		}
-		html += `</ol>`
-	}
-
-	// Sugestão: Pollers Assíncronos (mostrar somente se algum não estiver habilitado)
 	asyncNames := []string{"Agent Poller", "HTTP Agent Poller", "SNMP Poller"}
 	missingAsync := []string{}
-	// build a normalized map of poller friendly name (lowercase) -> pollRow for lookup
 	pollMap := map[string]pollRow{}
 	for _, pr := range pollRows {
-		key := strings.ToLower(strings.TrimSpace(pr.Friendly))
-		pollMap[key] = pr
+		pollMap[strings.ToLower(strings.TrimSpace(pr.Friendly))] = pr
 	}
 	for _, an := range asyncNames {
-		norm := strings.ToLower(strings.TrimSpace(an))
-		if pr, ok := pollMap[norm]; ok {
+		if pr, ok := pollMap[strings.ToLower(strings.TrimSpace(an))]; ok {
 			if pr.Disabled && strings.TrimSpace(pr.DisabledMsg) != "" {
 				missingAsync = append(missingAsync, an)
 			}
 		}
 	}
-	if len(missingAsync) > 0 {
-		tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
-		html += titleWithInfo("h5", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
-		html += `<div style='margin-left:6px;'><ul>`
-		descs := map[string]string{
-			"Agent Poller": "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
-			"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
-			"SNMP Poller": "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
+
+	// --- Seção: Zabbix Server (só aparece quando há recomendação) ---
+	if len(attention) > 0 || len(missingAsync) > 0 {
+		serverSub := 0
+		html += nextSec("card-server", "Zabbix Server")
+		if len(attention) > 0 {
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "Sugestões zabbix_server.conf:"))
+			tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendEnvVal, checkTrendDisplay)
+			html += `<p>` + titleWithInfo("strong", "Customizar Processos e Threads:", tipProc) + `</p>`
+			html += `<ol style='margin-left:18px;'>`
+			for _, a := range attention {
+				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
+			}
+			html += `</ol>`
 		}
-		for _, n := range missingAsync {
-			d := descs[n]
-			html += `<li>` + titleWithInfo("span", n, d) + `</li>`
+		if len(missingAsync) > 0 {
+			tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
+			html += titleWithInfo("h5", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
+			html += `<div style='margin-left:6px;'><ul>`
+			descs := map[string]string{
+				"Agent Poller":      "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
+				"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
+				"SNMP Poller":       "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
+			}
+			for _, n := range missingAsync {
+				html += `<li>` + titleWithInfo("span", n, descs[n]) + `</li>`
+			}
+			html += `</ul></div>`
 		}
-		html += `</ul></div>`
 	}
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
