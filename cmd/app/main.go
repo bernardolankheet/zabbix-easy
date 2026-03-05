@@ -23,15 +23,15 @@ import (
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
 var debugApi bool = false
 // CHECKTRENDTIME controls how far back getLastTrend queries trends.
-// Format examples: 30d, 1d, 12h, 10m (days/hours/minutes). Defaults to 30d.
-var checkTrendDurationSeconds int64 = 30 * 24 * 60 * 60
+// Format examples: 15d, 1d, 12h, 10m (days/hours/minutes). Defaults to 15d.
+var checkTrendDurationSeconds int64 = 15 * 24 * 60 * 60
 
 // parseCheckTrendEnv lê a variável de ambiente CHECKTRENDTIME e converte o valor
 // para segundos, armazenando em checkTrendDurationSeconds.
 //
 // Formatos aceitos (case-insensitive):
 //
-//	"30d"  → 30 dias  (2592000 s)   ← padrão se a variável não estiver definida
+//	"15d"  → 15 dias  (1296000 s)   ← padrão se a variável não estiver definida
 //	"12h"  → 12 horas (43200 s)
 //	"90m"  → 90 minutos (5400 s)
 //	"3600" → sem sufixo = minutos (3600 minutos)
@@ -41,13 +41,11 @@ var checkTrendDurationSeconds int64 = 30 * 24 * 60 * 60
 // à API do Zabbix.
 //
 // ─── Como alterar o padrão ────────────────────────────────────────────────
-// O valor padrão (30d) é definido na declaração de checkTrendDurationSeconds
+// O valor padrão (15d) é definido na declaração de checkTrendDurationSeconds
 // no topo do arquivo. Altere lá caso queira um padrão diferente sem usar ENV.
 func parseCheckTrendEnv() {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHECKTRENDTIME")))
-	if v == "" {
-		return
-	}
+	if v == "" { v = "15d" }
 	// last char is unit
 	n := len(v)
 	unit := v[n-1]
@@ -922,11 +920,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Flow: item.get with hostid + key_ -> if exists, history.get(last) using item's value_type
 	nvps := "N/A"
 	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	if requiredHost == "" {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for zabbix[requiredperformance]")
-	} else {
-		log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for item.get", requiredHost)
-	}
+	if requiredHost == "" { requiredHost = "10084" }
+	log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for item.get", requiredHost)
 	if item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", requiredHost); err == nil {
 		if item != nil {
 			// log item details for debugging
@@ -1360,7 +1355,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		if progressCb != nil { progressCb("Coletando informações de Pollers e Processos internos...") }
 		// Get CHECKTRENDTIME as string for display (default "30")
 	       checkTrendStr := os.Getenv("CHECKTRENDTIME")
-	       if checkTrendStr == "" { checkTrendStr = "30d" }
+	       if checkTrendStr == "" { checkTrendStr = "15d" }
 	       // Extract numeric part (days/hours/minutes)
 	       checkTrendDisplay := "30 dias"
 	       if len(checkTrendStr) > 1 {
@@ -1379,11 +1374,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
 	       html += `<h2 class='tab-print-title'>Zabbix Server</h2>`
 	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	       if serverHost == "" {
-		       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID not set; searching without hostid for pollers")
-	       } else {
-		       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
-	       }
+	       if serverHost == "" { serverHost = "10084" }
+	       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
 	       // build poller list conditionally based on Zabbix major version
 	       pollerNames := []string{}
 	       // pollers available in both 6 and 7
@@ -3112,7 +3104,9 @@ setTimeout(setupInfoTooltips,50);
 	html += nextSec("card-server", "Zabbix Server")
 	html += fmt.Sprintf("<h5>%d.%d) Sugestões zabbix_server.conf:</h5>", secNum, 1)
 	serverSub = 1
-	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", os.Getenv("CHECKTRENDTIME"), checkTrendDisplay)
+	checkTrendEnvVal := os.Getenv("CHECKTRENDTIME")
+	if checkTrendEnvVal == "" { checkTrendEnvVal = "15d" }
+	tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendEnvVal, checkTrendDisplay)
 	html += titleWithInfo("h5", nextSub(&serverSub, "Customizar Processos e Threads"), tipProc)
 	if len(attention) == 0 {
 		html += `<p>Nenhum processo em estado de Atenção detectado.</p>`
