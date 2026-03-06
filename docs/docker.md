@@ -105,7 +105,7 @@ Sem `--profile db`, o postgres não sobe — mesmo com as variáveis `DB_*` desc
 
 ```bash
 # Subir sem banco (padrão)
-docker compose up --build -d
+docker compose up -d
 
 # Subir com banco
 docker compose --profile db up --build -d
