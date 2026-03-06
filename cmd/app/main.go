@@ -2355,6 +2355,10 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Proxies online mas sem itens de processo (template não vinculado)
 	type proxyNoTemplateItem struct{ ProxyName, HostId string }
 	var proxyNoTemplateList []proxyNoTemplateItem
+	// Proxies online (Zabbix 7+) que não têm algum poller assíncrono habilitado
+	// map[proxyName] -> []nomes de pollers ausentes
+	proxyMissingAsyncMap := map[string][]string{}
+	asyncProcNames := []string{"agent poller", "http agent poller", "snmp poller"}
 	for _, pm := range proxyMetaList {
 		if !pm.Online { continue }
 		res := ppResults[pm.Idx]
@@ -2368,6 +2372,37 @@ func generateZabbixReport(url, token string) (string, error) {
 					ProcFriendly: row.friendly,
 					Vavg:        row.vavg,
 				})
+			}
+		}
+		// Verifica pollers assíncronos somente em Zabbix 7+ com itens coletados
+		if majorV >= 7 && res.noItemsNote == "" && len(res.rows) > 0 {
+			// Constrói set dos friendly names coletados para lookup rápido
+			collectedFriendly := map[string]bool{}
+			for _, row := range res.rows {
+				collectedFriendly[strings.ToLower(row.friendly)] = true
+			}
+			var missing []string
+			for _, apn := range asyncProcNames {
+				// O item existe mas disabled = vavg < 0 (sem dados / "Criar item...") → ausente
+				// Procura na lista de rows pelo friendly correspondente
+				found := false
+				hasData := false
+				for _, row := range res.rows {
+					if strings.ToLower(row.friendly) == apn {
+						found = true
+						if row.vavg >= 0 { hasData = true }
+						break
+					}
+				}
+				if !found || !hasData {
+					// Capitaliza como friendly name para exibição
+					words := strings.Fields(apn)
+					for i, w := range words { words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:]) }
+					missing = append(missing, strings.Join(words, " "))
+				}
+			}
+			if len(missing) > 0 {
+				proxyMissingAsyncMap[pm.Name] = missing
 			}
 		}
 	}
@@ -3231,7 +3266,7 @@ setTimeout(setupInfoTooltips,50);
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "Sugestões zabbix_server.conf:"))
 			tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendEnvVal, checkTrendDisplay)
 			html += `<p>` + titleWithInfo("strong", "Customizar Processos e Threads:", tipProc) + `</p>`
-			html += `<ol style='margin-left:18px;'>`
+			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, a := range attention {
 				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 			}
@@ -3240,7 +3275,7 @@ setTimeout(setupInfoTooltips,50);
 		if len(missingAsync) > 0 {
 			tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
 			html += titleWithInfo("h5", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
-			html += `<div style='margin-left:6px;'><ul>`
+			html += `<div style='margin-left:6px;font-size:0.88em;'><ul>`
 			descs := map[string]string{
 				"Agent Poller":      "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
 				"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
@@ -3254,25 +3289,51 @@ setTimeout(setupInfoTooltips,50);
 	}
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
-	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 {
+	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
 		proxySub := 0
 		html += nextSec("card-proxys", "Zabbix Proxys")
 		if len(proxyProcAttnList) > 0 {
 			tipProxyProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendStr, checkTrendDisplay)
 			html += titleWithInfo("h5", nextSub(&proxySub, "Customizar Processos e Threads"), tipProxyProc)
-			html += `<ol style='margin-left:18px;'>`
+			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, a := range proxyProcAttnList {
 				html += `<li>` + htmlpkg.EscapeString(a.ProxyName) + ` — ` + htmlpkg.EscapeString(a.ProcFriendly) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 			}
 			html += `</ol>`
+		}
+		if len(proxyMissingAsyncMap) > 0 {
+			tipAsyncProxy := "Configure ao menos 1 processo de cada poller assíncrono no arquivo zabbix_proxy.conf do proxy correspondente. Esses pollers utilizam I/O não-bloqueante e suportam até 1000 checks simultâneos por processo, reduzindo fila e latência. Novidade do Zabbix 7."
+			html += titleWithInfo("h5", nextSub(&proxySub, "Utilizar Pollers Assíncronos:"), tipAsyncProxy)
+			descsAsync := map[string]string{
+				"Agent Poller":      "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
+				"Http Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
+				"Snmp Poller":       "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
+			}
+			// Ordena os proxies para exibição determinística
+			sortedProxyNames := make([]string, 0, len(proxyMissingAsyncMap))
+			for pn := range proxyMissingAsyncMap { sortedProxyNames = append(sortedProxyNames, pn) }
+			sort.Strings(sortedProxyNames)
+			html += `<ul style='margin-left:6px;font-size:0.88em;'>`
+			for _, pn := range sortedProxyNames {
+				html += `<li>` + htmlpkg.EscapeString(pn) + `—`
+				for _, pollerName := range proxyMissingAsyncMap[pn] {
+					desc := descsAsync[pollerName]
+					if desc == "" { desc = pollerName }
+					html += ` ` + titleWithInfo("span", pollerName, desc) + ` —`
+				}
+				// remove trailing " —"
+				html = html[:len(html)-len(" —")]
+				html += `</li>`
+			}
+			html += `</ul>`
 		}
 		if unknown > 0 {
 			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
 				"Confirme versões e compatibilidade (campo version no registro do proxy)."
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Status Proxys Unknown"))
-			html += `<p>Foram detectados ` + fmt.Sprintf("%d", unknown) + ` proxys com status ` + titleWithInfo("span", "Unknown", tipUnknown) + `</p>`
-			html += `<ul>`
+			html += `<p style='font-size:0.88em;'>Foram detectados ` + fmt.Sprintf("%d", unknown) + ` proxys com status ` + titleWithInfo("span", "Unknown", tipUnknown) + `</p>`
+			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range unknownNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
 		}
@@ -3281,8 +3342,8 @@ setTimeout(setupInfoTooltips,50);
 				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
 				"Confirme versões e compatibilidade (campo version no registro do proxy)."
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Proxys Offline"))
-			html += `<p>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
-			html += `<ul>`
+			html += `<p style='font-size:0.88em;'>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
+			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
 		}
@@ -3297,9 +3358,9 @@ setTimeout(setupInfoTooltips,50);
 				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
 				"não é possível coletar métricas de pollers e processos."
 			html += titleWithInfo("h5", nextSub(&proxySub, "Zabbix Proxy sem Monitoramento"), tipNoTpl)
-			html += `<p>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
+			html += `<p style='font-size:0.88em;'>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
 				`Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy.</p>`
-			html += `<ol style='margin-left:18px;'>`
+			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, pt := range proxyNoTemplateList {
 				// Zabbix 7: filter_name (campo display name); Zabbix 6: filter_host (campo technical name)
 				// Ambos recebem &filter_set=1 para aplicar o filtro automaticamente
@@ -3329,7 +3390,7 @@ setTimeout(setupInfoTooltips,50);
 	if itemsHasData {
 		itemsSub := 0
 		html += nextSec("card-items", "Items")
-		html += `<div style='margin-left:6px;'>`
+		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if itemsNoTplCount > 0 {
 			html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items. Lista de itens na aba Items e LLD na opção "Items sem Template"</p>`
 		}
@@ -3359,7 +3420,7 @@ setTimeout(setupInfoTooltips,50);
 	if lldLe300 > 0 || lldNotSupCnt > 0 {
 		lldSub := 0
 		html += nextSec("card-lld", "Regras de LLD")
-		html += `<div style='margin-left:6px;'>`
+		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
 			html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD com Intervalo ≤ 300s:") + `</strong> Existem ` + fmt.Sprintf("%d", lldLe300) + ` regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager.</p>`
 		}
@@ -3376,7 +3437,7 @@ setTimeout(setupInfoTooltips,50);
 		html += "<div id='card-templates'></div>"
 		html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
 		secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
-		html += `<div style='margin-left:6px;'>`
+		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if len(topTemplates) > 0 {
 			html += fmt.Sprintf("<h5>%d.%d) Templates para revisão - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
 			html += `<ul>`

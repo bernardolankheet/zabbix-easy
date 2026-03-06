@@ -622,7 +622,7 @@ O Top N é 10 por padrão (constante `topN = 10`).
 Sugestões automáticas geradas com base em todos os dados coletados. Todas as seções e subitens são **exibidos somente quando há recomendação** — se o valor for 0, nem a seção nem o subitem aparecem. KPI cards no topo para visão rápida.
 
 1. **Zabbix Server** — processos em Atenção + sugestão de pollers assíncronos (Zabbix 7) — só aparece se há processos com avg ≥ 60% ou pollers assíncronos desabilitados
-2. **Zabbix Proxys** — proxies Unknown/Offline + processos em Atenção + proxies sem template — só aparece se há algum problema
+2. **Zabbix Proxys** — processos em Atenção + pollers assíncronos desabilitados (Zabbix 7) + proxies Unknown/Offline + proxies sem template — só aparece se há algum problema
 3. **Items** — cada subitem (sem template, não suportados, desabilitados, intervalo curto, texto com histórico, SNMP) só aparece individualmente se seu contador for > 0; a seção toda some se todos forem 0
 4. **Regras de LLD** — cada subitem (intervalo curto, não suportadas) só aparece individualmente se > 0; seção some se ambos forem 0
 5. **Templates** — só aparece se há templates para revisão, erros identificados ou templates SNMP para migração (Zabbix 7)
@@ -740,6 +740,119 @@ Ou seja, a seção só é gerada quando ao menos uma das condições for verdade
 | `attention` | `[]struct{Name string; Vavg float64}` | Construída iterando `pollRows` + `procRows` com `StatusText == "Atenção"` |
 | `missingAsync` | `[]string` | Construída verificando se `Agent Poller`, `HTTP Agent Poller`, `SNMP Poller` estão em `pollRows` com `Disabled == true` |
 | `pollMap` | `map[string]pollRow` | Mapa auxiliar `friendly_name_lowercase → pollRow` para lookup de `missingAsync` |
+
+---
+
+### Seção 2 — Zabbix Proxys
+
+#### Condição de exibição
+
+A seção **não aparece** quando não há nada a recomendar. O bloco inteiro é omitido se:
+
+```
+unknown == 0  AND  offline == 0  AND
+len(proxyProcAttnList) == 0  AND  len(proxyNoTemplateList) == 0  AND
+len(proxyMissingAsyncMap) == 0
+```
+
+#### Hierarquia HTML gerada
+
+```
+2) Zabbix Proxys
+  2.1) Customizar Processos e Threads ⓘ       ← só aparece se len(proxyProcAttnList) > 0
+       1. PROXY-NAME — Friendly Name — média: X%
+       2. ...
+  2.2) Utilizar Pollers Assíncronos: ⓘ        ← só aparece se len(proxyMissingAsyncMap) > 0
+       • PROXY-NAME — Agent Poller — Snmp Poller
+       • ...
+  2.3) Status Proxys Unknown ⓘ                ← só aparece se unknown > 0
+       Foram detectados N proxys com status Unknown
+       • proxy-name
+  2.4) Proxys Offline ⓘ                       ← só aparece se offline > 0
+       Foram detectados N proxys com status Offline
+       • proxy-name
+  2.5) Zabbix Proxy sem Monitoramento ⓘ       ← só aparece se len(proxyNoTemplateList) > 0
+       Os proxies abaixo não possuem o template Zabbix Proxy Health vinculado...
+       1. proxy-name (link para o host no Zabbix)
+```
+
+> Os subnúmeros são gerados automaticamente por `nextSub(&proxySub, ...)` — se apenas alguns subitens aparecem, a numeração é sequencial a partir de `2.1)`.
+
+#### Subitem "Customizar Processos e Threads"
+
+- Exibido apenas quando `len(proxyProcAttnList) > 0`
+- Mesmo comportamento do subitem equivalente na Seção 1 (Zabbix Server), mas por proxy
+- Lista ordenada `<ol>` com: `PROXY-NAME — Friendly Name do Processo — média: X%`
+- Construída com avg ≥ 60% por processo, por proxy
+
+#### Subitem "Utilizar Pollers Assíncronos"
+
+- Exibido apenas quando `len(proxyMissingAsyncMap) > 0`
+- Só relevante para **Zabbix ≥ 7** e **somente para proxies online** com itens coletados
+- Lista compacta `<ul>` com um `<li>` por proxy: `**PROXY-NAME** — Agent Poller ⓘ — Snmp Poller ⓘ`
+- Cada poller tem tooltip com descrição de uso
+- Um proxy aparece na lista quando ao menos um dos três pollers assíncronos (`Agent Poller`, `Http Agent Poller`, `Snmp Poller`) **não foi encontrado** nos dados coletados ou seu `vavg < 0` (processo não habilitado)
+
+#### Subitem "Status Proxys Unknown"
+
+- Exibido apenas quando `unknown > 0`
+- Texto: _"Foram detectados N proxys com status Unknown"_
+- Seguido de `<ul>` com os nomes dos proxies (`unknownNames`)
+
+#### Subitem "Proxys Offline"
+
+- Exibido apenas quando `offline > 0`
+- Texto: _"Foram detectados N proxys com status Offline"_
+- Seguido de `<ul>` com os nomes dos proxies (`offlineNames`)
+
+#### Subitem "Zabbix Proxy sem Monitoramento"
+
+- Exibido apenas quando `len(proxyNoTemplateList) > 0`
+- Template de referência: **Zabbix Proxy Health** (Zabbix 7) / **Template App Zabbix Proxy** (Zabbix 6)
+- O link para o template usa a URL do ambiente (`ambienteUrl`) com filtro automático por nome
+- Cada proxy na lista é exibido como link clicável para a tela de hosts do Zabbix filtrada pelo nome do proxy
+- Um proxy entra nesta lista se `res.noItemsNote != ""` — ou seja, o loop de coleta não encontrou nenhum item de processo para aquele host de proxy
+
+#### Variáveis Go envolvidas
+
+| Variável | Tipo | Origem |
+|----------|------|--------|
+| `proxyProcAttnList` | `[]proxyProcAttnItem{ProxyName, ProcFriendly, Vavg}` | Construída iterando `ppResults` — rows com `vavg >= 59.9` |
+| `proxyMissingAsyncMap` | `map[string][]string` | `proxyName → []pollerNames` — pollers ausentes ou desabilitados no proxy (Zabbix 7+, online, com itens) |
+| `asyncProcNames` | `[]string` | `{"agent poller", "http agent poller", "snmp poller"}` — pollers assíncronos verificados |
+| `unknown` | `int` | Contagem de proxies com `availability == 0` (Unknown) |
+| `unknownNames` | `[]string` | Nomes dos proxies Unknown |
+| `offline` | `int` | Contagem de proxies com `availability == 2` (Offline) |
+| `offlineNames` | `[]string` | Nomes dos proxies Offline |
+| `proxyNoTemplateList` | `[]proxyNoTemplateItem{ProxyName, HostId}` | Proxies online cujo `res.noItemsNote != ""` — sem itens de processo coletados |
+
+#### Lógica de `proxyMissingAsyncMap`
+
+Para cada proxy em `proxyMetaList` que seja **online** (`pm.Online == true`), com **Zabbix ≥ 7** e com **itens coletados** (`res.noItemsNote == ""` e `len(res.rows) > 0`):
+
+```go
+for _, apn := range asyncProcNames {   // "agent poller", "http agent poller", "snmp poller"
+    found := false
+    hasData := false
+    for _, row := range res.rows {
+        if strings.ToLower(row.friendly) == apn {
+            found = true
+            if row.vavg >= 0 { hasData = true }
+            break
+        }
+    }
+    if !found || !hasData {
+        // capitaliza e adiciona à lista "missing" deste proxy
+    }
+}
+if len(missing) > 0 {
+    proxyMissingAsyncMap[pm.Name] = missing
+}
+```
+
+Um poller é considerado ausente quando:
+- Não foi encontrado em `res.rows` (`!found`), **ou**
+- Foi encontrado mas `vavg < 0` — o item retornou "Criar item no template ou Processo não habilitado" (`!hasData`)
 
 ---
 
