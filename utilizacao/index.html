@@ -3803,18 +3803,21 @@ if majorV &gt;= 7 {
 <p><strong>1. <code>procDesc</code></strong> — descrição do tooltip <code>?</code> (chave em lowercase, com espaços em vez de <code>*</code>):</p>
 <pre><code class="language-go">&quot;novo processo&quot;: `Parâmetro &quot;StartNovoProcesso&quot;: descrição e quando ajustar.`,
 </code></pre>
-<p><strong>2. <code>proxyAllProcNames</code></strong> — lista de processos do proxy (use <code>*</code> como separador de palavras):</p>
+<p><strong>2. <code>proxyAllProcNames</code></strong> — lista de processos do proxy (use <strong>espaços</strong> como separador de palavras, igual ao <code>pollerNames</code> do servidor):</p>
 <pre><code class="language-go">proxyAllProcNames := []string{
-    &quot;data*sender&quot;,
+    &quot;data sender&quot;,
     ...
-    &quot;novo*processo&quot;,  // ← aqui
+    &quot;novo processo&quot;,  // ← aqui
 }
 // ou exclusivo do Zabbix 7+:
 if majorV &gt;= 7 {
-    proxyAllProcNames = append([]string{&quot;novo*processo&quot;}, proxyAllProcNames...)
+    proxyAllProcNames = append([]string{&quot;novo processo&quot;}, proxyAllProcNames...)
 }
 </code></pre>
-<p><strong>Regra do <code>*</code>:</strong> use <code>*</code> entre as palavras do nome (ex: <code>"data*sender"</code>, <code>"lld*manager"</code>). O <code>*</code> funciona como separador wildcard, permitindo casar tanto <code>data sender</code> quanto <code>data_sender</code> na <code>key_</code> e no <code>name</code> do item.</p>
+<p><strong>Por que espaços?</strong> <code>nameToWildcard</code> converte espaços em <code>*</code> automaticamente ao montar o padrão de busca (<code>"data sender"</code> → <code>"*data*sender*"</code>). Usar espaços permite que <code>strings.Fields</code> conte as palavras corretamente, garantindo que o sort <strong>"mais específico vence"</strong> funcione — sem isso, <code>"http*agent*poller"</code> e <code>"http*poller"</code> teriam o mesmo word-count de 1 e o sort seria instável, fazendo <code>"http*poller"</code> roubar o item de <code>"http*agent*poller"</code>.</p>
+<blockquote>
+<p><strong>Atenção:</strong> a chave de lookup em <code>itemsMap</code> e em <code>procDesc</code> usa o nome em <strong>lowercase com espaços</strong> (ex: <code>"http agent poller"</code>). Garanta que a entrada em <code>procDesc</code> também use espaços.</p>
+</blockquote>
 <hr />
 <h2 id="guia-4-items-e-llds-tab-items">Guia 4: Items e LLDs (<code>tab-items</code>)</h2>
 <h3 id="o-que-e_4">O que é</h3>
