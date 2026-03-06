@@ -8,8 +8,8 @@
 ## Passos
 
 ```bash
-git clone https://github.com/seuusuario/zabbix-easy.git
-cd zabbix-easy/go-report
+git clone https://github.com/bernardolankheet/zabbix-easy.git
+cd zabbix-easy
 docker compose up --build -d
 ```
 
