@@ -2103,6 +2103,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		"lld worker",
 		"task manager",
 		"vmware collector",
+		"self-monitoring",
 	}
 	if majorV >= 7 {
 		proxyAllProcNames = append([]string{"agent poller", "browser poller", "http agent poller", "snmp poller"}, proxyAllProcNames...)
@@ -2903,12 +2904,12 @@ func generateZabbixReport(url, token string) (string, error) {
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
-		html += `<h4>` + tplName + `</h4>`
+		html += `<h4>` + htmlpkg.EscapeString(tplName) + `</h4>`
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Erro</th><th>Host</th><th>Link</th></tr></thead><tbody>`
 		rows := templateItems[tpl.Key]
 		for i, row := range rows {
 			if i >= topN { break }
-			html += `<tr><td>` + row[0] + `</td><td>` + row[1] + `</td><td>` + row[2] + `</td><td><a href='` + row[3] + `' target='_blank'>Editar</a></td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(row[0]) + `</td><td>` + htmlpkg.EscapeString(row[1]) + `</td><td>` + htmlpkg.EscapeString(row[2]) + `</td><td><a href='` + row[3] + `' target='_blank'>Editar</a></td></tr>`
 		}
 		html += `</tbody></table></div>`
 	}
@@ -2924,7 +2925,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
-		html += `<tr><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", tpl.Value) + `</td></tr>`
+		html += `<tr><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", tpl.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -2944,7 +2945,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		}
 		mainTplName := templateNames[mainTplId]
 		if mainTplName == "" { mainTplName = mainTplId }
-		html += `<tr><td>` + host.Key + `</td><td>` + mainTplName + `</td><td>` + fmt.Sprintf("%d", host.Value) + `</td></tr>`
+		html += `<tr><td>` + htmlpkg.EscapeString(host.Key) + `</td><td>` + htmlpkg.EscapeString(mainTplName) + `</td><td>` + fmt.Sprintf("%d", host.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -2958,7 +2959,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		if len(parts) > 1 { tplId = parts[1] }
 		tplName := templateNames[tplId]
 		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + itemName + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", item.Value) + `</td></tr>`
+		html += `<tr><td>` + htmlpkg.EscapeString(itemName) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", item.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -2972,7 +2973,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		if len(parts) > 1 { tplId = parts[1] }
 		tplName := templateNames[tplId]
 		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + errMsg + `</td><td>` + tplName + `</td><td>` + fmt.Sprintf("%d", errRow.Value) + `</td></tr>`
+		html += `<tr><td>` + htmlpkg.EscapeString(errMsg) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", errRow.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 	html += `</div>` // end tab-top
