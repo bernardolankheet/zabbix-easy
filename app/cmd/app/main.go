@@ -2327,7 +2327,7 @@ func generateZabbixReport(url, token string) (string, error) {
 						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>` +
 							`-<span class='info-icon' tabindex='0' style='margin-left:4px;'>` +
 							`<svg viewBox='0 0 16 16' width='14' height='14'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
-							`<span class='info-tooltip'>Criar item no template ou Processo não habilitado</span></span>` +
+							`<span class='info-tooltip' style='left:auto;right:22px;'>Criar item no template ou Processo não habilitado</span></span>` +
 							`</td></tr>`})
 					continue
 				}

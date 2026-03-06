@@ -80,4 +80,3 @@ Acesse a interface em `http://localhost:8080`.
 | `APP_DEBUG` | _(vazio)_ | `true` para logs detalhados de cada requisição à API. |
 | `DB_HOST` | _(vazio)_ | Host do PostgreSQL. **Se vazio, persistência desativada.** |
 
-
