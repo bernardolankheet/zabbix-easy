@@ -3315,7 +3315,7 @@ setTimeout(setupInfoTooltips,50);
 			sort.Strings(sortedProxyNames)
 			html += `<ul style='margin-left:6px;font-size:0.88em;'>`
 			for _, pn := range sortedProxyNames {
-				html += `<li><strong>` + htmlpkg.EscapeString(pn) + `</strong> —`
+				html += `<li>` + htmlpkg.EscapeString(pn) + `—`
 				for _, pollerName := range proxyMissingAsyncMap[pn] {
 					desc := descsAsync[pollerName]
 					if desc == "" { desc = pollerName }
