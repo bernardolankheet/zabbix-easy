@@ -449,20 +449,22 @@ São **2 lugares** em `cmd/app/main.go`:
 "novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
 ```
 
-**2. `proxyAllProcNames`** — lista de processos do proxy (use `*` como separador de palavras):
+**2. `proxyAllProcNames`** — lista de processos do proxy (use **espaços** como separador de palavras, igual ao `pollerNames` do servidor):
 ```go
 proxyAllProcNames := []string{
-    "data*sender",
+    "data sender",
     ...
-    "novo*processo",  // ← aqui
+    "novo processo",  // ← aqui
 }
 // ou exclusivo do Zabbix 7+:
 if majorV >= 7 {
-    proxyAllProcNames = append([]string{"novo*processo"}, proxyAllProcNames...)
+    proxyAllProcNames = append([]string{"novo processo"}, proxyAllProcNames...)
 }
 ```
 
-**Regra do `*`:** use `*` entre as palavras do nome (ex: `"data*sender"`, `"lld*manager"`). O `*` funciona como separador wildcard, permitindo casar tanto `data sender` quanto `data_sender` na `key_` e no `name` do item.
+**Por que espaços?** `nameToWildcard` converte espaços em `*` automaticamente ao montar o padrão de busca (`"data sender"` → `"*data*sender*"`). Usar espaços permite que `strings.Fields` conte as palavras corretamente, garantindo que o sort **"mais específico vence"** funcione — sem isso, `"http*agent*poller"` e `"http*poller"` teriam o mesmo word-count de 1 e o sort seria instável, fazendo `"http*poller"` roubar o item de `"http*agent*poller"`.
+
+> **Atenção:** a chave de lookup em `itemsMap` e em `procDesc` usa o nome em **lowercase com espaços** (ex: `"http agent poller"`). Garanta que a entrada em `procDesc` também use espaços.
 
 ---
 
