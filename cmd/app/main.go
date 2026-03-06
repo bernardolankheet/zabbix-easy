@@ -285,7 +285,7 @@ func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, er
 //
 //	"agent poller"   → "*agent*poller*"
 //	"http poller"    → "*http*poller*"
-//	"data*sender"    → "*data*sender*"  ("*" no meio já funciona como separador)
+//	"data sender"    → "*data*sender*"  (espaços são convertidos em "*" por strings.Fields+Join)
 //
 // O padrão gerado casa a chave do item independentemente do separador usado
 // pela versão do Zabbix (espaço, underscore, ponto, etc.). Por exemplo,
@@ -414,7 +414,7 @@ func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (m
 //
 // Parâmetros:
 //
-//	names  — lista de nomes (ex: ["data*sender", "poller"]) de proxyAllProcNames
+//	names  — lista de nomes (ex: ["data sender", "poller"]) de proxyAllProcNames
 //	hostid — hostid do host de auto-monitoramento do proxy (pode diferir do proxyid
 //	         no Zabbix 7; veja o Step 1 do goroutine de proxy em generateZabbixReport)
 //
@@ -422,8 +422,9 @@ func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (m
 //
 // ─── Como adicionar um processo novo ao proxy ─────────────────────────────
 // Inclua o nome em proxyAllProcNames dentro de generateZabbixReport.
-// Use "*" como separador de palavras para que nameToWildcard gere o padrão
-// correto. Ex: "nova*feature" → padrão "*nova*feature*".
+// Use espaços como separador de palavras (ex: "nova feature") — igual a
+// pollerNames. O word-count correto garante que o sort "mais específico
+// vence" funcione; nameToWildcard converte espaços em "*" automaticamente.
 func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
 	if len(names) == 0 || hostid == "" { return map[string]map[string]interface{}{}, nil }
 	params := map[string]interface{}{
@@ -2080,31 +2081,31 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// All process names for proxy (pollers + internal merged into one table)
 	proxyAllProcNames := []string{
-		"data*sender",
+		"data sender",
 		"poller",
-		"unreachable*poller",
-		"http*poller",
-		"icmp*pinger",
-		"ipmi*poller",
-		"java*poller",
-		"odbc*poller",
+		"unreachable poller",
+		"http poller",
+		"icmp pinger",
+		"ipmi poller",
+		"java poller",
+		"odbc poller",
 		"trapper",
-		"preprocessing*manager",
-		"preprocessing*worker",
-		"configuration*syncer",
-		"availability*manager",
-		"discovery*manager",
-		"discovery*worker",
-		"history*syncer",
+		"preprocessing manager",
+		"preprocessing worker",
+		"configuration syncer",
+		"availability manager",
+		"discovery manager",
+		"discovery worker",
+		"history syncer",
 		"housekeeper",
-		"ipmi*manager",
-		"lld*manager",
-		"lld*worker",
-		"task*manager",
-		"vmware*collector",
+		"ipmi manager",
+		"lld manager",
+		"lld worker",
+		"task manager",
+		"vmware collector",
 	}
 	if majorV >= 7 {
-		proxyAllProcNames = append([]string{"agent*poller", "browser*poller", "http*agent*poller", "snmp*poller"}, proxyAllProcNames...)
+		proxyAllProcNames = append([]string{"agent poller", "browser poller", "http agent poller", "snmp poller"}, proxyAllProcNames...)
 	}
 
 	type proxyProcRow struct {
@@ -2293,9 +2294,11 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			for _, procName := range proxyAllProcNames {
-				baseName := strings.ToLower(strings.TrimSpace(procName)) // raw key used for itemsMap lookup
-				displayName := strings.ReplaceAll(procName, "*", " ")   // spaces for display and procDesc
-				dispBaseName := strings.ToLower(strings.TrimSpace(displayName))
+				// proxyAllProcNames now uses spaces as separators (like pollerNames),
+				// so baseName == dispBaseName; no * replacement needed.
+				baseName := strings.ToLower(strings.TrimSpace(procName)) // key for itemsMap lookup
+				displayName := procName                                   // already space-separated
+				dispBaseName := baseName
 				// skip v7-only on v6
 				if majorV < 7 {
 					switch dispBaseName {
@@ -2320,7 +2323,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				item := itemsMap[baseName]
 				if item == nil {
 					res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: -1,
-						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>Processo não habilitado</td></tr>`})
+						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>Criar item no template ou Processo não habilitado</td></tr>`})
 					continue
 				}
 				iid := fmt.Sprintf("%v", item["itemid"])
