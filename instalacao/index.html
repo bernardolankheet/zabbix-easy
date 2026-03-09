@@ -290,9 +290,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#passos" class="md-nav__link">
+  <a href="#opcao-1-docker-run-mais-simples" class="md-nav__link">
     <span class="md-ellipsis">
-      Passos
+      Opção 1 — Docker Run (mais simples)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opcao-2-docker-compose-sem-banco-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opção 2 — Docker Compose (sem banco de dados)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opcao-3-docker-compose-com-banco-de-dados-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opção 3 — Docker Compose (com banco de dados PostgreSQL)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Opção 3 — Docker Compose (com banco de dados PostgreSQL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 1 — Habilitar as variáveis de banco no docker-compose.yml
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passo-2-subir-com-o-profile-db" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 2 — Subir com o profile db
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variaveis-de-ambiente-principais" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variáveis de ambiente principais
     </span>
   </a>
   
@@ -422,9 +473,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#passos" class="md-nav__link">
+  <a href="#opcao-1-docker-run-mais-simples" class="md-nav__link">
     <span class="md-ellipsis">
-      Passos
+      Opção 1 — Docker Run (mais simples)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opcao-2-docker-compose-sem-banco-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opção 2 — Docker Compose (sem banco de dados)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opcao-3-docker-compose-com-banco-de-dados-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opção 3 — Docker Compose (com banco de dados PostgreSQL)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Opção 3 — Docker Compose (com banco de dados PostgreSQL)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 1 — Habilitar as variáveis de banco no docker-compose.yml
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passo-2-subir-com-o-profile-db" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 2 — Subir com o profile db
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#variaveis-de-ambiente-principais" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variáveis de ambiente principais
     </span>
   </a>
   
@@ -452,15 +554,90 @@
 <h2 id="requisitos">Requisitos</h2>
 <ul>
 <li>Docker</li>
-<li>Docker Compose</li>
-<li>Go &gt;= 1.18</li>
 </ul>
-<h2 id="passos">Passos</h2>
+<hr />
+<h2 id="opcao-1-docker-run-mais-simples">Opção 1 — Docker Run (mais simples)</h2>
+<p>Ideal para uso rápido, sem precisar clonar o repositório.</p>
+<pre><code class="language-bash">docker run -d \
+  --name zabbix-easy \
+  -p 8080:8080 \
+  -e MAX_CCONCURRENT=10 \
+  -e ZABBIX_SERVER_HOSTID=10084 \
+  -e CHECKTRENDTIME=15d \
+  bernardolankheet/zabbix-easy:latest
+</code></pre>
+<blockquote>
+<p><strong>Como encontrar o <code>ZABBIX_SERVER_HOSTID</code>:</strong> Acesse o frontend do Zabbix → <strong>Data Collection</strong> → pesquise pelo host "Zabbix Server" → abra o host e verifique o ID na URL. O valor padrão é <code>10084</code>.</p>
+</blockquote>
+<p>Acesse a interface em <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="opcao-2-docker-compose-sem-banco-de-dados">Opção 2 — Docker Compose (sem banco de dados)</h2>
+<p>Relatórios ficam disponíveis apenas na sessão atual. Ao reiniciar o container, os relatórios anteriores são perdidos.</p>
 <pre><code class="language-bash">git clone https://github.com/bernardolankheet/zabbix-easy.git
 cd zabbix-easy
 docker compose up --build -d
 </code></pre>
-<p>Acesse a interface web em <code>http://localhost:8080</code>.</p>
+<p>Acesse a interface em <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="opcao-3-docker-compose-com-banco-de-dados-postgresql">Opção 3 — Docker Compose (com banco de dados PostgreSQL)</h2>
+<p>Persiste todos os relatórios gerados. Permite reabrir, comparar e excluir relatórios anteriores.</p>
+<h3 id="passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml">Passo 1 — Habilitar as variáveis de banco no <code>docker-compose.yml</code></h3>
+<p>Descomente o bloco de variáveis <code>DB_*</code> no serviço <code>go-app</code>:</p>
+<pre><code class="language-yaml">environment:
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - DB_USER=postgres
+  - DB_PASSWORD=postgres
+  - DB_NAME=zabbix_report
+</code></pre>
+<h3 id="passo-2-subir-com-o-profile-db">Passo 2 — Subir com o profile <code>db</code></h3>
+<pre><code class="language-bash">docker compose --profile db up --build -d
+</code></pre>
+<p>O profile <code>db</code> é necessário pois o serviço <code>postgres</code> <strong>só é iniciado quando explicitamente solicitado</strong>.</p>
+<p>Acesse a interface em <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="variaveis-de-ambiente-principais">Variáveis de ambiente principais</h2>
+<table>
+<thead>
+<tr>
+<th>Variável</th>
+<th>Padrão</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td><code>10084</code></td>
+<td>ID do host "Zabbix Server" no frontend do Zabbix. Usado para coleta de métricas de performance.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Janela de tempo para análise de trends. Aceita <code>d</code> (dias), <code>h</code> (horas). Ex: <code>15d</code>, <code>24h</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>4</code></td>
+<td>Goroutines paralelas para chamadas à API do Zabbix. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Timeout em segundos por requisição. Aumentar para <code>90</code>–<code>120</code> em ambientes lentos.</td>
+</tr>
+<tr>
+<td><code>APP_DEBUG</code></td>
+<td><em>(vazio)</em></td>
+<td><code>true</code> para logs detalhados de cada requisição à API.</td>
+</tr>
+<tr>
+<td><code>DB_HOST</code></td>
+<td><em>(vazio)</em></td>
+<td>Host do PostgreSQL. <strong>Se vazio, persistência desativada.</strong></td>
+</tr>
+</tbody>
+</table>
 
 
 
