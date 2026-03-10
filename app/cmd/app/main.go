@@ -1011,15 +1011,16 @@ func generateZabbixReport(url, token string) (string, error) {
 		nItemsNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
 	// get Usuários
-	if progressCb != nil { progressCb("Coletando informações de Usuários...") }
+	if progressCb != nil { progressCb("progress.collecting_users") }
 	userResp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{ "output": "userid" })
 	if err != nil { return "", err }
 	users := userResp["result"].([]interface{})
 	nUsers := len(users)
 
 	// get NVPS (Required server performance, new values per second) utilizando a chave zabbix[requiredperformance] 
-	if progressCb != nil { progressCb("Coletando informações de NVPS (Required performance)...") }
+	if progressCb != nil { progressCb("progress.collecting_nvps") }
 	// Flow: item.get with hostid + key_ -> if exists, history.get(last) using item's value_type
+	// nvpsDisplay may contain plain numbers or an HTML span with data-i18n for messages
 	nvps := "N/A"
 	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
 	if requiredHost == "" { requiredHost = "10084" }
@@ -1051,22 +1052,25 @@ func generateZabbixReport(url, token string) (string, error) {
 						nvps = val
 					}
 				} else {
-					nvps = "Sem histórico"
+					// no history
+					nvps = "<span data-i18n=\"stats.no_history\"></span>"
 				}
 			} else {
 				log.Printf("[ERROR] history.get failed for itemid %s: %v", itemid, err)
-				nvps = "Erro ao ler histórico"
+				// read history error
+				nvps = "<span data-i18n=\"error.read_history\"></span>"
 			}
-		} else {
-			nvps = "Criar chave zabbix[requiredperformance] no Template do Zabbix"
-		}
+			} else {
+				// missing required key
+				nvps = "<span data-i18n=\"error.create_requiredperformance_key\"></span>"
+			}
 	} else {
 		log.Printf("[ERROR] item.get failed for requiredperformance: %v", err)
-		nvps = "Erro ao procurar item"
+			nvps = "<span data-i18n=\"error.search_item\"></span>"
 	}
 
 	//get Hosts
-	if progressCb != nil { progressCb("Coletando informações de Hosts...") }
+	if progressCb != nil { progressCb("progress.collecting_hosts") }
 
     
 	hostsResp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{ "output": "hostid" })
@@ -1085,7 +1089,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	nDisabledHosts := len(disabledHosts)
 
 	// get templates
-	if progressCb != nil { progressCb("Coletando informações de Templates...") }
+	if progressCb != nil { progressCb("progress.collecting_templates") }
 	templatesCount := "N/A"
 	templatesCountResp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{
 		"countOutput": true,
@@ -1095,7 +1099,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// get total de items
-	if progressCb != nil { progressCb("Coletando informações de Items...") }
+	if progressCb != nil { progressCb("progress.collecting_items") }
 	nItemsTotal := "-"
 	nItemsEnabled := "-"
 	nItemsDisabled := "-"	
@@ -1131,7 +1135,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	// get em Items não suportados por host ID
-	if progressCb != nil { progressCb("Coletando items não suportados...") }
+	if progressCb != nil { progressCb("progress.collecting_unsupported_items") }
 	itemsResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": []string{"itemid","name","templateid","error","key_"},
 		"filter": map[string]interface{}{ "state": 1 },
@@ -1266,13 +1270,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	topErrors := sortMap(errorCounter)
 	if len(topErrors) > topN { topErrors = topErrors[:topN] }
 
-	// Descrições (textos exibidos nas view-boxes)
-	descTemplates := "Revise os templates com maior número de itens problemáticos. Verifique se estão atualizados, compatíveis com a versão do Zabbix e se os itens monitorados ainda fazem sentido para o ambiente. Considere simplificar ou dividir templates muito grandes."
-	descHosts := "Analise os hosts com mais erros. Verifique conectividade, permissões, agentes instalados e se o host está ativo. Corrija configurações específicas ou remova hosts obsoletos do monitoramento."
-	descItems := "Items recorrentes podem indicar falhas de configuração, incompatibilidade ou ausência de recursos no host. Revise a chave do item, parâmetros, dependências externas (scripts, drivers, diretórios) e ajuste o template conforme necessário."
-	descErros := "Para cada tipo de erro, consulte a documentação do Zabbix e do sistema operacional/serviço monitorado. Corrija chaves inválidas, permissões, dependências, drivers ou scripts ausentes. Ajuste preprocessamento e tipos de dados conforme o erro apresentado. Para itens SNMP, verifique se o firmware do equipamento está atualizado, valide o OID utilizado e confirme se a comunidade SNMP está correta e configurada no dispositivo."
-	descDetalhamento := "Analise cada item e erro detalhado. Acesse o link para editar o item diretamente no Zabbix, revise a configuração, ajuste parâmetros e valide se o item é realmente necessário."
-	descNaoSuportados := "Os itens não suportados são aqueles que estão ativos, porém no momento de efetuar a coleta houve um erro. Esses itens continuam consumindo os processos do Zabbix desnecessariamente. Clique no link e analise caso a caso para correção. Items que não são mais necessários devem ser removidos para otimizar o desempenho do Zabbix."
+	// Descrições moved to i18n locale files
 
 	// --- HTML moderno ---
 	html := `<div class='zabbix-report-modern'>`
@@ -1301,11 +1299,38 @@ func generateZabbixReport(url, token string) (string, error) {
 
 		// helper to render headings with info icon and tooltip
 		titleWithInfo := func(tag, title, tip string) string {
-				// build SVG question-circle and tooltip content
-				sv := `<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>`
+			// build SVG question-circle and tooltip content
+			sv := `<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>`
 			tipEsc := htmlpkg.EscapeString(tip) // Escape the tooltip text for HTML
-				// place tooltip inside the icon span so positioning is relative
-				return fmt.Sprintf("<%s>%s <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(title), sv, tipEsc, tag)
+			// If caller passed i18n keys prefixed with "i18n:", emit data-i18n attributes
+			if strings.HasPrefix(title, "i18n:") {
+				// support optional args after key using pipe separator: i18n:key|arg1|arg2
+				raw := strings.TrimPrefix(title, "i18n:")
+				parts := strings.Split(raw, "|")
+				key := parts[0]
+				titleArgs := ""
+				if len(parts) > 1 {
+					titleArgs = strings.Join(parts[1:], "|")
+				}
+				// tip may also be i18n:key|arg
+				if strings.HasPrefix(tip, "i18n:") {
+					r := strings.TrimPrefix(tip, "i18n:")
+					rparts := strings.Split(r, "|")
+					tipKey := rparts[0]
+					tipArgs := ""
+					if len(rparts) > 1 { tipArgs = strings.Join(rparts[1:], "|") }
+					if tipArgs != "" {
+						return fmt.Sprintf("<%s><span class='title-text' data-i18n='%s' data-i18n-args='%s'></span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip' data-i18n='%s' data-i18n-args='%s'></span></span></%s>", tag, htmlpkg.EscapeString(key), htmlpkg.EscapeString(titleArgs), sv, htmlpkg.EscapeString(tipKey), htmlpkg.EscapeString(tipArgs), tag)
+					}
+					return fmt.Sprintf("<%s><span class='title-text' data-i18n='%s' data-i18n-args='%s'></span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip' data-i18n='%s'></span></span></%s>", tag, htmlpkg.EscapeString(key), htmlpkg.EscapeString(titleArgs), sv, htmlpkg.EscapeString(tipKey), tag)
+				}
+				if titleArgs != "" {
+					return fmt.Sprintf("<%s><span class='title-text' data-i18n='%s' data-i18n-args='%s'></span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(key), htmlpkg.EscapeString(titleArgs), sv, tipEsc, tag)
+				}
+				return fmt.Sprintf("<%s><span class='title-text' data-i18n='%s'></span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(key), sv, tipEsc, tag)
+			}
+			// default: emit escaped title and tooltip
+			return fmt.Sprintf("<%s><span class='title-text'>%s</span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(title), sv, tipEsc, tag)
 		}
 	// compute ambiente and version for header (ambienteUrl precomputed above)
 	// ambienteUrl is already set near the top of the function to avoid undefined usage
@@ -1320,90 +1345,91 @@ func generateZabbixReport(url, token string) (string, error) {
 		`.tab-panel{padding-top:12px;}` +
 	`</style>`
 	html += `<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;'>`
-	html += `<div style='font-size:14px;color:#1f2937;'><strong>Ambiente:</strong> ` + htmlpkg.EscapeString(ambienteUrl) + `</div>`
-	html += `<div style='font-size:14px;color:#1f2937;'><strong>Versão:</strong> ` + htmlpkg.EscapeString(verLabel) + `</div>`
+	html += `<div style='font-size:14px;color:#1f2937;'><strong data-i18n='label_environment'></strong> ` + htmlpkg.EscapeString(ambienteUrl) + `</div>`
+	html += `<div style='font-size:14px;color:#1f2937;'><strong data-i18n='label_version'></strong> ` + htmlpkg.EscapeString(verLabel) + `</div>`
 	html += `</div>`
 	html += `<div class='tabs-container'>`
-	html += `<button class='tab-btn active' data-tab='tab-resumo'>Resumo do Ambiente</button>`
-	html += `<button class='tab-btn' data-tab='tab-processos'>Zabbix Server</button>`
-	html += `<button class='tab-btn' data-tab='tab-proxys'>Zabbix Proxys</button>`
-	html += `<button class='tab-btn' data-tab='tab-items'>Items e LLDs</button>`
-	html += `<button class='tab-btn' data-tab='tab-templates'>Templates</button>`
-	html += `<button class='tab-btn' data-tab='tab-top'>Top Hosts/Templates/Items</button>`	
-	html += `<button class='tab-btn' data-tab='tab-recomendacoes'>Recomendações</button>`
+	html += `<button class='tab-btn active' data-tab='tab-resumo' data-i18n='tabs.summary'></button>`
+	html += `<button class='tab-btn' data-tab='tab-processos' data-i18n='tabs.server'></button>`
+	html += `<button class='tab-btn' data-tab='tab-proxys' data-i18n='tabs.proxys'></button>`
+	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
+	html += `<button class='tab-btn' data-tab='tab-templates' data-i18n='tabs.templates'></button>`
+	html += `<button class='tab-btn' data-tab='tab-top' data-i18n='tabs.top'></button>`
+	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
 	html += `</div>`
 
 	// Tab panels: resumo (visible), others hidden by default
 	html += `<div id='tab-resumo' class='tab-panel' style='display:block;'>`
-	html += `<h2 class='tab-print-title'>Resumo do Ambiente</h2>`
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Parâmetro</th><th>Valor</th><th>Detalhes</th></tr></thead><tbody>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.summary'></h2>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.param'></th><th data-i18n='table.value'></th><th data-i18n='table.details'></th></tr></thead><tbody>`
 	// Hosts
-	html += `<tr><td>Número de hosts (habilitados/desabilitados)</td><td>` + fmt.Sprintf("%d", nTotalHosts) + `</td><td>` + fmt.Sprintf("%d / %d", nEnabledHosts, nDisabledHosts) + `</td></tr>`
+	html += `<tr><td data-i18n='summary.hosts_count'></td><td>` + fmt.Sprintf("%d", nTotalHosts) + `</td><td>` + fmt.Sprintf("%d / %d", nEnabledHosts, nDisabledHosts) + `</td></tr>`
 	// Templates
-	html += `<tr><td>Número de templates</td><td>` + templatesCount + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.templates_count'></td><td>` + templatesCount + `</td><td></td></tr>`
 	// Items
-	html += `<tr><td>Número de items (habilitados/desabilitados/não suportados)</td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItemsNaoSuportados + `</td></tr>`
+	html += `<tr><td data-i18n='summary.items_count'></td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItemsNaoSuportados + `</td></tr>`
 	// Proxys
-	if progressCb != nil { progressCb("Coletando informações de Proxys...") }
+	if progressCb != nil { progressCb("progress.collecting_proxies") }
 	proxyCount := 0
 	var proxies []map[string]interface{}
 	if pc, perr := getProxyCount(apiUrl, token); perr == nil { proxyCount = pc } else { log.Printf("[ERROR] proxy.get failed: %v", perr) }
 	// fetch full proxy list to render names and types
 	if plist, perr2 := getProxies(apiUrl, token); perr2 == nil && plist != nil { proxies = plist } else if perr2 != nil { log.Printf("[ERROR] proxy.get (list) failed: %v", perr2) }
-	html += `<tr><td>Número de Proxys</td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.proxies_count'></td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
 	// Usuários
-	html += `<tr><td>Número de usuários</td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.users_count'></td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
 	// NVPS
-	html += `<tr><td>Required server performance, new values per second</td><td>` + nvps + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.required_performance'></td><td>` + nvps + `</td><td></td></tr>`
 	html += `</tbody></table></div>`
 
 	// descriptions for tooltip (lowercase key) - moved here so pollers section can reference it
+	// Values were migrated to i18n keys; translations live in web/locales/*/messages.json
 	procDesc := map[string]string{
-		"agent poller": `Parâmetro "StartPollers": especifica o número de processadores de coleta (pollers) para itens passivos. Aumente este valor para elevar a taxa de processamento de verificações passivas.`,
-		"alert manager": `Parâmetro "AlertManager": gerencia a fila de alertas e coordena o encaminhamento para o serviço de envio de notificações. Ajuste quando houver atraso no processamento de alertas.`,
-		"alert syncer": `Parâmetro "AlertSyncer": responsável por gravar alertas na base de dados; aumente se há acúmulo de gravações.`,
-		"alerter": `Parâmetro "Alerter": processo responsável pelo envio efetivo de notificações (e-mail, SMS, etc.); aumente para melhorar paralelismo no envio.`,
-		"availability manager": `Parâmetro "AvailabilityManager": atualiza o estado de disponibilidade de hosts; relevante quando há muitas mudanças de status.`,
-		"browser poller": `Parâmetro "StartBrowserPollers": poller responsável por verificações de navegador (web scenarios). Aumente para mais paralelismo em testes de páginas web.`,
-		"configuration syncer": `Parâmetro "ConfigurationSyncer": sincroniza a configuração em memória do servidor Zabbix; aumente se há demora na aplicação de alterações de configuração.`,
-		"configuration syncer worker": `Parâmetro "ConfigurationSyncerWorker": worker do Configuration Syncer que resolve macros de usuário e sincroniza nomes/valores; ajuste quando houver alto volume de mudanças de macros.`,
-		"connector manager": `Parâmetro "ConnectorManager": gerencia conectores externos e enfileiramento de requisições de integração com serviços terceiros; dimensione conforme integrações ativas.`,
-		"connector worker": `Parâmetro "ConnectorWorker": processos trabalhadores do conector que executam requisições e tratam respostas de sistemas externos; aumente se integrações ficarem lentas.`,
-		"discovery manager": `Parâmetro "StartDiscoverers": gerencia tarefas de descoberta de hosts/serviços em redes; aumente para acelerar varreduras em grandes ambientes.`,
-		"discovery worker": `Parâmetro "DiscoveryWorker": trabalhadores de descoberta que executam verificações (SNMP, ICMP, etc.) solicitadas pelo discovery manager; escale conforme necessidade de varreduras.`,
-		"escalator": `Parâmetro "Escalator": processo de escalonamento de ações automatizadas (ex.: escalonamento de alertas); relevante em regras de escalonamento complexas.`,
-		"ha manager": `Parâmetro "HAManager": gerencia recursos de alta disponibilidade entre servidores Zabbix em cluster; ajuste quando usar HA e notar latência na sincronização.`,
-		"history poller": `Parâmetro "StartPollers": pollers que coletam dados calculados ou requerem conexão com o banco; aumente se cálculo de itens estiver atrasado.`,
-		"history syncer": `Parâmetro "HistorySyncer": escritor de histórico que persiste dados de itens no banco de dados; Controlado pelo StartDBSyncer, normalmente é 1 DBSyncer para cada 1000 Nvps`,
-		"housekeeper": `Parâmetro "HousekeeperFrequency": remove dados históricos antigos e limpa tabelas; aumente se limpeza estiver lenta e o banco ficar grande. Possui total relação com o Banco de Dados, se é particionado ou não.`,
-		"http agent poller": `Parâmetro "StartHTTPPollers": poller assíncrono para checagens HTTP com threads de trabalho; aumente para maior concorrência em sondagens web.`,
-		"http poller": `Parâmetro "StartHTTPPollers": poller para monitoramento HTTP síncrono; ajuste conforme volume de web checks.`,
-		"icmp pinger": `Parâmetro "StartPingers": pollers de ICMP (ping) para verificar disponibilidade de hosts; aumente se muitos hosts necessitam de verificação frequente.`,
-		"internal poller": `Parâmetro "InternalPollers": poller para verificações internas do servidor Zabbix (saúde e métricas internas); ajuste se coleta interna estiver sobrecarregada.`,
-		"ipmi manager": `Parâmetro "IPMIManager": gerencia pollers IPMI para coletar métricas via IPMI; dimensione quando houver muitos dispositivos IPMI.`,
-		"ipmi poller": `Parâmetro "IPMIPollers": poller que executa checagens IPMI em equipamentos; aumente para maior paralelismo em ambientes com IPMI extensivo.`,
-		"java poller": `Parâmetro "JavaPollers": poller para coletas do tipo Java; ajuste quando houver muitos checadores baseados em Java.`,
-		"lld manager": `Parâmetro "LLDManager": gerencia tarefas de Low-Level Discovery (LLD) que detectam automaticamente serviços/instâncias; aumente para acelerar descobertas em larga escala.`,
-		"lld worker": `Parâmetro "LLDWorkers": workers do LLD que executam regras de descoberta e geram itens/dispositivos; dimensione conforme a frequência e quantidade de regras LLD.`,
-		"odbc poller": `Parâmetro "ODBCPollers": poller responsável por consultas ODBC/DB para coleta de métricas; aumente se houver muitos checks dependentes de ODBC.`,
-		"poller": `Parâmetro "StartPollers": processadores de coleta padrão para itens passivos; afeta throughput geral de coleta.`,
-		"preprocessing manager": `Parâmetro "PreprocessingManager": gerencia tarefas de pré-processamento de dados (regexp, transform) antes de serem salvo em banco de dados; aumente para reduzir filas de processamento.`,
-		"preprocessing worker": `Parâmetro "PreprocessingWorkers": threads que executam transformações/preprocessamento de valores antes de armazenamento ou avaliação de triggers.`,
-		"proxy poller": `Parâmetro "ProxyPollers": pollers para proxies remotos que agregam dados de agentes/proxies; ajuste para balancear carga de proxies.`,
-		"proxy group manager": `Parâmetro "ProxyGroupManager": gerencia balanceamento e alta disponibilidade entre proxies; dimensione se usar múltiplos proxies para redundância.`,
-		"report manager": `Parâmetro "ReportManager": gerencia tarefas agendadas de geração de relatórios; aumente se houver acúmulo na geração de relatórios.`,
-		"report writer": `Parâmetro "ReportWriter": processos responsáveis por gerar e gravar relatórios programados; aumente quando a produção de relatórios estiver atrasada.`,
-		"self-monitoring": `Parâmetro "SelfMonitoring": coleta métricas internas do servidor (uso CPU, filas internas); importante para avaliação de saúde do Zabbix Server.`,
-		"service manager": `Parâmetro "ServiceManager": gerencia eventos de serviço, tags e recuperação de problemas vindo de vários componentes; escale se processamento de eventos estiver lento.`,
-		"snmp poller": `Parâmetro "StartSNMPPollers": poller assíncrono para checagens SNMP (walk/get) com threads; aumente para maior concorrência em ambientes SNMP extensos.`,
-		"snmp trapper": `Parâmetro "SNMPTrapper": componente que recebe e processa traps SNMP; aumente para maior taxa de ingestão de traps.`,
-		"task manager": `Parâmetro "TaskManager": executa tarefas remotas solicitadas por outros componentes (fechar problema, executar comando remoto, etc.); aumente para reduzir latência de execução de tarefas.`,
-		"timer": `Parâmetro "Timer": responsável pelo agendamento de tarefas periódicas e manutenção; ajuste se agendamentos estiverem atrasados.`,
-		"trapper": `Parâmetro "StartTrappers": processo que recebe itens ativos, traps e comunicação de proxies; dimensione para aumentar ingestão de dados ativos.`,
-		"trigger housekeeper": `Parâmetro "TriggerHousekeeper": remove problemas/triggers órfãos ou deletados; aumente se houver acúmulo de entradas a limpar.`,
-		"unreachable poller": `Parâmetro "StartPollersUnreachable": poller específico para hosts considerados inatingíveis; hosts sem comunicação. Os parâmetros UnreachableDelay e UnreachablePeriod podem ser utilizados para verificar se o host está com comunicação e retirar desta fila. Queda massiva de hosts, pode afetar este poller.`,
-		"vmware collector": `Parâmetro "StartVMwareCollectors": coletor para integrações VMware responsável por consultar APIs VMware; aumente para maior paralelismo em ambientes virtualizados grandes.`,
-		"data sender": `Processo exclusivo do Zabbix Proxy: responsável por enviar os dados coletados ao Zabbix Server. Sobrecarga indica que a conexão com o servidor está lenta, há muitos dados acumulados na fila ou o parâmetro DataSenderFrequency precisa ser ajustado.`,
+		"agent poller": "procdesc.agent_poller",
+		"alert manager": "procdesc.alert_manager",
+		"alert syncer": "procdesc.alert_syncer",
+		"alerter": "procdesc.alerter",
+		"availability manager": "procdesc.availability_manager",
+		"browser poller": "procdesc.browser_poller",
+		"configuration syncer": "procdesc.configuration_syncer",
+		"configuration syncer worker": "procdesc.configuration_syncer_worker",
+		"connector manager": "procdesc.connector_manager",
+		"connector worker": "procdesc.connector_worker",
+		"discovery manager": "procdesc.discovery_manager",
+		"discovery worker": "procdesc.discovery_worker",
+		"escalator": "procdesc.escalator",
+		"ha manager": "procdesc.ha_manager",
+		"history poller": "procdesc.history_poller",
+		"history syncer": "procdesc.history_syncer",
+		"housekeeper": "procdesc.housekeeper",
+		"http agent poller": "procdesc.http_agent_poller",
+		"http poller": "procdesc.http_poller",
+		"icmp pinger": "procdesc.icmp_pinger",
+		"internal poller": "procdesc.internal_poller",
+		"ipmi manager": "procdesc.ipmi_manager",
+		"ipmi poller": "procdesc.ipmi_poller",
+		"java poller": "procdesc.java_poller",
+		"lld manager": "procdesc.lld_manager",
+		"lld worker": "procdesc.lld_worker",
+		"odbc poller": "procdesc.odbc_poller",
+		"poller": "procdesc.poller",
+		"preprocessing manager": "procdesc.preprocessing_manager",
+		"preprocessing worker": "procdesc.preprocessing_worker",
+		"proxy poller": "procdesc.proxy_poller",
+		"proxy group manager": "procdesc.proxy_group_manager",
+		"report manager": "procdesc.report_manager",
+		"report writer": "procdesc.report_writer",
+		"self-monitoring": "procdesc.self_monitoring",
+		"service manager": "procdesc.service_manager",
+		"snmp poller": "procdesc.snmp_poller",
+		"snmp trapper": "procdesc.snmp_trapper",
+		"task manager": "procdesc.task_manager",
+		"timer": "procdesc.timer",
+		"trapper": "procdesc.trapper",
+		"trigger housekeeper": "procdesc.trigger_housekeeper",
+		"unreachable poller": "procdesc.unreachable_poller",
+		"vmware collector": "procdesc.vmware_collector",
+		"data sender": "procdesc.data_sender",
 	}
 
 	// Prepare numeric totals for gauge
@@ -1426,26 +1452,26 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div class='summary-gauges' style='display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:flex-start;'>`
 	// Hosts gauge (left)
 	html += `<div class='card' style='background:#fff;color:#222;padding:12px;border-radius:8px;min-width:220px;box-shadow:0 1px 6px rgba(0,0,0,0.04);'>`
-	html += `<h4 style='margin:0 0 8px 0;'>Hosts: Desabilitados</h4>`
-	html += `<canvas id='hosts-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", nTotalHosts) + `' data-unsupported='` + fmt.Sprintf("%d", nDisabledHosts) + `' data-unsupported-label='Desabilitados' data-supported-label='Habilitados' data-color-unsupported='#ffcc66' data-color-supported='#66c2a5'></canvas>`
+	html += `<h4 style='margin:0 0 8px 0;' data-i18n='gauge.hosts_disabled'></h4>`
+	html += `<canvas id='hosts-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", nTotalHosts) + `' data-unsupported='` + fmt.Sprintf("%d", nDisabledHosts) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ffcc66' data-color-supported='#66c2a5'></canvas>`
 	// legend lines: color swatches and separated lines (supported / disabled)
 	hostDisabledPct := 0.0
 	if nTotalHosts > 0 { hostDisabledPct = (float64(nDisabledHosts) * 100.0) / float64(nTotalHosts) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
-	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong>Total hosts:</strong>&nbsp;` + fmt.Sprintf("%d", nTotalHosts) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong>Desabilitados:</strong>&nbsp;` + fmt.Sprintf("%d", nDisabledHosts) + ` (` + fmt.Sprintf("%.2f", hostDisabledPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_hosts'></strong>&nbsp;` + fmt.Sprintf("%d", nTotalHosts) + `</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong data-i18n='gauge.disabled'></strong>&nbsp;` + fmt.Sprintf("%d", nDisabledHosts) + ` (` + fmt.Sprintf("%.2f", hostDisabledPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	// Items gauge (right)
 	html += `<div class='card' style='background:#fff;color:#222;padding:12px;border-radius:8px;min-width:220px;box-shadow:0 1px 6px rgba(0,0,0,0.04);'>`
-	html += `<h4 style='margin:0 0 8px 0;'>Items: Não Suportados</h4>`
-	html += `<canvas id='items-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='Não suportados' data-supported-label='Suportados' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
+	html += `<h4 style='margin:0 0 8px 0;' data-i18n='gauge.items_unsupported'></h4>`
+	html += `<canvas id='items-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
 	// legend lines for items
 	itemsUnsupportedPct := 0.0
 	if totalItemsVal > 0 { itemsUnsupportedPct = (float64(unsupportedVal) * 100.0) / float64(totalItemsVal) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
-	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong>Total items:</strong>&nbsp;` + fmt.Sprintf("%d", totalItemsVal) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong>Não suportados:</strong>&nbsp;` + fmt.Sprintf("%d", unsupportedVal) + ` (` + fmt.Sprintf("%.2f", itemsUnsupportedPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_items'></strong>&nbsp;` + fmt.Sprintf("%d", totalItemsVal) + `</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong data-i18n='gauge.unsupported'></strong>&nbsp;` + fmt.Sprintf("%d", unsupportedVal) + ` (` + fmt.Sprintf("%.2f", itemsUnsupportedPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	html += `</div>`
@@ -1454,7 +1480,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>` // end tab-resumo
 
 	// --- Processos e Threads Zabbix Server (Pollers + Internal) ---
-		if progressCb != nil { progressCb("Coletando informações de Pollers e Processos internos...") }
+		if progressCb != nil { progressCb("progress.collecting_pollers_processes") }
 		// Get CHECKTRENDTIME as string for display (default "30")
 	       checkTrendStr := os.Getenv("CHECKTRENDTIME")
 	       if checkTrendStr == "" { checkTrendStr = "15d" }
@@ -1474,7 +1500,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		       }
 	       }
 	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
-	       html += `<h2 class='tab-print-title'>Zabbix Server</h2>`
+		html += `<h2 class='tab-print-title' data-i18n='tabs.server'></h2>`
 	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
 	       if serverHost == "" { serverHost = "10084" }
 	       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
@@ -1560,8 +1586,8 @@ func generateZabbixReport(url, token string) (string, error) {
 			}
 		}
 	}
-		html += titleWithInfo("h3", "Pollers (Data Collectors)", `Os pollers (de forma passiva) consultam ativamente os agentes configurados, em intervalos definidos para coletar as métricas. Isso contrasta com o modo passivo (trappers), onde os agentes enviam dados automaticamente ao servidor; porém eles também podem ser sobrecarregados quando há aumento de fila. Para otimizar, aumente gradualmente o número de Pollers no arquivo zabbix_server.conf quando houver degradação. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)		
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Poller</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
+		html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|"+checkTrendDisplay)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
 	type pollRow struct{
 		Friendly string
 		Desc string
@@ -1583,26 +1609,26 @@ func generateZabbixReport(url, token string) (string, error) {
 	pollRows := []pollRow{}
 	for idx, name := range pollerNames {
 		baseName := strings.ToLower(strings.TrimSpace(name))
-		desc := procDesc[baseName]
-		if desc == "" { desc = "Poller process" }
+		descKey := procDesc[baseName]
+		if descKey == "" { descKey = "procdesc.poller_process" }
 		words := strings.Fields(name)
 		for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
 		friendly := strings.Join(words, " ")
-		pr := pollRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
+		pr := pollRow{Friendly: friendly, Desc: descKey, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
 			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
 			} else if majorV < 7 {
 				switch baseName {
 				case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
-					pr.DisabledMsg = "Não existe nesta versão do Zabbix"
+					pr.DisabledMsg = "<span data-i18n='process.not_in_version'></span>"
 				default:
-					pr.DisabledMsg = "Processo não habilitado"
+					pr.DisabledMsg = "<span data-i18n='process.disabled'></span>"
 				}
 			} else {
-				pr.DisabledMsg = "Processo não habilitado"
+				pr.DisabledMsg = "<span data-i18n='process.disabled'></span>"
 			}
 		} else {
 			iid := fmt.Sprintf("%v", item["itemid"])
@@ -1615,14 +1641,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	// render pollRows via closure — chamada após Phase 3 (stats corretos)
 	renderPollRows := func() {
 		for _, pr := range pollRows {
-			nameCell := `<td style='position:relative;padding:0;'>` +
-		       `<div style='display:flex;align-items:center;gap:4px;'>` +
-		       `<span>` + pr.Friendly + `</span>` +
-		       `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
-		       `<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-			`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
-		       `</span>` +
-		       `</div></td>`
+				nameCell := `<td style='position:relative;padding:0;'>` +
+					`<div style='display:flex;align-items:center;gap:4px;'>` +
+					`<span>` + pr.Friendly + `</span>` +
+					`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
+					`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
+					`</span>` +
+					`</div></td>`
 		       // Adiciona JS/CSS para tooltip interrogação (apenas uma vez, mas seguro repetir)
 		       html += `<style>
 		       .info-icon:focus .info-tooltip,
@@ -1660,15 +1686,15 @@ func generateZabbixReport(url, token string) (string, error) {
 		       // Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
 		       </script>`
 		       if pr.Err {
-			       html += `<tr>` + nameCell + `<td colspan='4'>Erro ao obter dados</td></tr>`
+				   html += `<tr>` + nameCell + `<td colspan='4' data-i18n='error.fetch_data'></td></tr>`
 			       continue
 		       }
-		       if pr.Disabled {
-			       dm := "Processo não habilitado"
-			       if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
-			       html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + htmlpkg.EscapeString(dm) + `</td></tr>`
-			       continue
-		       }
+				       if pr.Disabled {
+					       dm := "<span data-i18n='process.disabled'></span>"
+					       if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
+					       html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + dm + `</td></tr>`
+					       continue
+				       }
 		       html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
 		}
 	}
@@ -1695,16 +1721,16 @@ func generateZabbixReport(url, token string) (string, error) {
 		if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
 		friendly := strings.Join(words, " ") + " Internal Processes"
 		baseName := strings.ToLower(strings.TrimSpace(name))
-		desc := procDesc[baseName]
-		if desc == "" { desc = "Internal process" }
-		pr := procRow{Friendly: friendly, Desc: desc, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
+		descKey := procDesc[baseName]
+		if descKey == "" { descKey = "procdesc.internal_process" }
+		pr := procRow{Friendly: friendly, Desc: descKey, Disabled: false, Err: false, Vmax: -1, Vavg: -1}
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
 			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = fmt.Sprintf("Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID.", serverHost)
+				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
 			} else {
-				pr.DisabledMsg = "Processo não habilitado"
+				pr.DisabledMsg = "<span data-i18n='process.disabled'></span>"
 			}
 		} else {
 			iid := fmt.Sprintf("%v", item["itemid"])
@@ -1776,13 +1802,13 @@ func generateZabbixReport(url, token string) (string, error) {
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "Processo não habilitado" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
 		} else {
 			pr := &procRows[ref.idx]
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "Processo não habilitado" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
 		}
 	}
 	// Ordena por Vavg desc (rows desabilitadas com Vavg=-1 vão para o fim)
@@ -1791,8 +1817,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	// Render pollRows com stats corretos (Phase 3 já atualizou as rows)
 	renderPollRows()
 	html += `</tbody></table></div>`
-	html += titleWithInfo("h3", "Internal Process", `Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Para otimizar, aumente gradualmente o número de processos degradados no arquivo zabbix_server.conf. As decisões de ajuste devem basear-se nas tendências dos últimos ` + checkTrendDisplay + `: se a utilização média estiver consistentemente entre 50% e 60% e os picos ultrapassarem 60%, considere aumentar os pollers/processos; se estiver abaixo de 50%, normalmente não há necessidade de aumento.`)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Internal Process</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.internal_process", "i18n:tip.internal_process|"+checkTrendDisplay)
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
 	// render
 	for _, pr := range procRows {
 		nameCell := `<td style='position:relative;padding:0;'>` +
@@ -1800,7 +1826,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		`<span>` + pr.Friendly + `</span>` +
 		`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 		`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;'>` + htmlpkg.EscapeString(pr.Desc) + `</span>` +
+		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
 		`</span>` +
 		`</div></td>`
 			// Adiciona JS/CSS para tooltip interrogação
@@ -1840,15 +1866,15 @@ func generateZabbixReport(url, token string) (string, error) {
 			// Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
 			</script>`
 		if pr.Err {
-			html += `<tr>` + nameCell + `<td colspan='4'>Erro ao obter dados</td></tr>`
+			html += `<tr>` + nameCell + `<td colspan='4' data-i18n='error.fetch_data'></td></tr>`
 			continue
 		}
-		if pr.Disabled {
-			dm := "Processo não habilitado"
-			if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
-			html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + htmlpkg.EscapeString(dm) + `</td></tr>`
-			continue
-		}
+			       if pr.Disabled {
+				       dm := "<span data-i18n='process.disabled'></span>"
+				       if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
+				       html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + dm + `</td></tr>`
+				       continue
+			       }
 		html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
@@ -1859,8 +1885,8 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Proxys tab (Zabbix Proxys) ---
 	html += `<div id='tab-proxys' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Zabbix Proxys</h2>`
-	html += titleWithInfo("h3", "Sumário Zabbix Proxys", "De preferencia para proxys Ativos. Proxys Passivos podem ser usados, em casos especificos, requer que o Zabbix Server consiga iniciar conexões com o Proxy. Verifique se os proxys estão atualizados e configurados corretamente.")
+	html += `<h2 class='tab-print-title' data-i18n='tabs.proxys'></h2>`
+	html += titleWithInfo("h3", "i18n:section.proxies_summary", "i18n:tip.proxies_summary")
 	// Small summary table for proxies (unknown / offline / active / passive / total) placed above details
 	unknown := 0
 	offline := 0
@@ -1910,7 +1936,7 @@ func generateZabbixReport(url, token string) (string, error) {
 		total = proxyCount
 	}
 	// Renderiza tabela de sumario de proxys, e aplica estilos de destaque para categorias com contagem > 0 (vermelho para unknown/offline, verde para active, amarelo para passive)
-	html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th>Descrição</th><th>Quantidade</th></tr></thead><tbody>`
+	html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:75%'><col style='width:25%'></colgroup><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th></tr></thead><tbody>`
 	unknownTdStyle := ""
 	if unknown > 0 { unknownTdStyle = "background:#ff6666 !important;color:#000 !important;" }
 	offlineTdStyle := ""
@@ -1919,18 +1945,18 @@ func generateZabbixReport(url, token string) (string, error) {
 	if active > 0 { activeTdStyle = "background:#66c28a !important;color:#000 !important;" }
 	passiveTdStyle := ""
 	if passive > 0 { passiveTdStyle = "background:#ffe08a !important;color:#000 !important;" }
-	html += `<tr><td style='` + unknownTdStyle + `'>Proxys Unknown</td><td style='` + unknownTdStyle + `'>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
-	html += `<tr><td style='` + offlineTdStyle + `'>Proxys Offline</td><td style='` + offlineTdStyle + `'>` + fmt.Sprintf("%d", offline) + `</td></tr>`
-	html += `<tr><td style='` + activeTdStyle + `'>Proxys Ativos</td><td style='` + activeTdStyle + `'>` + fmt.Sprintf("%d", active) + `</td></tr>`
-	html += `<tr><td style='` + passiveTdStyle + `'>Proxys Passivos</td><td style='` + passiveTdStyle + `'>` + fmt.Sprintf("%d", passive) + `</td></tr>`
-	html += `<tr><td>Total de Proxys</td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list&filter_rst=1' target='_blank'>Abrir lista de Proxys</a></td></tr>`
+	html += `<tr><td style='` + unknownTdStyle + `' data-i18n='proxy.unknown'></td><td style='` + unknownTdStyle + `'>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
+	html += `<tr><td style='` + offlineTdStyle + `' data-i18n='proxy.offline'></td><td style='` + offlineTdStyle + `'>` + fmt.Sprintf("%d", offline) + `</td></tr>`
+	html += `<tr><td style='` + activeTdStyle + `' data-i18n='proxy.active'></td><td style='` + activeTdStyle + `'>` + fmt.Sprintf("%d", active) + `</td></tr>`
+	html += `<tr><td style='` + passiveTdStyle + `' data-i18n='proxy.passive'></td><td style='` + passiveTdStyle + `'>` + fmt.Sprintf("%d", passive) + `</td></tr>`
+	html += `<tr><td data-i18n='proxy.total'></td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list&filter_rst=1' target='_blank' data-i18n='open_proxies_list'></a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// Proxys details table (list)
 	// show all proxies in the details list, with Status column based on state
 	if len(proxies) > 0 {
-		html += `<h4>Proxys</h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th>Proxy</th><th>Tipo</th><th>Total de Items</th><th>Items não suportados</th><th>Queue-10m</th><th>Status</th></tr></thead><tbody>`
+		html += `<h4 data-i18n='section.proxies'></h4>`
+		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
 			// parallelize per-proxy item calls to improve throughput
 			type proxyRow struct{ idx int; html string }
 			resultsP := make(chan proxyRow, len(proxies))
@@ -2070,14 +2096,11 @@ func generateZabbixReport(url, token string) (string, error) {
 		for _, ii := range idxs { html += rowsMap[ii] }
 		html += `</tbody></table></div>`
 	} else {
-		html += `<div class='como-corrigir'>Nenhum proxy configurado ou informação indisponível.</div>`
+		html += `<div class='como-corrigir' data-i18n='no_proxy_info'></div>`
 	}
 
-	html += titleWithInfo("h3", "Processos e Threads Zabbix Proxys",
-		`Os Zabbix Proxys possuem processos próprios de coleta e encaminhamento de dados. `+
-		`As decisões de ajuste devem basear-se nas tendências dos últimos `+checkTrendDisplay+
-		`: utilização média acima de 50% é sinal de atenção; acima de 60% recomenda-se aumentar o processo no arquivo zabbix_proxy.conf.`)
-	if progressCb != nil { progressCb("Coletando processos e threads dos Zabbix Proxys...") }
+	html += titleWithInfo("h3", "i18n:section.proxy_processes", "i18n:tip.proxy_processes|"+checkTrendDisplay)
+	if progressCb != nil { progressCb("progress.collecting_proxy_processes") }
 
 	// All process names for proxy (pollers + internal merged into one table)
 	proxyAllProcNames := []string{
@@ -2235,7 +2258,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				return
 			}
 			if len(itemsMap) == 0 {
-				res.noItemsNote = fmt.Sprintf("Nenhum item de processo encontrado. Verifique se o Host Existe ou se o Template \"Zabbix Proxy Health\" está vinculado ao host.", hostId)
+				res.noItemsNote = `<span data-i18n='proxy.no_items_note'></span>`
 				ppCh <- res
 				return
 			}
@@ -2311,15 +2334,14 @@ func generateZabbixReport(url, token string) (string, error) {
 				for i, w := range words { tw := strings.TrimSpace(w); if len(tw) > 0 { words[i] = strings.ToUpper(tw[:1]) + strings.ToLower(tw[1:]) } }
 				if len(words) > 0 && strings.ToLower(words[0]) == "lld" { words[0] = "LLD" }
 				friendly := strings.Join(words, " ")
-				desc := procDesc[dispBaseName]
-				if desc == "" { desc = "Process" }
+				descKey := procDesc[dispBaseName]
+				if descKey == "" { descKey = "procdesc.process" }
 
 				nameCell := `<td style='position:relative;padding:0;'>` +
 					`<div style='display:flex;align-items:center;gap:4px;'><span>` + htmlpkg.EscapeString(friendly) + `</span>` +
 					`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
 					`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:300px;max-width:640px;white-space:normal;word-break:normal;overflow-wrap:break-word;'>` +
-					htmlpkg.EscapeString(desc) + `</span></span></div></td>`
+					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:300px;max-width:640px;white-space:normal;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(descKey) + `'></span></span></div></td>`
 
 				item := itemsMap[baseName]
 				if item == nil {
@@ -2327,7 +2349,7 @@ func generateZabbixReport(url, token string) (string, error) {
 						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>` +
 							`-<span class='info-icon' tabindex='0' style='margin-left:4px;'>` +
 							`<svg viewBox='0 0 16 16' width='14' height='14'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
-							`<span class='info-tooltip' style='left:auto;right:22px;'>Criar item no template ou Processo não habilitado</span></span>` +
+							`<span class='info-tooltip' style='left:auto;right:22px;' data-i18n='tip.create_item_or_process_disabled'></span></span>` +
 							`</td></tr>`})
 					continue
 				}
@@ -2412,7 +2434,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	if len(proxyMetaList) == 0 {
-		html += `<div class='como-corrigir'>Nenhum proxy configurado.</div>`
+		html += `<div class='como-corrigir' data-i18n='no_proxy_configured'></div>`
 	} else {
 		html += `<div style='display:flex;flex-direction:column;gap:10px;margin-top:8px;'>`
 		for _, pm := range proxyMetaList {
@@ -2451,7 +2473,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				`<svg viewBox='0 0 10 10' width='10' height='10' style='margin-right:6px;flex-shrink:0;'><path d='M2 3 L5 7 L8 3' stroke='#555' stroke-width='1.5' fill='none'/></svg>` +
 				htmlpkg.EscapeString(pm.Name) + connBadge + statusBadge + `</summary>`
 			if !pm.Online {
-				html += `<div style='padding:10px 14px;color:#888;'>Proxy offline ou unknown — dados de processos não disponíveis.</div></details>`
+				html += `<div style='padding:10px 14px;color:#888;' data-i18n='no_proxy_process_data'></div></details>`
 				continue
 			}
 			html += `<div style='padding:8px 14px 12px;'>`
@@ -2459,7 +2481,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				html += `<div class='como-corrigir' style='margin:4px 0 8px;'>` + htmlpkg.EscapeString(res.noItemsNote) + `</div>`
 			}
 			if len(res.rows) > 0 {
-				html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Processo</th><th>value_min</th><th>value_avg</th><th>value_max</th><th>Status</th></tr></thead><tbody>`
+				html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
 				for _, r := range res.rows { html += r.rowHTML }
 				html += `</tbody></table></div>`
 			}
@@ -2471,9 +2493,9 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</div>` // end tab-proxys
 
 	// --- Items tab (Items não suportados + Intervalo de Coleta) ---
-	if progressCb != nil { progressCb("Coletando informações de Items sem Template e Items não suportados...") }
+	if progressCb != nil { progressCb("progress.collecting_items_without_template_and_unsupported") }
 	html += `<div id='tab-items' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Items e LLDs</h2>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.items'></h2>`
 	// --- Items não suportados (nova categoria) ---
 	// Choose the frontend path depending on Zabbix major version (>=7 use zabbix.php, older use items.php)
 	itemsPath := ""
@@ -2514,45 +2536,45 @@ func generateZabbixReport(url, token string) (string, error) {
 	itemsNoTplLink := ambienteUrl + "/" + itemsNoTplPath
 
 	unsupportedLink := ambienteUrl + "/" + itemsPath
-	html += titleWithInfo("h3", "Items sem Template", "Item sem template não afeta performance de Processos do Zabbix, porem para melhor organização é importante um item ter template e não ser criado a nivel de Host.")
+	html += titleWithInfo("h3", "i18n:section.items_no_template", "i18n:tip.items_no_template")
 	if itemsNoTplCount > 0 {
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Descrição</th><th>Quantidade</th><th>Link</th></tr></thead><tbody>`
-		html += `<tr><td>Items sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank'>Abrir</a></td></tr>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
+		html += `<tr><td data-i18n='items.no_template'>Items sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank' data-i18n='open'></a></td></tr>`
 		html += `</tbody></table></div>`
 	} else {
 		html += ``
 	}
 
-	html += titleWithInfo("h3", "Items não suportados", "Como corrigir: " + descNaoSuportados)
+	html += titleWithInfo("h3", "i18n:section.items_unsupported", "i18n:tip.items_unsupported")
 	// (legend use .como-corrigir)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Tipo de Item</th><th>Total</th><th>Não suportados</th><th>Link</th></tr></thead><tbody>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='items.type'></th><th data-i18n='table.total'></th><th data-i18n='label_unsupported'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 
 	// Define item types to query (type code -> label)
 	baseTypes := []struct{ Code int; Label string }{
-		{0, "Zabbix Agent"},
-		{2, "Zabbix Trapper"},
-		{3, "Simple check"},
-		{5, "Zabbix internal"},
-		{7, "Zabbix agent (active)"},
-		{8, "Aggregate"},
-		{9, "Web item"},
-		{10, "External check"},
-		{11, "Database"},
-		{12, "IPMI"},
-		{13, "SSH"},
-		{14, "Telnet"},
-		{15, "Calculated"},
-		{16, "JMX"},
-		{17, "SNMP Trap"},
-		{18, "Dependent item"},
-		{19, "HTTP agent"},
-		{20, "SNMP"},
-		{21, "Script"},
+		{0, "<span data-i18n='types.zabbix_agent'></span>"},
+		{2, "<span data-i18n='types.zabbix_trapper'></span>"},
+		{3, "<span data-i18n='types.simple_check'></span>"},
+		{5, "<span data-i18n='types.zabbix_internal'></span>"},
+		{7, "<span data-i18n='types.zabbix_agent_active'></span>"},
+		{8, "<span data-i18n='types.aggregate'></span>"},
+		{9, "<span data-i18n='types.web_item'></span>"},
+		{10, "<span data-i18n='types.external_check'></span>"},
+		{11, "<span data-i18n='types.database'></span>"},
+		{12, "<span data-i18n='types.ipmi'></span>"},
+		{13, "<span data-i18n='types.ssh'></span>"},
+		{14, "<span data-i18n='types.telnet'></span>"},
+		{15, "<span data-i18n='types.calculated'></span>"},
+		{16, "<span data-i18n='types.jmx'></span>"},
+		{17, "<span data-i18n='types.snmp_trap'></span>"},
+		{18, "<span data-i18n='types.dependent_item'></span>"},
+		{19, "<span data-i18n='types.http_agent'></span>"},
+		{20, "<span data-i18n='types.snmp'></span>"},
+		{21, "<span data-i18n='types.script'></span>"},
 	}
 	types := baseTypes
 	// Include Browser (22) only when Zabbix major version is 7 or newer
 	if majorV >= 7 {
-		types = append(types, struct{ Code int; Label string }{22, "Browser"})
+		types = append(types, struct{ Code int; Label string }{22, "<span data-i18n='types.browser'></span>"})
 	}
 
 	// If Zabbix < 7, browser (22) is not supported in frontend listing; we skip showing it
@@ -2622,7 +2644,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			if tt.Code == 22 && majorV < 7 {
 				linkHTML = "-"
 			} else {
-				linkHTML = "<a href='" + perLink + "' target='_blank'>Abrir</a>"
+				linkHTML = "<a href='" + perLink + "' target='_blank' data-i18n='open'></a>"
 			}
 
 			resultsCh <- rowT{Label: tt.Label, Total: cntTotal, Unsup: cntUnsup, Link: linkHTML}
@@ -2650,7 +2672,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	if nItemsTotal != "-" {
 		if v, err := strconv.Atoi(strings.TrimSpace(nItemsTotal)); err == nil { totalItemsInt = v }
 	}
-	html += `<tr><td><strong>Total</strong></td><td><strong>` + fmt.Sprintf("%d", totalItemsInt) + `</strong></td><td><strong>` + fmt.Sprintf("%d", unsupportedVal) + `</strong></td><td><a href='` + unsupportedLink + `' target='_blank'>Abrir listagem completa</a></td></tr>`
+	html += `<tr><td><strong data-i18n='strong.total'>Total</strong></td><td><strong>` + fmt.Sprintf("%d", totalItemsInt) + `</strong></td><td><strong>` + fmt.Sprintf("%d", unsupportedVal) + `</strong></td><td><a href='` + unsupportedLink + `' target='_blank' data-i18n='open_full_listing'></a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// --- Intervalo de Coleta ---
@@ -2685,14 +2707,14 @@ func generateZabbixReport(url, token string) (string, error) {
 			perPath = fmt.Sprintf("items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
 		}
 		perLink := ambienteUrl + "/" + perPath
-		linkHTML := "<a href='" + perLink + "' target='_blank'>Abrir</a>"
+		linkHTML := "<a href='" + perLink + "' target='_blank' data-i18n='open'></a>"
 		intervalRows = append(intervalRows, struct{ Interval int; Count int; Link string }{Interval: d, Count: cnt, Link: linkHTML})
 	}
 
 	// renderiza a seção de Intervalo de Coleta
 	// (legend use .como-corrigir)
-	html += titleWithInfo("h3", "Intervalo de Coleta:", "As métricas de monitoramento serão coletadas com base no intervalo de coleta definido no item, quanto menor o intervalo de coleta mais recursos de CPU e memória será utilizado no Zabbix Server e/ou Zabbix Proxy além de relação direta com o crescimento do Banco de Dados, VPS do Zabbix e no processo de Housekeeper. Intervalos Verificados 1, 10, 30, 60.")
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Intervalo (s)</th><th>Quantidade de itens</th><th>Link</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.collection_interval", "i18n:tip.collection_interval")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 	for _, r := range intervalRows {
 		if r.Count == 0 {
 			continue
@@ -2742,15 +2764,15 @@ func generateZabbixReport(url, token string) (string, error) {
 			perPath = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime=&filter_snmp_oid=&filter_status=-1&filter_set=1", delayFmt)
 		}
 		perLink := ambienteUrl + "/" + perPath
-		linkHTML := "<a href='" + perLink + "' target='_blank'>Abrir</a>"
+		linkHTML := "<a href='" + perLink + "' target='_blank' data-i18n='open'></a>"
 
 		lldRows = append(lldRows, struct{ Interval int; Count int; Link string }{Interval: d, Count: cnt, Link: linkHTML})
 	}
 
 	// renderiza a seção de Regras de LLD (Intervalo de Coleta)
-	html += titleWithInfo("h3", "Regras de LLD (Discovery rules) - Intervalo de Coleta:", "As métricas de monitoramento serão coletadas com base no intervalo de coleta definido na regra LLD; quanto menor o intervalo, maior o consumo de CPU/memória e crescimento do banco. Verifique se intervalos muito curtos são realmente necessários.")
+	html += titleWithInfo("h3", "i18n:section.lld_interval", "i18n:tip.lld_interval")
 	// legend moved into tooltip via titleWithInfo
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Intervalo (s)</th><th>Quantidade de regras</th><th>Link</th></tr></thead><tbody>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 	for _, r := range lldRows {
 		if r.Count == 0 {
 			continue
@@ -2791,16 +2813,16 @@ func generateZabbixReport(url, token string) (string, error) {
 	lldPerLink := ambienteUrl + "/" + lldPerPath
 
 	if lldNotSupCnt > 0 {
-		html += titleWithInfo("h3", "Regras de LLD (Discovery rules) - Not Supported", "Regras não suportadas são aquelas que apresentam erro ao executar a coleta. Essas regras continuam consumindo processos do Zabbix desnecessariamente; valide os erros e corrija ou desative regras inválidas.")
+		html += titleWithInfo("h3", "i18n:section.lld_not_supported", "i18n:tip.lld_not_supported")
 		// legend moved into tooltip via titleWithInfo
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Descrição</th><th>Quantidade</th><th>Link</th></tr></thead><tbody>`
-		html += `<tr><td>Regras de descoberta com status de erro</td><td>` + fmt.Sprintf("%d", lldNotSupCnt) + `</td><td><a href='` + lldPerLink + `' target='_blank'>Abrir</a></td></tr>`
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
+		html += `<tr><td data-i18n='lld.error_rules'>Regras de descoberta com status de erro</td><td>` + fmt.Sprintf("%d", lldNotSupCnt) + `</td><td><a href='` + lldPerLink + `' target='_blank' data-i18n='open'></a></td></tr>`
 		html += `</tbody></table></div>`
 	}
 
 	// --- Items Texto com Histórico ---
 	// Busca items do tipo Texto (value_type = 4) com intervalo de coleta menor ou igual a 300s
-	html += titleWithInfo("h3", "Items Texto com Historico", "Items do tipo Texto, tem um custo elevado espaço em disco em Banco de Dados, com intervalo de checagem baixo, há muita retenção de informação. Esta coleta verifica items do tipo Texto, com History(1h, 1d, 7d ou 31d) e Intervalo de Coleta menor que 5m (não há validade de preprocessamento).")
+	html += titleWithInfo("h3", "i18n:section.text_items_history", "i18n:tip.text_items_history")
 
 	// request host linkage for items so we can fetch templates in one call
 	paramsTextItems := map[string]interface{}{
@@ -2888,7 +2910,7 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 
 	if textCount > 0 {
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Nome do Item</th><th>ItemID</th><th>Intervalo de Checagem (s)</th><th>Link</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.template'></th><th data-i18n='items.item_name'></th><th data-i18n='table.itemid'></th><th data-i18n='table.interval_seconds'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 		for _, tr := range textRows {
 			tplNames := hostToTemplates[tr.HostID]
 			tplCell := "-"
@@ -2919,10 +2941,10 @@ func generateZabbixReport(url, token string) (string, error) {
 				escName := neturl.QueryEscape(tr.Name)
 				if majorV >= 7 {
 					perPath := fmt.Sprintf("zabbix.php?action=item.list&context=template&filter_hostids%%5B%%5D=%s&filter_name=%s&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_set=1", tplID, escName)
-					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank'>Abrir</a>"
+					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank' data-i18n='open'></a>"
 				} else {
 					perPath := fmt.Sprintf("items.php?context=template&filter_hostids%%5B%%5D=%s&filter_name=%s&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_set=1", tplID, escName)
-					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank'>Abrir</a>"
+					linkHTML = "<a href='" + ambienteUrl + "/" + perPath + "' target='_blank' data-i18n='open'></a>"
 				}
 			}
 
@@ -2936,19 +2958,19 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Templates tab ---
 	html += `<div id='tab-templates' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Templates</h2>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.templates'></h2>`
 	// Detalhamento dos Principais Templates
-	html += titleWithInfo("h3", "Erros mais comuns dos Principais Templates Ofendores", descDetalhamento)
+	html += titleWithInfo("h3", "i18n:section.templates_offenders", "i18n:tip.templates_offenders")
 		// legend moved into tooltip via titleWithInfo
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
 		html += `<h4>` + htmlpkg.EscapeString(tplName) + `</h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Erro</th><th>Host</th><th>Link</th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.item'></th><th data-i18n='table.error'></th><th data-i18n='table.host'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 		rows := templateItems[tpl.Key]
 		for i, row := range rows {
 			if i >= topN { break }
-			html += `<tr><td>` + htmlpkg.EscapeString(row[0]) + `</td><td>` + htmlpkg.EscapeString(row[1]) + `</td><td>` + htmlpkg.EscapeString(row[2]) + `</td><td><a href='` + row[3] + `' target='_blank'>Editar</a></td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(row[0]) + `</td><td>` + htmlpkg.EscapeString(row[1]) + `</td><td>` + htmlpkg.EscapeString(row[2]) + `</td><td><a href='` + row[3] + `' target='_blank' data-i18n='edit'></a></td></tr>`
 		}
 		html += `</tbody></table></div>`
 	}
@@ -2957,10 +2979,10 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// --- Top Templates/Items tab ---
 	html += `<div id='tab-top' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Top Hosts/Templates/Items</h2>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.top'></h2>`
 	// Top Templates Ofensores
-	html += titleWithInfo("h3", "Top Templates Ofensores", "Como corrigir: " + descTemplates)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.top_templates", "i18n:tip.top_templates")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.template'></th><th data-i18n='table.error_count'></th></tr></thead><tbody>`
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
@@ -2969,8 +2991,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Montar o Top Hosts Ofensores (com template mais recorrente com itens problemáticos para cada host)
-	html += titleWithInfo("h3", "Top Hosts Ofensores", "Como corrigir: " + descHosts)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Host</th><th>Template Mais Ofensor</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.top_hosts", "i18n:tip.top_hosts")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.host'></th><th data-i18n='table.template'></th><th data-i18n='table.error_count'></th></tr></thead><tbody>`
 	for _, host := range topHosts {
 		// Descobrir o template mais recorrente para o host
 		tplCount := map[string]int{}
@@ -2989,8 +3011,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Top Items Problemáticos
-	html += titleWithInfo("h3", "Top Items Problemáticos", "Como corrigir: " + descItems)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Item</th><th>Template</th><th>Quantidade de Erros</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.top_items", "i18n:tip.top_items")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.item'></th><th data-i18n='table.template'></th><th data-i18n='table.error_count'></th></tr></thead><tbody>`
 	for _, item := range topItems {
 		parts := strings.SplitN(item.Key, "|", 2)
 		itemName := parts[0]
@@ -3003,8 +3025,8 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `</tbody></table></div>`
 
 	// Tipos de Erro Mais Comuns
-	html += titleWithInfo("h3", "Tipos de Erro Mais Comuns", "Como corrigir: " + descErros)
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th>Mensagem de Erro</th><th>Template</th><th>Ocorrências</th></tr></thead><tbody>`
+	html += titleWithInfo("h3", "i18n:section.error_types", "i18n:tip.error_types")
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.error_message'></th><th data-i18n='table.template'></th><th data-i18n='table.occurrences'></th></tr></thead><tbody>`
 	for _, errRow := range topErrors {
 		parts := strings.SplitN(errRow.Key, "|", 2)
 		errMsg := parts[0]
@@ -3019,8 +3041,8 @@ func generateZabbixReport(url, token string) (string, error) {
 
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
-	html += `<h2 class='tab-print-title'>Recomendações</h2>`
-	html += titleWithInfo("h3", "Recomendações", "Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções.")
+	html += `<h2 class='tab-print-title' data-i18n='tabs.recommendations'></h2>`
+	html += titleWithInfo("h3", "i18n:section.recommendations", "i18n:tip.recommendations")
 
 	// precompute aggregates needed by the KPI/cards (attention list, interval/LDD small-interval counts)
 	attention := []struct{ Name string; Vavg float64 }{}
@@ -3194,36 +3216,36 @@ func generateZabbixReport(url, token string) (string, error) {
 .rec-toggle{background:#eef2ff;border:0;padding:6px 8px;border-radius:6px;cursor:pointer}
 </style>`
 	html += `<div class='rec-grid'>` +
-		`<div id='card-server' class='rec-card'><div class='rec-card-header'><strong>Zabbix Server</strong><span class='status-badge ` + func() string { if attentionCount>0 { return "warn" } ; return "ok" }() + `'>` + fmt.Sprintf("%d Processos e Threads", attentionCount) + `</span></div><div class='rec-card-body'><!-- server content below --></div></div>` +
-		`<div id='card-proxys' class='rec-card'><div class='rec-card-header'><strong>Zabbix Proxys</strong><span class='status-badge ` + func() string { if proxyOfflineCount>0 || proxyUnknownCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d/%d", proxyOfflineCount, proxyUnknownCount) + `</span></div><div class='rec-card-body'><!-- proxy content below --></div></div>` +
-		`<div id='card-items' class='rec-card'><div class='rec-card-header'><strong>Items</strong><span class='status-badge ` + func() string { if unsupportedCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d não suportados", unsupportedCount) + `</span></div><div class='rec-card-body'><!-- items content below --></div></div>` +
-		`<div id='card-lld' class='rec-card'><div class='rec-card-header'><strong>Regras de LLD</strong><span class='status-badge ok'>` + fmt.Sprintf("%d curto intervalo", lldLe300) + `</span></div><div class='rec-card-body'><!-- lld content below --></div></div>` +
-		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong>Templates</strong><span class='status-badge ok'>` + fmt.Sprintf("%d", templatesShown) + `</span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
+		`<div id='card-server' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.server'></strong><span class='status-badge ` + func() string { if attentionCount>0 { return "warn" } ; return "ok" }() + `'><span data-i18n='badge.processes_threads' data-i18n-args='` + fmt.Sprintf("%d", attentionCount) + `'></span></span></div><div class='rec-card-body'><!-- server content below --></div></div>` +
+		`<div id='card-proxys' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.proxies'></strong><span class='status-badge ` + func() string { if proxyOfflineCount>0 || proxyUnknownCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d/%d", proxyOfflineCount, proxyUnknownCount) + `</span></div><div class='rec-card-body'><!-- proxy content below --></div></div>` +
+		`<div id='card-items' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.items'></strong><span class='status-badge ` + func() string { if unsupportedCount>0 { return "crit" } ; return "ok" }() + `'><span data-i18n='badge.items_unsupported_count' data-i18n-args='` + fmt.Sprintf("%d", unsupportedCount) + `'></span></span></div><div class='rec-card-body'><!-- items content below --></div></div>` +
+		`<div id='card-lld' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.lld'></strong><span class='status-badge ok'><span data-i18n='badge.lld_short_interval' data-i18n-args='` + fmt.Sprintf("%d", lldLe300) + `'></span></span></div><div class='rec-card-body'><!-- lld content below --></div></div>` +
+		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.templates'></strong><span class='status-badge ok'><span data-i18n='badge.templates_count' data-i18n-args='` + fmt.Sprintf("%d", templatesShown) + `'></span></span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
 	`</div>`
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
 	html += `<div class='rec-kpis'>`
-	html += `<div class='kpi kpi-warn' data-target='#card-server' title='Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label'>Zabbix Server - Process/Pollers com AVG alto</div></div>`
-	html += `<div class='kpi kpi-crit' data-target='#card-proxys' title='Proxys offline'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label'>Proxys Offline</div></div>`
-	html += `<div class='kpi' data-target='#card-proxys' title='Proxys unknown'><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label'>Proxys Unknown</div></div>`
+	html += `<div class='kpi kpi-warn' data-target='#card-server' data-i18n-title='kpi.server_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label' data-i18n='kpi.server_attention'></div></div>`
+	html += `<div class='kpi kpi-crit' data-target='#card-proxys' data-i18n-title='kpi.proxies_offline' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_offline'></div></div>`
+	html += `<div class='kpi' data-target='#card-proxys' data-i18n-title='kpi.proxies_unknown' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_unknown'></div></div>`
 	// KPI: processos dos proxys com AVG alto (≥ 60%)
 	proxyAttnClass := "kpi-ok"
 	if len(proxyProcAttnList) > 0 { proxyAttnClass = "kpi-warn" }
-	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' title='Proxys - Processos em Atenção'><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label'>Proxys - Process/Pollers com AVG alto</div></div>`
-	html += `<div class='kpi kpi-crit' data-target='#card-items' title='Items não suportados'><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label'>Items Não Suportados</div></div>`
+	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxy_process_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label' data-i18n='kpi.proxy_process_attention'></div></div>`
+	html += `<div class='kpi kpi-crit' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
 		migClass := "kpi-ok"
 		if len(snmpMigrationTpls) > 0 { migClass = "kpi-warn" }
-		html += `<div class='kpi ` + migClass + `' data-target='#card-templates' title='Templates SNMP para Poller Assíncrono'><div class='kpi-num'>` + fmt.Sprintf("%d", len(snmpMigrationTpls)) + `</div><div class='kpi-label'>Templates SNMP p/ Poller Assíncrono</div></div>`
+		html += `<div class='kpi ` + migClass + `' data-target='#card-templates' data-i18n-title='kpi.snmp_templates_migration' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(snmpMigrationTpls)) + `</div><div class='kpi-label' data-i18n='kpi.snmp_templates_migration'></div></div>`
 		// KPI: Percentual de items SNMP em templates já usando get[]/walk[]
 		kclass := "kpi-crit"
 		if snmpPct >= 80.0 { kclass = "kpi-ok" }
-		html += `<div class='kpi ` + kclass + `' data-target='#card-items' title='Items - SNMP-POLLER'><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label'>Items - SNMP-POLLER</div></div>`
+		html += `<div class='kpi ` + kclass + `' data-target='#card-items' data-i18n-title='kpi.snmp_items_label' title=''><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label' data-i18n='kpi.snmp_items_label'></div></div>`
 	}
-	html += `<div class='kpi kpi-warn' data-target='#card-items' title='Items Texto com Histórico'><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label'>Items Texto c/ Histórico</div></div>`
+	html += `<div class='kpi kpi-warn' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	html += `</div>`	
 
 	html += `<script>
@@ -3238,11 +3260,22 @@ setTimeout(setupInfoTooltips,50);
 	secNum := 0
 	nextSec := func(cardID, title string) string {
 		secNum++
+		// support i18n: keys (e.g. "i18n:section.items") — render a data-i18n span
+		if strings.HasPrefix(title, "i18n:") {
+			key := strings.TrimPrefix(title, "i18n:")
+			return fmt.Sprintf("<h4 id='%s'>%d) <span data-i18n='%s'></span></h4>", cardID, secNum, key)
+		}
 		return fmt.Sprintf("<h4 id='%s'>%d) %s</h4>", cardID, secNum, title)
 	}
 	nextSub := func(sub *int, label string) string {
 		*sub++
-		return fmt.Sprintf("%d.%d)", secNum, *sub) + " " + label
+		num := fmt.Sprintf("%d.%d)", secNum, *sub)
+		// support i18n: keys (e.g. "i18n:sub.items_no_template") — render a small data-i18n span
+		if strings.HasPrefix(label, "i18n:") {
+			key := strings.TrimPrefix(label, "i18n:")
+			return fmt.Sprintf("%s <span data-i18n='%s'></span>", num, key)
+		}
+		return num + " " + label
 	}
 
 	// Pré-computa missingAsync para decidir se a seção Zabbix Server aparece
@@ -3265,28 +3298,25 @@ setTimeout(setupInfoTooltips,50);
 	// --- Seção: Zabbix Server (só aparece quando há recomendação) ---
 	if len(attention) > 0 || len(missingAsync) > 0 {
 		serverSub := 0
-		html += nextSec("card-server", "Zabbix Server")
+		html += nextSec("card-server", "i18n:section.server")
 		if len(attention) > 0 {
-			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "Sugestões zabbix_server.conf:"))
-			tipProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendEnvVal, checkTrendDisplay)
-			html += `<p>` + titleWithInfo("strong", "Customizar Processos e Threads:", tipProc) + `</p>`
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "i18n:sub.server_suggestions"))
+			html += `<p>` + titleWithInfo("strong", "i18n:sub.customize_processes_threads", "i18n:tip.internal_process|"+checkTrendDisplay) + `</p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, a := range attention {
-				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
+				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — avg: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 			}
 			html += `</ol>`
 		}
 		if len(missingAsync) > 0 {
-			tipAsync := "Se utilizado os items para serem monitorados pelo Zabbix Server, configure 1 processo poller para ser utilizado até 1000 checks em conjunto por poller, evitando esperas síncronas. Pode ser ajustado o número de processos nos arquivos de configuração (ex.: zabbix_server.conf) conforme a carga do ambiente. Novidade do Zabbix 7."
-			html += titleWithInfo("h5", nextSub(&serverSub, "Utilizar Pollers Assíncronos:"), tipAsync)
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "i18n:sub.use_async_pollers"))
+			html += `<p data-i18n='tip.pollers' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
 			html += `<div style='margin-left:6px;font-size:0.88em;'><ul>`
-			descs := map[string]string{
-				"Agent Poller":      "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
-				"HTTP Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
-				"SNMP Poller":       "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
-			}
 			for _, n := range missingAsync {
-				html += `<li>` + titleWithInfo("span", n, descs[n]) + `</li>`
+				key := strings.ToLower(strings.TrimSpace(n))
+				tipKey := ""
+				if v, ok := procDesc[key]; ok { tipKey = "i18n:" + v }
+				html += `<li>` + titleWithInfo("span", n, tipKey) + `</li>`
 			}
 			html += `</ul></div>`
 		}
@@ -3295,24 +3325,19 @@ setTimeout(setupInfoTooltips,50);
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
 		proxySub := 0
-		html += nextSec("card-proxys", "Zabbix Proxys")
-		if len(proxyProcAttnList) > 0 {
-			tipProxyProc := fmt.Sprintf("Aumente os Processos e Threads conforme a necessidade da empresa; atualmente a leitura é realizada com base em %s (%s) e validando em Trends. Se o valor de AVG for maior que 60%%, é sugerido aumentar.", checkTrendStr, checkTrendDisplay)
-			html += titleWithInfo("h5", nextSub(&proxySub, "Customizar Processos e Threads"), tipProxyProc)
+		html += nextSec("card-proxys", "i18n:section.proxies")
+			if len(proxyProcAttnList) > 0 {
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.customize_processes_threads"))
+			html += `<p data-i18n='tip.proxy_processes' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, a := range proxyProcAttnList {
-				html += `<li>` + htmlpkg.EscapeString(a.ProxyName) + ` — ` + htmlpkg.EscapeString(a.ProcFriendly) + ` — média: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
+				html += `<li>` + htmlpkg.EscapeString(a.ProxyName) + ` — ` + htmlpkg.EscapeString(a.ProcFriendly) + ` — avg: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 			}
 			html += `</ol>`
 		}
-		if len(proxyMissingAsyncMap) > 0 {
-			tipAsyncProxy := "Configure ao menos 1 processo de cada poller assíncrono no arquivo zabbix_proxy.conf do proxy correspondente. Esses pollers utilizam I/O não-bloqueante e suportam até 1000 checks simultâneos por processo, reduzindo fila e latência. Novidade do Zabbix 7."
-			html += titleWithInfo("h5", nextSub(&proxySub, "Utilizar Pollers Assíncronos:"), tipAsyncProxy)
-			descsAsync := map[string]string{
-				"Agent Poller":      "Para checks passivos utilizando items do tipo `Zabbix Agent`.",
-				"Http Agent Poller": "Para verificações utilizando items do Tipo `HTTP Agent`.",
-				"Snmp Poller":       "Para verificações SNMP utilizando snmp_oid get[] e walk[].",
-			}
+			if len(proxyMissingAsyncMap) > 0 {
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.use_async_pollers"))
+			html += `<p data-i18n='tip.proxy_processes' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
 			// Ordena os proxies para exibição determinística
 			sortedProxyNames := make([]string, 0, len(proxyMissingAsyncMap))
 			for pn := range proxyMissingAsyncMap { sortedProxyNames = append(sortedProxyNames, pn) }
@@ -3321,9 +3346,11 @@ setTimeout(setupInfoTooltips,50);
 			for _, pn := range sortedProxyNames {
 				html += `<li>` + htmlpkg.EscapeString(pn) + `—`
 				for _, pollerName := range proxyMissingAsyncMap[pn] {
-					desc := descsAsync[pollerName]
-					if desc == "" { desc = pollerName }
-					html += ` ` + titleWithInfo("span", pollerName, desc) + ` —`
+					key := strings.ToLower(strings.TrimSpace(pollerName))
+					tipKey := ""
+					if v, ok := procDesc[key]; ok { tipKey = "i18n:" + v }
+					if tipKey == "" { tipKey = pollerName }
+					html += ` ` + titleWithInfo("span", pollerName, tipKey) + ` —`
 				}
 				// remove trailing " —"
 				html = html[:len(html)-len(" —")]
@@ -3332,21 +3359,17 @@ setTimeout(setupInfoTooltips,50);
 			html += `</ul>`
 		}
 		if unknown > 0 {
-			tipUnknown := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
-				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
-				"Confirme versões e compatibilidade (campo version no registro do proxy)."
-			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Status Proxys Unknown"))
-			html += `<p style='font-size:0.88em;'>Foram detectados ` + fmt.Sprintf("%d", unknown) + ` proxys com status ` + titleWithInfo("span", "Unknown", tipUnknown) + `</p>`
+			tipUnknown := "i18n:tip.proxy_unknown|" + htmlpkg.EscapeString(ambienteUrl)
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.proxies_status_unknown"))
+			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + fmt.Sprintf("%d", unknown) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_unknown", tipUnknown) + `</p>`
 			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range unknownNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
 		}
 		if offline > 0 {
-			tipOffline := "Verifique se o proxy está acessível na rede e se o serviço está ativo. " +
-				"Cheque " + ambienteUrl + " -> Proxies para detalhes e tente reiniciar o proxy se necessário. " +
-				"Confirme versões e compatibilidade (campo version no registro do proxy)."
-			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "Proxys Offline"))
-			html += `<p style='font-size:0.88em;'>Foram detectados ` + fmt.Sprintf("%d", offline) + ` proxys com status ` + titleWithInfo("span", "Offline", tipOffline) + `</p>`
+			tipOffline := "i18n:tip.proxy_offline|" + htmlpkg.EscapeString(ambienteUrl)
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.proxies_offline"))
+			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + fmt.Sprintf("%d", offline) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_offline", tipOffline) + `</p>`
 			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
@@ -3358,12 +3381,9 @@ setTimeout(setupInfoTooltips,50);
 				tplSearchPath = "/templates.php?filter_set=1&filter_name=Zabbix+Proxy+Health"
 			}
 			tplSearchLink := `<a href='` + htmlpkg.EscapeString(ambienteUrl+tplSearchPath) + `' target='_blank' rel='noopener'>Zabbix Proxy Health</a>`
-			tipNoTpl := "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" no Zabbix 6) fornece os itens internos " +
-				"(type=5) de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, " +
-				"não é possível coletar métricas de pollers e processos."
-			html += titleWithInfo("h5", nextSub(&proxySub, "Zabbix Proxy sem Monitoramento"), tipNoTpl)
-			html += `<p style='font-size:0.88em;'>Os proxies abaixo não possuem o template ` + tplSearchLink + ` vinculado ao seu host, ou o host não existe. ` +
-				`Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy.</p>`
+			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.proxy_without_monitoring"))
+			html += `<p data-i18n='tip.proxy_no_template'></p>`
+			html += `<p style='font-size:0.88em;'><span data-i18n='rec.proxy_no_template_prefix'></span> ` + tplSearchLink + ` <span data-i18n='rec.proxy_no_template_suffix'></span></p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, pt := range proxyNoTemplateList {
 				// Zabbix 7: filter_name (campo display name); Zabbix 6: filter_host (campo technical name)
@@ -3393,29 +3413,28 @@ setTimeout(setupInfoTooltips,50);
 	itemsHasData := itemsNoTplCount > 0 || unsupportedVal > 0 || disabledCount > 0 || itemsLe60 > 0 || textCount > 0 || (majorV >= 7 && snmpTplCount > 0)
 	if itemsHasData {
 		itemsSub := 0
-		html += nextSec("card-items", "Items")
+		html += nextSec("card-items", "i18n:section.items")
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if itemsNoTplCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "Items sem Template:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsNoTplCount) + ` items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items. Lista de itens na aba Items e LLD na opção "Items sem Template"</p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if unsupportedVal > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "Items não suportados:") + `</strong> Existem ` + fmt.Sprintf("%d", unsupportedVal) + ` items não suportados, cerca de ` + pct(unsupportedVal, totalItemsVal) + ` do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente. Lista de itens na aba Items e LLD na opção "Items não suportados"</p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_unsupported") + `</strong> <span data-i18n='items.unsupported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", unsupportedVal) + `|` + pct(unsupportedVal, totalItemsVal) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if disabledCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "Items desabilitados:") + `</strong> Existem ` + fmt.Sprintf("%d", disabledCount) + ` items desabilitados, cerca de ` + pct(disabledCount, totalItemsVal) + ` do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento. Lista de itens na aba Items e LLD na opção "Items desabilitados"</p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + fmt.Sprintf("%d", disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if itemsLe60 > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "Items com Intervalo ≤ 60s:") + `</strong> Existem ` + fmt.Sprintf("%d", itemsLe60) + ` items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade. Lista de itens na aba Items e LLD na opção "Intervalo de Coleta"</p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsLe60) + `'></span></p>`
 		}
 		if textCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "Items Texto com Histórico (≤ 300s):") + `</strong> Existem ` + fmt.Sprintf("%d", textCount) + ` items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico (Do not store), pode ser utilizado tambem preprocessamento com Throttling/Discard Unchanged ou Item dependente. Lista de itens na aba Items e LLD na opção "Items Texto com Historico"</p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_text_with_history") + `</strong> <span data-i18n='items.text_with_history_paragraph' data-i18n-args='` + fmt.Sprintf("%d", textCount) + `'></span> <a href='#' data-i18n='open_full_listing'></a></p>`
 		}
 		if majorV >= 7 && snmpTplCount > 0 {
-			tipSnmp := htmlpkg.EscapeString("Esses SNMP OID utilizam o Poller Assíncrono 'SNMP Poller' do Zabbix 7, que tende a ter melhor performance para ambientes com muitos checks SNMP. Considere migrar templates/items para este formato.")
 			snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
 				`<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-				`<span class='info-tooltip'>` + tipSnmp + `</span></span>`
-			html += `<p><strong>` + nextSub(&itemsSub, "Items SNMP-POLLER (Zabbix 7):") + `</strong>` + snmpIcon + ` Existem ` + fmt.Sprintf("%d", snmpTplCount) + ` items SNMP em Templates, porém somente ` + fmt.Sprintf("%d", snmpGetWalkCount) + ` utilizando SNMP OID com get[] e walk[], cerca de ` + pct(snmpGetWalkCount, totalItemsVal) + ` do total. Vericar os templates em "Templates passíveis para migração para SNMP-POLLER" na sessão Templates. </p>`
+				`<span class='info-tooltip' data-i18n='tip.snmp_migration'></span></span>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_snmp_poller") + `</strong>` + snmpIcon + ` <span data-i18n='items.snmp_poller_paragraph' data-i18n-args='` + fmt.Sprintf("%d", snmpTplCount) + `|` + fmt.Sprintf("%d", snmpGetWalkCount) + `|` + pct(snmpGetWalkCount, totalItemsVal) + `'></span></p>`
 		}
 		html += `</div>`
 	}
@@ -3423,13 +3442,13 @@ setTimeout(setupInfoTooltips,50);
 	// --- Seção: Regras de LLD (só aparece quando há dado) ---
 	if lldLe300 > 0 || lldNotSupCnt > 0 {
 		lldSub := 0
-		html += nextSec("card-lld", "Regras de LLD")
+		html += nextSec("card-lld", "i18n:section.lld")
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
-			html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD com Intervalo ≤ 300s:") + `</strong> Existem ` + fmt.Sprintf("%d", lldLe300) + ` regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager.</p>`
+			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldLe300) + `'></span></p>`
 		}
 		if lldNotSupCnt > 0 {
-			html += `<p><strong>` + nextSub(&lldSub, "Regras de LLD não suportadas:") + `</strong> Existem ` + fmt.Sprintf("%d", lldNotSupCnt) + ` regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager.</p>`
+			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldNotSupCnt) + `'></span></p>`
 		}
 		html += `</div>`
 	}
@@ -3439,11 +3458,11 @@ setTimeout(setupInfoTooltips,50);
 	if tplHasData {
 		tplSub := 0
 		html += "<div id='card-templates'></div>"
-		html += titleWithInfo("h4", fmt.Sprintf("%d) Templates", secNum+1), descTemplates+" Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates.")
-		secNum++ // avança manualmente pois o título já foi emitido via titleWithInfo
+		html += nextSec("card-templates", "i18n:section.templates")
+		html += `<p data-i18n='tip.templates_more' style='font-size:0.88em;margin:0 0 8px 0;'></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if len(topTemplates) > 0 {
-			html += fmt.Sprintf("<h5>%d.%d) Templates para revisão - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
+			html += fmt.Sprintf("<h5>%d.%d) <span data-i18n='rec.templates_for_review'></span></h5>", secNum, func() int { tplSub++; return tplSub }())
 			html += `<ul>`
 			cnt := 0
 			for _, t := range topTemplates {
@@ -3456,7 +3475,7 @@ setTimeout(setupInfoTooltips,50);
 			html += `</ul>`
 		}
 		if len(topErrors) > 0 {
-			html += fmt.Sprintf("<h5>%d.%d) Erros Mais Comuns - Detalhes na aba Templates</h5>", secNum, func() int { tplSub++; return tplSub }())
+			html += fmt.Sprintf("<h5>%d.%d) <span data-i18n='rec.common_errors_details'></span></h5>", secNum, func() int { tplSub++; return tplSub }())
 			html += `<ul>`
 			cnt2 := 0
 			for _, e := range topErrors {
@@ -3473,8 +3492,8 @@ setTimeout(setupInfoTooltips,50);
 			html += `</ul>`
 		}
 		if majorV >= 7 && len(snmpMigrationTpls) > 0 {
-			tipSnmpMig := "Templates que possuem items SNMP ainda utilizando OID no formato antigo (sem get[] ou walk[]). Esses items usam o poller síncrono padrão. Migrar para o formato get[]/walk[] permite que o Zabbix 7 utilize o 'SNMP Poller' assíncrono, melhorando a performance de coleta em ambientes com muitos checks SNMP."
-			html += titleWithInfo("h5", fmt.Sprintf("%d.%d) Templates passíveis para migração para SNMP-POLLER", secNum, func() int { tplSub++; return tplSub }()), tipSnmpMig)
+			html += fmt.Sprintf("<h5>%d.%d) <span data-i18n='sub.templates_snmp_migration'></span></h5>", secNum, func() int { tplSub++; return tplSub }())
+			html += `<p data-i18n='tip.snmp_migration'></p>`
 			html += `<ul>`
 			for _, name := range snmpMigrationTpls {
 				html += `<li>` + htmlpkg.EscapeString(name) + `</li>`
@@ -3513,6 +3532,7 @@ func main() {
 	r := gin.Default()
 
 	r.Static("/static", "./web/static")
+	r.Static("/locales", "./web/locales")
 	r.LoadHTMLGlob("web/templates/*")
 
 	r.GET("/", func(c *gin.Context) {
@@ -3652,12 +3672,12 @@ func main() {
 			log.Printf("[DEBUG] Requisição recebida: url=%s, token=<redacted>", req.ZabbixURL)
 		}
 		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
-		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "Iniciando coleta..."})
+		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "progress.starting_collection"})
 		go func(taskID string, url, token string) {
 			setProgress := func(msg string) {
 				if t := getTask(taskID); t != nil { t.ProgressMsg = msg }
 			}
-			setProgress("Detectando versão do Zabbix...")
+			setProgress("progress.detecting_version")
 			report, err := generateZabbixReportWithProgress(url, token, setProgress)
 			if err != nil {
 				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
@@ -3665,9 +3685,9 @@ func main() {
 					tasksMu.Lock()
 					t.Status = "error"
 					if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
-						t.Report = "<div style='color:red;'>Token Invalido</div>"
+						t.Report = "<div style='color:red;'><span data-i18n='error.invalid_token'></span></div>"
 					} else {
-						t.Report = "<div style='color:red;'>Erro: " + err.Error() + "</div>"
+						t.Report = "<div style='color:red;'><span data-i18n='error_server'></span> " + htmlpkg.EscapeString(err.Error()) + "</div>"
 					}
 					tasksMu.Unlock()
 				}
@@ -3678,7 +3698,7 @@ func main() {
 				tasksMu.Lock()
 				t.Status = "done"
 				t.Report = report
-				t.ProgressMsg = "Relatório gerado." // final
+				t.ProgressMsg = "progress.report_generated" // final
 				tasksMu.Unlock()
 			}
 			// save to DB if available
@@ -3849,7 +3869,7 @@ func main() {
 				// ensure we clear callback when finished
 				defer func(){ progressCb = nil }()
 				// initial message
-				if progressCb != nil { progressCb("Detectando versão do Zabbix...") }
+				if progressCb != nil { progressCb("progress.detecting_version") }
 				// Call the original report generator which will call progressCb at key points
 				return generateZabbixReport(url, token)
 			}

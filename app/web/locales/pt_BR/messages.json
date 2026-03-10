@@ -1,0 +1,331 @@
+{
+  "label_url": "URL do Zabbix:",
+  "label_token": "Token de Autenticação:",
+  "placeholder_url": "http://zabbix.com ou http://IP",
+  "placeholder_token": "Token API",
+  "aria_toggle_token": "Mostrar/Ocultar token",
+  "btn_generate": "Gerar Relatório",
+  "title_saved_reports": "Relatórios Salvos",
+  "tooltip_reload": "Recarregar lista do banco",
+  "btn_load_list": "Carregar lista",
+  "option_no_report": "-- nenhum relatório carregado --",
+  "title_open_report": "Abrir relatório selecionado",
+  "btn_open": "Abrir",
+  "title_delete_report": "Excluir relatório selecionado",
+  "btn_delete": "Excluir",
+  "title_delete_all": "Excluir todos os relatórios do banco",
+  "btn_delete_all": "Excluir Todos",
+  "generating": "Gerando relatório...",
+  "report_title": "Relatório Zabbix",
+  "generated_at": "Gerado em:",
+  "aria_new_report": "Novo Relatório",
+  "aria_export_html": "Exportar HTML",
+  "aria_print_pdf": "Gerar PDF",
+  "error_start_task": "Erro ao iniciar tarefa.",
+  "error_process_task": "Erro ao processar tarefa.",
+  "error_report_not_found": "Relatório não encontrado",
+  "alert_select_report": "Selecione um relatório",
+  "alert_no_selector": "Nenhum seletor encontrado",
+  "alert_select_to_delete": "Selecione um relatório para excluir.",
+  "confirm_delete_report": "Excluir o relatório \"%s\"?\nEssa ação não pode ser desfeita.",
+  "confirm_delete_all": "Excluir TODOS os relatórios do banco?\nEssa ação não pode ser desfeita.",
+  "deleted_count": "%d relatório(s) excluído(s).",
+  "error_load_list": "Erro ao carregar lista: ",
+  "error_reload_list": "Erro ao recarregar lista: ",
+  "error_open_report": "Erro ao abrir relatório: ",
+  "error_delete": "Erro ao excluir: ",
+  "error_export": "Erro ao exportar: ",
+  "error_print": "Erro ao imprimir: ",
+  "option_select": "-- selecione --",
+  "report_prefix": "Relatório ",
+  "placeholder_search": "Buscar na tabela...",
+  "per_page_suffix": "/ pág",
+  "no_results": "Nenhum resultado encontrado.",
+  "table_range": "%d\u2013%d de %d",
+  "table_range_filtered": "%d\u2013%d de %d (filtrado de %d)",
+  "label_unsupported": "Não Suportados",
+  "label_supported": "Suportados",
+  "report_filename_prefix": "Relatório Zabbix - ",
+  "lang_label": "Idioma",
+  "locale_code": "pt-BR",
+  "default_environment": "Ambiente",
+  "label_environment": "Ambiente",
+  "label_version": "Versão",
+  "error_server": "Erro: ",
+  "progress.starting_collection": "Iniciando coleta...",
+  "progress.detecting_version": "Detectando versão do Zabbix...",
+  "progress.collecting_users": "Coletando informações de Usuários...",
+  "progress.collecting_nvps": "Coletando informações de NVPS (Required performance)...",
+  "progress.collecting_hosts": "Coletando informações de Hosts...",
+  "progress.collecting_templates": "Coletando informações de Templates...",
+  "progress.collecting_items": "Coletando informações de Items...",
+  "progress.collecting_unsupported_items": "Coletando items não suportados...",
+  "progress.collecting_proxies": "Coletando informações de Proxys...",
+  "progress.collecting_pollers_processes": "Coletando informações de Pollers e Processos internos...",
+  "progress.collecting_proxy_processes": "Coletando processos e threads dos Zabbix Proxys...",
+  "progress.collecting_items_without_template_and_unsupported": "Coletando informações de Items sem Template e Items não suportados...",
+  "progress.report_generated": "Relatório gerado."
+  ,"stats.no_history": "Sem histórico"
+  ,"error.read_history": "Erro ao ler histórico"
+  ,"error.create_requiredperformance_key": "Criar chave zabbix[requiredperformance] no Template do Zabbix"
+  ,"error.search_item": "Erro ao procurar item"
+  ,"error.invalid_token": "Token Inválido"
+  ,"error.fetch_data": "Erro ao obter dados"
+  ,"table.description": "Descrição"
+  ,"table.quantity": "Quantidade"
+  ,"table.link": "Link"
+  ,"items.type": "Tipo de Item"
+  ,"table.total": "Total"
+  ,"table.interval_seconds": "Intervalo (s)"
+  ,"table.itemid": "ItemID"
+  ,"table.template": "Template"
+  ,"items.item_name": "Nome do Item"
+  ,"proxy.unknown": "Proxys Unknown"
+  ,"proxy.offline": "Proxys Offline"
+  ,"proxy.active": "Proxys Ativos"
+  ,"proxy.passive": "Proxys Passivos"
+  ,"proxy.total": "Total de Proxys"
+  ,"open_proxies_list": "Abrir lista de Proxys"
+  ,"no_proxy_info": "Nenhum proxy configurado ou informação indisponível."
+  ,"no_proxy_configured": "Nenhum proxy configurado."
+  ,"no_proxy_process_data": "Proxy offline ou unknown — dados de processos não disponíveis."
+  ,"items.no_template": "Items sem Template"
+  ,"open": "Abrir"
+  ,"open_full_listing": "Abrir listagem completa"
+  ,"lld.error_rules": "Regras de descoberta com status de erro"
+  ,"strong.total": "Total"
+  ,"tabs.server": "Zabbix Server"
+  ,"tabs.proxys": "Zabbix Proxys"
+  ,"tabs.items": "Items e LLDs"
+  ,"tabs.templates": "Templates"
+  ,"tabs.top": "Top Hosts/Templates/Items"
+  ,"tabs.recommendations": "Recomendações"
+  ,"tabs.summary": "Resumo do Ambiente"
+
+  ,"section.pollers": "Pollers (Coletores de Dados)"
+  ,"tip.pollers": "Os pollers (de forma passiva) consultam ativamente os agentes configurados em intervalos definidos para coletar métricas. Ajuste com base nas tendências dos últimos %s; aumente gradualmente se a utilização média e picos indicarem necessidade."
+
+  ,"section.internal_process": "Processos Internos"
+  ,"tip.internal_process": "Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Ajuste com base nas tendências dos últimos %s."
+
+  ,"section.proxies_summary": "Sumário Zabbix Proxys"
+  ,"tip.proxies_summary": "Preferir proxys ativos. Proxys passivos podem ser usados em casos específicos, mas requerem que o servidor inicie conexões. Verifique se os proxys estão atualizados e configurados corretamente."
+
+  ,"section.proxy_processes": "Processos e Threads Zabbix Proxys"
+  ,"tip.proxy_processes": "Os Zabbix Proxys possuem processos próprios de coleta e encaminhamento. Ajuste com base nas tendências dos últimos %s: utilização média acima de 50% requer atenção; acima de 60% recomenda aumentar processos."
+
+  ,"section.items_no_template": "Items sem Template"
+  ,"tip.items_no_template": "Items criados a nível de host (sem template) dificultam gestão; considere mover para templates quando aplicável."
+
+  ,"section.items_unsupported": "Items não suportados"
+  ,"tip.items_unsupported": "Como corrigir: Verifique cada item não suportado, corrija chaves inválidas, dependências ausentes ou remova items desnecessários para otimizar o desempenho do Zabbix."
+
+  ,"section.collection_interval": "Intervalo de Coleta"
+  ,"tip.collection_interval": "As métricas de monitoramento serão coletadas conforme o intervalo definido no item; intervalos menores aumentam consumo de CPU, memória e crescimento do BD."
+
+  ,"section.lld_interval": "Regras de LLD - Intervalo de Coleta"
+  ,"tip.lld_interval": "As regras de LLD geram itens dinamicamente; intervalos muito curtos aumentam carga no LLD Manager. Ajuste conforme necessidade."
+
+  ,"section.lld_not_supported": "Regras de LLD - Not Supported"
+  ,"tip.lld_not_supported": "Regras não suportadas apresentam erro na coleta e devem ser validadas ou desativadas."
+
+  ,"section.text_items_history": "Items Texto com Histórico"
+  ,"tip.text_items_history": "Items do tipo texto com histórico frequente consomem espaço em disco; avalie necessidade de retenção e preprocessamento."
+
+  ,"section.templates_offenders": "Erros mais comuns dos Principais Templates Ofensores"
+  ,"tip.templates_offenders": "Analise cada item e erro detalhado; acesse o link para editar o item diretamente no Zabbix, reveja a configuração e valide necessidade."
+
+  ,"section.top_templates": "Top Templates Ofensores"
+  ,"tip.top_templates": "Como corrigir: revise templates com alto número de erros e atualize ou simplifique conforme necessário."
+
+  ,"section.top_hosts": "Top Hosts Ofensores"
+  ,"tip.top_hosts": "Como corrigir: verifique conectividade, permissões e agentes; corrija configurações específicas ou remova hosts obsoletos."
+
+  ,"section.top_items": "Top Items Problemáticos"
+  ,"tip.top_items": "Como corrigir: revise a chave do item, parâmetros e dependências externas; ajuste template quando necessário."
+
+  ,"section.error_types": "Tipos de Erro Mais Comuns"
+  ,"tip.error_types": "Como corrigir: consulte documentação, corrija chaves inválidas, permissões e dependências."
+
+  ,"section.recommendations": "Recomendações"
+  ,"tip.recommendations": "Sugestões geradas automaticamente com base no relatório. Use como ponto de partida para investigações e correções."
+
+  ,"table.process": "Processo"
+  ,"table.value_min": "Mín."
+  ,"table.value_avg": "Média"
+  ,"table.value_max": "Máx."
+  ,"table.status": "Status"
+  ,"table.param": "Parâmetro"
+  ,"table.value": "Valor"
+  ,"table.details": "Detalhes"
+
+  ,"summary.templates_count": "Número de templates"
+  ,"summary.hosts_count": "Número de hosts"
+  ,"summary.items_count": "Número de items (habilitados/desabilitados/não suportados)"
+  ,"summary.proxies_count": "Número de Proxys"
+  ,"summary.users_count": "Número de usuários"
+  ,"summary.required_performance": "Required server performance, new values per second"
+
+  ,"gauge.hosts_disabled": "Hosts: Desabilitados"
+  ,"gauge.items_unsupported": "Items: Não Suportados"
+  ,"gauge.total_hosts": "Total hosts:"
+  ,"gauge.disabled": "Desabilitados:"
+  ,"gauge.total_items": "Total items:"
+  ,"gauge.unsupported": "Não suportados:"
+
+  ,"section.server": "Zabbix Server"
+  ,"section.proxies": "Zabbix Proxys"
+  ,"section.items": "Items"
+  ,"section.lld": "Regras de LLD"
+  ,"section.templates": "Templates"
+
+  ,"rec.templates_for_review": "Templates para revisão - Detalhes na aba Templates"
+  ,"rec.common_errors_details": "Erros Mais Comuns - Detalhes na aba Templates"
+
+  ,"sub.templates_snmp_migration": "Templates passíveis para migração para SNMP-POLLER"
+  ,"tip.snmp_migration": "Templates que possuem items SNMP ainda utilizando OID no formato antigo (sem get[] ou walk[]). Esses items usam o poller síncrono padrão. Migrar para o formato get[]/walk[] permite que o Zabbix 7 utilize o 'SNMP Poller' assíncrono, melhorando a performance de coleta em ambientes com muitos checks SNMP."
+
+  ,"rec.proxy_no_template_prefix": "Os proxies abaixo não possuem o template"
+  ,"rec.proxy_no_template_suffix": "vinculado ao seu host, ou o host não existe. Sem este template, os dados de processo/poller não são coletados e fica sem visibilidade para o proxy."
+
+  ,"sub.server_suggestions": "Sugestões zabbix_server.conf:"
+  ,"sub.customize_processes_threads": "Customizar Processos e Threads:"
+  ,"sub.use_async_pollers": "Utilizar Pollers Assíncronos:"
+  ,"sub.proxies_status_unknown": "Status Proxys Unknown"
+  ,"sub.proxies_offline": "Proxys Offline"
+  ,"sub.proxy_without_monitoring": "Zabbix Proxy sem Monitoramento"
+
+  ,"sub.items_no_template": "Items sem Template:"
+  ,"sub.items_unsupported": "Items não suportados:"
+  ,"sub.items_disabled": "Items desabilitados:"
+  ,"sub.items_interval_le_60": "Items com Intervalo ≤ 60s:"
+  ,"sub.items_text_with_history": "Items Texto com Histórico (≤ 300s):"
+  ,"sub.items_snmp_poller": "Items SNMP-POLLER (Zabbix 7):"
+
+  ,"sub.lld_interval_le_300": "Regras de LLD com Intervalo ≤ 300s:"
+  ,"sub.lld_not_supported": "Regras de LLD não suportadas:"
+
+  ,"proxy.name": "Proxy"
+  ,"proxy.type": "Tipo"
+  ,"proxy.total_items": "Total de Items"
+  ,"proxy.items_unsupported": "Items não suportados"
+  ,"proxy.queue_10m": "Queue-10m"
+
+  ,"edit": "Editar"
+  ,"tip.templates_more": "Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates."
+  ,"procdesc.poller_process": "Processo Poller"
+  ,"procdesc.internal_process": "Processo Interno"
+  ,"procdesc.process": "Processo"
+
+  ,"procdesc.agent_poller": "Parâmetro \"StartPollers\": especifica o número de processadores de coleta (pollers) para itens passivos. Aumente este valor para elevar a taxa de processamento de verificações passivas."
+  ,"procdesc.alert_manager": "Parâmetro \"AlertManager\": gerencia a fila de alertas e coordena o encaminhamento para o serviço de envio de notificações. Ajuste quando houver atraso no processamento de alertas."
+  ,"procdesc.alert_syncer": "Parâmetro \"AlertSyncer\": responsável por gravar alertas na base de dados; aumente se há acúmulo de gravações."
+  ,"procdesc.alerter": "Parâmetro \"Alerter\": processo responsável pelo envio efetivo de notificações (e-mail, SMS, etc.); aumente para melhorar paralelismo no envio."
+  ,"procdesc.availability_manager": "Parâmetro \"AvailabilityManager\": atualiza o estado de disponibilidade de hosts; relevante quando há muitas mudanças de status."
+  ,"procdesc.browser_poller": "Parâmetro \"StartBrowserPollers\": poller responsável por verificações de navegador (web scenarios). Aumente para mais paralelismo em testes de páginas web."
+  ,"procdesc.configuration_syncer": "Parâmetro \"ConfigurationSyncer\": sincroniza a configuração em memória do servidor Zabbix; aumente se há demora na aplicação de alterações de configuração."
+  ,"procdesc.configuration_syncer_worker": "Parâmetro \"ConfigurationSyncerWorker\": worker do Configuration Syncer que resolve macros de usuário e sincroniza nomes/valores; ajuste quando houver alto volume de mudanças de macros."
+  ,"procdesc.connector_manager": "Parâmetro \"ConnectorManager\": gerencia conectores externos e enfileiramento de requisições de integração com serviços terceiros; dimensione conforme integrações ativas."
+  ,"procdesc.connector_worker": "Parâmetro \"ConnectorWorker\": processos trabalhadores do conector que executam requisições e tratam respostas de sistemas externos; aumente se integrações ficarem lentas."
+  ,"procdesc.discovery_manager": "Parâmetro \"StartDiscoverers\": gerencia tarefas de descoberta de hosts/serviços em redes; aumente para acelerar varreduras em grandes ambientes."
+  ,"procdesc.discovery_worker": "Parâmetro \"DiscoveryWorker\": trabalhadores de descoberta que executam verificações (SNMP, ICMP, etc.) solicitadas pelo discovery manager; escale conforme necessidade de varreduras."
+  ,"procdesc.escalator": "Parâmetro \"Escalator\": processo de escalonamento de ações automatizadas (ex.: escalonamento de alertas); relevante em regras de escalonamento complexas."
+  ,"procdesc.ha_manager": "Parâmetro \"HAManager\": gerencia recursos de alta disponibilidade entre servidores Zabbix em cluster; ajuste quando usar HA e notar latência na sincronização."
+  ,"procdesc.history_poller": "Parâmetro \"StartPollers\": pollers que coletam dados calculados ou requerem conexão com o banco; aumente se cálculo de itens estiver atrasado."
+  ,"procdesc.history_syncer": "Parâmetro \"HistorySyncer\": escritor de histórico que persiste dados de itens no banco de dados; controlado pelo StartDBSyncer. Ajuste quando houver acúmulo de gravações."
+  ,"procdesc.housekeeper": "Parâmetro \"HousekeeperFrequency\": remove dados históricos antigos e limpa tabelas; aumente se limpeza estiver lenta e o banco ficar grande. Dependência direta do banco de dados (particionamento, retenção)."
+  ,"procdesc.http_agent_poller": "Parâmetro \"StartHTTPPollers\": poller assíncrono para checagens HTTP com threads de trabalho; aumente para maior concorrência em sondagens web."
+  ,"procdesc.http_poller": "Parâmetro \"StartHTTPPollers\": poller para monitoramento HTTP síncrono; ajuste conforme volume de checagens web."
+  ,"procdesc.icmp_pinger": "Parâmetro \"StartPingers\": pollers de ICMP (ping) para verificar disponibilidade de hosts; aumente se muitos hosts necessitam de verificação frequente."
+  ,"procdesc.internal_poller": "Parâmetro \"InternalPollers\": poller para verificações internas do servidor Zabbix (saúde e métricas internas); ajuste se coleta interna estiver sobrecarregada."
+  ,"procdesc.ipmi_manager": "Parâmetro \"IPMIManager\": gerencia pollers IPMI para coletar métricas via IPMI; dimensione quando houver muitos dispositivos IPMI."
+  ,"procdesc.ipmi_poller": "Parâmetro \"IPMIPollers\": poller que executa checagens IPMI em equipamentos; aumente para maior paralelismo em ambientes com IPMI extensivo."
+  ,"procdesc.java_poller": "Parâmetro \"JavaPollers\": poller para coletas do tipo Java; ajuste quando houver muitos checadores baseados em Java."
+  ,"procdesc.lld_manager": "Parâmetro \"LLDManager\": gerencia tarefas de Low-Level Discovery (LLD) que detectam automaticamente serviços/instâncias; aumente para acelerar descobertas em larga escala."
+  ,"procdesc.lld_worker": "Parâmetro \"LLDWorkers\": workers do LLD que executam regras de descoberta e geram itens/dispositivos; dimensione conforme a frequência e quantidade de regras LLD."
+  ,"procdesc.odbc_poller": "Parâmetro \"ODBCPollers\": poller responsável por consultas ODBC/DB para coleta de métricas; aumente se houver muitos checks dependentes de ODBC."
+  ,"procdesc.poller": "Parâmetro \"StartPollers\": processadores de coleta padrão para itens passivos; afeta throughput geral de coleta."
+  ,"procdesc.preprocessing_manager": "Parâmetro \"PreprocessingManager\": gerencia tarefas de pré-processamento de dados (regexp, transform) antes de serem salvos em banco de dados; aumente para reduzir filas de processamento."
+  ,"procdesc.preprocessing_worker": "Parâmetro \"PreprocessingWorkers\": threads que executam transformações/preprocessamento de valores antes de armazenamento ou avaliação de triggers."
+  ,"procdesc.proxy_poller": "Parâmetro \"ProxyPollers\": pollers para proxies remotos que agregam dados de agentes/proxies; ajuste para balancear carga de proxies."
+  ,"procdesc.proxy_group_manager": "Parâmetro \"ProxyGroupManager\": gerencia balanceamento e alta disponibilidade entre proxies; dimensione se usar múltiplos proxies para redundância."
+  ,"procdesc.report_manager": "Parâmetro \"ReportManager\": gerencia tarefas agendadas de geração de relatórios; aumente se houver acúmulo na geração de relatórios."
+  ,"procdesc.report_writer": "Parâmetro \"ReportWriter\": processos responsáveis por gerar e gravar relatórios programados; aumente quando a produção de relatórios estiver atrasada."
+  ,"procdesc.self_monitoring": "Parâmetro \"SelfMonitoring\": coleta métricas internas do servidor (uso CPU, filas internas); importante para avaliação de saúde do Zabbix Server."
+  ,"procdesc.service_manager": "Parâmetro \"ServiceManager\": gerencia eventos de serviço, tags e recuperação de problemas vindos de vários componentes; escale se processamento de eventos estiver lento."
+  ,"procdesc.snmp_poller": "Parâmetro \"StartSNMPPollers\": poller assíncrono para checagens SNMP (walk/get) com threads; aumente para maior concorrência em ambientes SNMP extensos."
+  ,"procdesc.snmp_trapper": "Parâmetro \"SNMPTrapper\": componente que recebe e processa traps SNMP; aumente para maior taxa de ingestão de traps."
+  ,"procdesc.task_manager": "Parâmetro \"TaskManager\": executa tarefas remotas solicitadas por outros componentes (fechar problema, executar comando remoto, etc.); aumente para reduzir latência de execução de tarefas."
+  ,"procdesc.timer": "Parâmetro \"Timer\": responsável pelo agendamento de tarefas periódicas e manutenção; ajuste se agendamentos estiverem atrasados."
+  ,"procdesc.trapper": "Parâmetro \"StartTrappers\": processo que recebe itens ativos, traps e comunicação de proxies; dimensione para aumentar ingestão de dados ativos."
+  ,"procdesc.trigger_housekeeper": "Parâmetro \"TriggerHousekeeper\": remove problemas/triggers órfãos ou deletados; aumente se houver acúmulo de entradas a limpar."
+  ,"procdesc.unreachable_poller": "Parâmetro \"StartPollersUnreachable\": poller específico para hosts considerados inatingíveis; ajuste UnreachableDelay/UnreachablePeriod conforme necessário."
+  ,"procdesc.vmware_collector": "Parâmetro \"StartVMwareCollectors\": coletor para integrações VMware; aumente para maior paralelismo em ambientes virtualizados grandes."
+  ,"procdesc.data_sender": "Processo exclusivo do Zabbix Proxy: responsável por enviar os dados coletados ao Zabbix Server. Sobrecarga indica conexão lenta com o servidor ou filas de dados acumuladas."
+
+  ,"kpi.server_attention": "Processos em Atenção"
+  ,"kpi.proxies_offline": "Proxys Offline"
+  ,"kpi.proxies_unknown": "Proxys Unknown"
+  ,"kpi.items_unsupported": "Items Não Suportados"
+  ,"kpi.items_text_history": "Items Texto c/ Histórico"
+
+  ,"kpi.proxy_process_attention": "Proxys - Process/Pollers com AVG alto"
+  ,"kpi.snmp_templates_migration": "Templates SNMP p/ Poller Assíncrono"
+  ,"kpi.snmp_items_label": "Items - SNMP-POLLER"
+
+  ,"items.no_template_paragraph": "Existem %d items sem template. Validar a necessidade de criação de template para estes items; não impacta diretamente na performance do Zabbix, porém é útil para organização e reutilização dos items."
+  ,"items.unsupported_paragraph": "Existem %d items não suportados, cerca de %s do total. São items ativos que apresentaram erro na coleta e continuam consumindo processos do Zabbix desnecessariamente."
+  ,"items.disabled_paragraph": "Existem %d items desabilitados, cerca de %s do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento."
+  ,"items.interval_le_60_paragraph": "Existem %d items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade."
+  ,"items.text_with_history_paragraph": "Existem %d items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico."
+  ,"items.snmp_poller_paragraph": "Existem %d items SNMP em Templates, porém somente %d utilizando SNMP OID com get[] e walk[], cerca de %s do total. Verificar os templates passíveis para migração para SNMP-POLLER."
+
+  ,"types.zabbix_agent": "Zabbix Agent"
+  ,"types.zabbix_trapper": "Zabbix Trapper"
+  ,"types.simple_check": "Simple check"
+  ,"types.zabbix_internal": "Zabbix interno"
+  ,"types.zabbix_agent_active": "Zabbix agent (ativo)"
+  ,"types.aggregate": "Agregado"
+  ,"types.web_item": "Item Web"
+  ,"types.external_check": "Verificação Externa"
+  ,"types.database": "Banco de Dados"
+  ,"types.ipmi": "IPMI"
+  ,"types.ssh": "SSH"
+  ,"types.telnet": "Telnet"
+  ,"types.calculated": "Calculados"
+  ,"types.jmx": "JMX"
+  ,"types.snmp_trap": "SNMP Trap"
+  ,"types.dependent_item": "Items Dependentes"
+  ,"types.http_agent": "HTTP agent"
+  ,"types.snmp": "SNMP"
+  ,"types.script": "Script"
+  ,"types.browser": "Browser"
+  ,"table.item": "Item"
+  ,"table.error": "Erro"
+  ,"table.host": "Host"
+  ,"table.error_count": "Quantidade de Erros"
+  ,"table.error_message": "Mensagem de Erro"
+  ,"table.occurrences": "Ocorrências"
+
+  ,"proxy.detected_with_status": "Foram detectados %d proxys com status"
+  ,"proxy.status_unknown": "Unknown"
+  ,"proxy.status_offline": "Offline"
+  ,"tip.proxy_unknown": "Verifique se o proxy está acessível na rede e se o serviço está ativo. Cheque %s -> Proxys para detalhes e tente reiniciar o proxy se necessário. Confirme versões e compatibilidade (campo version no registro do proxy)."
+  ,"tip.proxy_offline": "Verifique se o proxy está acessível na rede e se o serviço está ativo. Cheque %s -> Proxys para detalhes e tente reiniciar o proxy se necessário. Confirme versões e compatibilidade (campo version no registro do proxy)."
+
+  ,"proxy.no_items_note": "Nenhum item de processo encontrado. Verifique se o Host existe ou se o Template \"Zabbix Proxy Health\" está vinculado ao host."
+  ,"tip.proxy_no_template": "O template \"Zabbix Proxy Health\" (ou equivalente \"Template App Zabbix Proxy\" em versões antigas) fornece os itens internos de monitoramento de processos do proxy. Sem ele vinculado ao host do proxy, não é possível coletar métricas de pollers e processos."
+
+  ,"badge.processes_threads": "%d Processos e Threads"
+  ,"badge.items_unsupported_count": "%d não suportados"
+  ,"badge.lld_short_interval": "%d intervalo baixo"
+  ,"badge.templates_count": "%d"
+
+  ,"lld.interval_le_300_paragraph": "Existem %d regras de LLD com intervalo de coleta ≤ 300s. LLD cria itens/triggers/gráficos automaticamente; na maioria dos casos não há necessidade de descoberta a cada minuto, o que impacta diretamente o processo interno LLD Manager."
+  ,"lld.not_supported_paragraph": "Existem %d regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager."
+
+  ,"tip.create_item_or_process_disabled": "Criar item no template ou Processo não habilitado"
+  ,"process.disabled": "Processo não habilitado"
+  ,"process.not_in_version": "Processo não disponível nesta versão do Zabbix"
+  ,"error.hostid_not_found": "Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID."
+}

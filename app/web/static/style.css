@@ -256,6 +256,63 @@ label {
 
 .page-actions { display: none; }
 
+/* Language Switcher */
+.lang-switcher {
+    display: flex;
+    align-items: center;
+}
+
+.lang-switcher select,
+.report-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: #eef2f7;
+    border: 1px solid #d0d7e2;
+    border-radius: 6px;
+    padding: 4px 10px 4px 8px;
+    font-size: 0.82em;
+    cursor: pointer;
+    color: #2d3e50;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 68px;
+    text-align: center;
+}
+
+.lang-switcher select:hover,
+.report-lang-select:hover {
+    background: #dde6f4;
+    border-color: #2d8cf0;
+}
+
+.lang-switcher select:focus,
+.report-lang-select:focus {
+    outline: 2px solid #2d8cf0;
+    outline-offset: 1px;
+}
+
+/* Report action bar — keep lang select visually aligned with icon buttons */
+.report-lang-select {
+    height: 30px;
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.30);
+    color: #fff;
+    font-size: 0.78em;
+    padding: 3px 8px;
+    min-width: 60px;
+}
+
+.report-lang-select:hover {
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.55);
+}
+
+.report-lang-select option {
+    background: #2d3e50;
+    color: #fff;
+}
+
+
+
 /* Report Area */
 .report-area {
     margin-top: 12px;
