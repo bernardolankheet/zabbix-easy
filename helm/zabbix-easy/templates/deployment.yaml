@@ -10,6 +10,8 @@ metadata:
   {{- end }}
 spec:
   replicas: {{ .Values.spec.replicas }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: {{ .Release.Name }}
@@ -18,6 +20,7 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.spec.terminationGracePeriodSeconds }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
       {{- range .Values.imagePullSecrets }}
@@ -62,3 +65,13 @@ spec:
         livenessProbe:
           {{- toYaml .Values.livenessProbe | nindent 10 }}
         {{- include "zabbix-easy.env" . | indent 8 }}
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                # attempt graceful shutdown; allow app to handle SIGTERM
+                kill -TERM 1 || true
+                sleep 5

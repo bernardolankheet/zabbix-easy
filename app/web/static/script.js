@@ -1,4 +1,82 @@
-﻿// Toggle show/hide token with eye icon
+﻿// =============================================================================
+// i18n — lightweight localisation module
+// Supported locales: pt_BR (default), en_US
+// Locale files: /locales/{lang}/messages.json
+// Usage: t('key'), t('key_with_%s', 'value'), t('key_with_%d', 42)
+// =============================================================================
+var _i18n = {};
+var _lang = 'pt_BR';
+
+function t(key) {
+    var str = _i18n[key] !== undefined ? _i18n[key] : key;
+    for (var i = 1; i < arguments.length; i++) {
+        str = str.replace(/%[sd]/, arguments[i]);
+    }
+    return str;
+}
+
+function applyI18n() {
+    var htmlEl = document.getElementById('html-root') || document.documentElement;
+    htmlEl.lang = _lang === 'pt_BR' ? 'pt-BR' : 'en-US';
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n');
+        var args = el.getAttribute('data-i18n-args');
+        if (args) {
+            var parts = args.split('|');
+            var fargs = [key].concat(parts);
+            el.textContent = t.apply(null, fargs);
+        } else {
+            el.textContent = t(key);
+        }
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n-placeholder');
+        el.placeholder = t(key);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n-title');
+        el.title = t(key);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n-aria');
+        el.setAttribute('aria-label', t(key));
+    });
+    // sync all lang selectors
+    document.querySelectorAll('.zbx-lang-select').forEach(function(el) {
+        el.value = _lang;
+    });
+}
+
+function setLang(lang) {
+    if (lang !== 'pt_BR' && lang !== 'en_US') lang = 'pt_BR';
+    _lang = lang;
+    try { localStorage.setItem('zbx-lang', lang); } catch(e) {}
+    fetch('/locales/' + lang + '/messages.json?cb=' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            _i18n = data;
+            applyI18n();
+        })
+        .catch(function() { applyI18n(); });
+}
+
+// init: load saved lang or default pt_BR
+(function initI18n() {
+    var saved = 'pt_BR';
+    try { saved = localStorage.getItem('zbx-lang') || 'pt_BR'; } catch(e) {}
+    if (saved !== 'pt_BR' && saved !== 'en_US') saved = 'pt_BR';
+    _lang = saved;
+    fetch('/locales/' + saved + '/messages.json?cb=' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            _i18n = data;
+            applyI18n();
+        })
+        .catch(function() {});
+})();
+
+// =============================================================================
+// Toggle show/hide token with eye icon
 const toggleToken = document.getElementById('toggle-token');
 const tokenInput = document.getElementById('zabbix_token');
 const eyeIcon = document.getElementById('eye-icon');
@@ -17,13 +95,22 @@ toggleToken.addEventListener('keydown', function(e) {
     }
 });
 
+// Wire header lang selector
+(function() {
+    var sel = document.getElementById('lang-select');
+    if (sel) {
+        sel.classList.add('zbx-lang-select');
+        sel.addEventListener('change', function() { setLang(this.value); });
+    }
+})();
+
 // --- AJAX para submit, progress, report ---
 document.getElementById('zabbix-form').addEventListener('submit', function(e) {
     e.preventDefault();
     document.getElementById('report-area').style.display = 'none';
     document.getElementById('progress-bar').style.display = 'block';
     document.querySelector('.progress').style.width = '0%';
-    document.getElementById('progress-text').textContent = 'Gerando relat\u00f3rio...';
+    document.getElementById('progress-text').textContent = t('generating');
 
     var url = document.getElementById('zabbix_url').value;
     var token = document.getElementById('zabbix_token').value;
@@ -39,7 +126,7 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
             checkProgress(data.task_id, 0);
         } else {
             document.getElementById('progress-bar').style.display = 'none';
-            document.getElementById('report-area').innerHTML = '<div style="color:red;">Erro ao iniciar tarefa.</div>';
+            document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_start_task') + '</div>';
             document.getElementById('report-area').style.display = 'block';
         }
     });
@@ -60,11 +147,11 @@ function renderReport(html, titleHint, createdAt) {
 
     const header = document.createElement('div');
     header.className = 'report-frame-header';
-    const geradoEm = createdAt ? new Date(createdAt).toLocaleString() : new Date().toLocaleString();
+    const geradoEm = createdAt ? new Date(createdAt).toLocaleString(t('locale_code')) : new Date().toLocaleString(t('locale_code'));
     header.innerHTML = `
         <div class="frame-meta">
-            <div class="frame-title">Relat\u00f3rio Zabbix</div>
-            <div class="frame-sub">Gerado em: ${geradoEm}</div>
+            <div class="frame-title">${t('report_title')}</div>
+            <div class="frame-sub">${t('generated_at')} ${geradoEm}</div>
         </div>`;
 
     const left = document.createElement('div');
@@ -78,7 +165,7 @@ function renderReport(html, titleHint, createdAt) {
     const actionGroup = document.createElement('div');
     actionGroup.className = 'action-group';
     actionGroup.innerHTML = `
-        <button class="btn small icon-btn" data-action="new-report" aria-label="Novo Relatório" title="Novo Relatório">
+        <button class="btn small icon-btn" data-action="new-report" data-i18n-aria="aria_new_report" data-i18n-title="aria_new_report" aria-label="${t('aria_new_report')}" title="${t('aria_new_report')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <polyline points="14 2 14 8 20 8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -86,14 +173,14 @@ function renderReport(html, titleHint, createdAt) {
                 <line x1="9" y1="14" x2="15" y2="14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </button>
-        <button class="btn small icon-btn" data-action="export" aria-label="Exportar HTML" title="Exportar HTML">
+        <button class="btn small icon-btn" data-action="export" data-i18n-aria="aria_export_html" data-i18n-title="aria_export_html" aria-label="${t('aria_export_html')}" title="${t('aria_export_html')}">
             <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
                 <path d="M6 2h7l4 4v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
                 <path d="M13 2v5h5" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
                 <text x="7.5" y="15.2" font-size="5.2" font-family="Arial, sans-serif" fill="#fff">HTML</text>
             </svg>
         </button>
-        <button class="btn small icon-btn" data-action="print" aria-label="Gerar PDF" title="Gerar PDF">
+        <button class="btn small icon-btn" data-action="print" data-i18n-aria="aria_print_pdf" data-i18n-title="aria_print_pdf" aria-label="${t('aria_print_pdf')}" title="${t('aria_print_pdf')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9V3h12v6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="6" y="13" width="12" height="8" rx="2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>`;
 
@@ -125,6 +212,8 @@ function renderReport(html, titleHint, createdAt) {
 
     reportArea.innerHTML = '';
     reportArea.appendChild(container);
+    // translate any server-provided data-i18n placeholders inside the inserted report
+    try { applyI18n(); } catch(e) {}
 
     // hide the input form when report is displayed
     const form = document.getElementById('zabbix-form');
@@ -189,7 +278,7 @@ function renderReport(html, titleHint, createdAt) {
         // wrap in the same .container.full-width > .report-area structure used in the
         // live page so the exported HTML has the same margins, padding and backgrounds
         const bodyInner = `<div class="container full-width"><div class="page-header"><h1>ZBX-Easy</h1></div><div class="report-area">${clone.outerHTML}</div></div>`;
-        const head = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title || 'Relat\u00f3rio Zabbix'}</title>` +
+        const head = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title || t('report_title')}</title>` +
             (cssText ? `<style>${cssText}</style>` : '') + `</head><body>`;
         const chartsInit = `<script src="https://cdn.jsdelivr.net/npm/chart.js"></` + `script>` +
             `<script>window.addEventListener('load',function(){try{` +
@@ -202,7 +291,7 @@ function renderReport(html, titleHint, createdAt) {
             `var extTT=function(ctx){var el=getTooltip();var tm=ctx.tooltip;if(!tm||tm.opacity===0){el.style.opacity='0';return;}var lines=[];(tm.body||[]).forEach(function(b){lines=lines.concat(b.lines);});` +
             `el.innerHTML=lines.map(function(l){var m=l.match(/^(.+):\\s*(\\d+)/);if(m){var p=tot>0?((parseInt(m[2])/tot)*100).toFixed(2):'0.00';return m[1]+': <strong>'+m[2]+'</strong> ('+p+'%)';}return l;}).join('<br>');` +
             `var r=ctx.chart.canvas.getBoundingClientRect();el.style.left=Math.min(r.left+tm.caretX+14,window.innerWidth-220)+'px';el.style.top=(r.top+tm.caretY-14)+'px';el.style.opacity='1';};` +
-            `new Chart(canvas.getContext('2d'),{type:'doughnut',data:{labels:[canvas.getAttribute('data-unsupported-label')||'N\u00e3o Suportados',canvas.getAttribute('data-supported-label')||'Suportados'],datasets:[{data:[uns,sup],backgroundColor:[canvas.getAttribute('data-color-unsupported')||'#ff7a7a',canvas.getAttribute('data-color-supported')||'#66c2a5']}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{enabled:false,external:extTT}}}});` +
+            `new Chart(canvas.getContext('2d'),{type:'doughnut',data:{labels:[canvas.getAttribute('data-unsupported-label')||'${t('label_unsupported')}',canvas.getAttribute('data-supported-label')||'${t('label_supported')}'],datasets:[{data:[uns,sup],backgroundColor:[canvas.getAttribute('data-color-unsupported')||'#ff7a7a',canvas.getAttribute('data-color-supported')||'#66c2a5']}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{enabled:false,external:extTT}}}});` +
             `canvas.addEventListener('mouseleave',function(){var el=document.getElementById('cj-gauge-tooltip')||ttEl;if(el)el.style.opacity='0';});` +
             `}catch(e){}});` +
             `}catch(e){}});</` + `script>`;
@@ -210,9 +299,9 @@ function renderReport(html, titleHint, createdAt) {
     }
 
     // determine filename-safe title (prefer extracted Ambiente, fall back to titleHint)
-    const ambienteName = extractAmbienteName(left) || titleHint || 'Ambiente';
+    const ambienteName = extractAmbienteName(left) || titleHint || t('default_environment');
     const ambienteSafe = ('' + ambienteName).replace(/[^0-9A-Za-z-_\. ]+/g, '_').slice(0, 80);
-    const documentTitleEscaped = (`Relat\u00f3rio Zabbix - ${ambienteName}`).replace(/"/g, '');
+    const documentTitleEscaped = (t('report_filename_prefix') + ambienteName).replace(/"/g, '');
 
     // wire Novo Relatório button — returns to the generation form
     const btnNewReport = document.getElementById('btn-new-report');
@@ -266,7 +355,7 @@ function renderReport(html, titleHint, createdAt) {
             window.addEventListener('afterprint', restore);
             setTimeout(restore, 2000);
             window.print();
-        } catch(err) { alert('Erro ao imprimir: ' + err); }
+        } catch(err) { alert(t('error_print') + err); }
     });
 
     // wire Export HTML button
@@ -279,13 +368,13 @@ function renderReport(html, titleHint, createdAt) {
                 const url  = URL.createObjectURL(blob);
                 const a    = document.createElement('a');
                 a.href     = url;
-                a.download = `Relat\u00f3rio Zabbix - ${ambienteSafe}.html`;
+                a.download = t('report_filename_prefix') + ambienteSafe + '.html';
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
             });
-        } catch(err) { alert('Erro ao exportar: ' + err); }
+        } catch(err) { alert(t('error_export') + err); }
     });
 
     // keyboard accessibility for all action buttons
@@ -301,9 +390,14 @@ function checkProgress(taskId, progress) {
     fetch('/api/progress/' + taskId)
         .then(res => res.json())
         .then(data => {
-            if (data.progress_msg) {
-                document.getElementById('progress-text').textContent = data.progress_msg;
-            }
+                    if (data.progress_msg) {
+                        var pm = data.progress_msg || '';
+                        if (pm && _i18n[pm] !== undefined) {
+                            document.getElementById('progress-text').textContent = t(pm);
+                        } else {
+                            document.getElementById('progress-text').textContent = pm;
+                        }
+                    }
             if (data.status === 'done') {
                 document.querySelector('.progress').style.width = '100%';
                 fetch('/api/report/' + taskId)
@@ -318,11 +412,11 @@ function checkProgress(taskId, progress) {
                 setTimeout(function() { checkProgress(taskId, progress); }, 800);
             } else if (data.status === 'error') {
                 document.getElementById('progress-bar').style.display = 'none';
-                document.getElementById('report-area').innerHTML = data.report || '<div style="color:red;">Erro ao processar tarefa.</div>';
+                document.getElementById('report-area').innerHTML = data.report || '<div style="color:red;">' + t('error_process_task') + '</div>';
                 document.getElementById('report-area').style.display = 'block';
             } else {
                 document.getElementById('progress-bar').style.display = 'none';
-                document.getElementById('report-area').innerHTML = '<div style="color:red;">Erro ao processar tarefa.</div>';
+                document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_process_task') + '</div>';
                 document.getElementById('report-area').style.display = 'block';
             }
         });
@@ -348,33 +442,33 @@ document.getElementById('btn-load-db').addEventListener('click', function() {
         .then(res => res.json())
         .then(data => {
             const sel = document.getElementById('reportSelect');
-            sel.innerHTML = '<option value="">-- selecione --</option>';
+            sel.innerHTML = '<option value="">' + t('option_select') + '</option>';
             if (data && data.reports) {
                 data.reports.forEach(r => {
                     const opt = document.createElement('option');
                     opt.value = r.id;
                     opt.dataset.createdAt = r.created_at || '';
                     const d = new Date(r.created_at);
-                    const label = (r.zabbix_url || r.name || ('Relatório ' + r.id))
+                    const label = (r.zabbix_url || r.name || (t('report_prefix') + r.id))
                         .replace(/^https?:\/\//, '')  // remove http:// ou https://
                         .replace(/\/$/, '');           // remove trailing slash
-                    opt.text = label + ' \u2014 ' + d.toLocaleString();
+                    opt.text = label + ' \u2014 ' + d.toLocaleString(t('locale_code'));
                     sel.appendChild(opt);
                 });
             }
-        }).catch(err => { alert('Erro ao carregar lista: ' + err); });
+        }).catch(err => { alert(t('error_load_list') + err); });
 });
 
 // Load selected report from DB and render inline (same layout + export/print buttons)
 document.getElementById('btn-open-db').addEventListener('click', function() {
     const sel = document.getElementById('reportSelect');
-    if (!sel) return alert('Nenhum seletor encontrado');
+    if (!sel) return alert(t('alert_no_selector'));
     const id = sel.value;
-    if (!id) return alert('Selecione um relat\u00f3rio');
+    if (!id) return alert(t('alert_select_report'));
     // ?raw=1 causes Go handler to return only the HTML fragment so renderReport can assemble the layout
     fetch('/api/reportdb/' + id + '?raw=1')
         .then(res => {
-            if (!res.ok) throw new Error('Relat\u00f3rio n\u00e3o encontrado');
+            if (!res.ok) throw new Error(t('error_report_not_found'));
             return res.text();
         })
         .then(html => {
@@ -384,7 +478,7 @@ document.getElementById('btn-open-db').addEventListener('click', function() {
             const createdAt = selOpt ? selOpt.dataset.createdAt : '';
             renderReport(html, optText, createdAt);
         })
-        .catch(err => alert('Erro ao abrir relat\u00f3rio: ' + err));
+        .catch(err => alert(t('error_open_report') + err));
 });
 
 // Helper: reload the reports list into the selector
@@ -393,51 +487,51 @@ function reloadReportList() {
         .then(res => res.json())
         .then(data => {
             const sel = document.getElementById('reportSelect');
-            sel.innerHTML = '<option value="">-- selecione --</option>';
+            sel.innerHTML = '<option value="">' + t('option_select') + '</option>';
             if (data && data.reports) {
                 data.reports.forEach(r => {
                     const opt = document.createElement('option');
                     opt.value = r.id;
                     opt.dataset.createdAt = r.created_at || '';
                     const d = new Date(r.created_at);
-                    const label = (r.zabbix_url || r.name || ('Relat\u00f3rio ' + r.id))
+                    const label = (r.zabbix_url || r.name || (t('report_prefix') + r.id))
                         .replace(/^https?:\/\//, '')
                         .replace(/\/$/, '');
-                    opt.text = label + ' \u2014 ' + d.toLocaleString();
+                    opt.text = label + ' \u2014 ' + d.toLocaleString(t('locale_code'));
                     sel.appendChild(opt);
                 });
             }
-        }).catch(err => { alert('Erro ao recarregar lista: ' + err); });
+        }).catch(err => { alert(t('error_reload_list') + err); });
 }
 
 // Delete selected report
 document.getElementById('btn-delete-db').addEventListener('click', function() {
     const sel = document.getElementById('reportSelect');
     const id = sel ? sel.value : '';
-    if (!id) return alert('Selecione um relat\u00f3rio para excluir.');
+    if (!id) return alert(t('alert_select_to_delete'));
     const label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : id;
-    if (!confirm('Excluir o relat\u00f3rio "' + label + '"?\nEssa a\u00e7\u00e3o n\u00e3o pode ser desfeita.')) return;
+    if (!confirm(t('confirm_delete_report', label))) return;
     fetch('/api/reportdb/' + id, { method: 'DELETE' })
         .then(res => res.json())
         .then(data => {
-            if (data.error) { alert('Erro: ' + data.error); return; }
+            if (data.error) { alert(t('error_server') + data.error); return; }
             reloadReportList();
         })
-        .catch(err => alert('Erro ao excluir: ' + err));
+        .catch(err => alert(t('error_delete') + err));
 });
 
 // Delete all reports
 document.getElementById('btn-delete-all-db').addEventListener('click', function() {
-    if (!confirm('Excluir TODOS os relat\u00f3rios do banco?\nEssa a\u00e7\u00e3o n\u00e3o pode ser desfeita.')) return;
+    if (!confirm(t('confirm_delete_all'))) return;
     fetch('/api/reports', { method: 'DELETE' })
         .then(res => res.json())
         .then(data => {
-            if (data.error) { alert('Erro: ' + data.error); return; }
+            if (data.error) { alert(t('error_server') + data.error); return; }
             const n = data.deleted !== undefined ? data.deleted : '?';
             reloadReportList();
-            alert(n + ' relat\u00f3rio(s) exclu\u00eddo(s).');
+            alert(t('deleted_count', n));
         })
-        .catch(err => alert('Erro ao excluir: ' + err));
+        .catch(err => alert(t('error_delete') + err));
 });
 
 // Initialize doughnut gauges inside a given container
@@ -510,8 +604,8 @@ function initGauges(container) {
             if (canvas._chartInstance) {
                 try { canvas._chartInstance.destroy(); } catch(e) {}
             }
-            const unsupportedLabel = canvas.getAttribute('data-unsupported-label') || 'N\u00e3o Suportados';
-            const supportedLabel = canvas.getAttribute('data-supported-label') || 'Suportados';
+            const unsupportedLabel = canvas.getAttribute('data-unsupported-label') || t('label_unsupported');
+            const supportedLabel = canvas.getAttribute('data-supported-label') || t('label_supported');
             const colorUnsupported = canvas.getAttribute('data-color-unsupported') || '#ff7a7a';
             const colorSupported = canvas.getAttribute('data-color-supported') || '#66c2a5';
             const chart = new Chart(ctx, {
@@ -579,13 +673,13 @@ function initTableEnhancements(container) {
               '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
                 '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' +
               '</svg>' +
-              '<input type="text" class="dt-search-input" placeholder="Buscar na tabela...">' +
+              '<input type="text" class="dt-search-input" placeholder="' + t('placeholder_search') + '">' +
             '</div>' +
             '<div class="dt-controls">' +
               '<span class="dt-info"></span>' +
               '<select class="dt-page-size">' +
                 PAGE_SIZES.map(function(s) {
-                    return '<option value="' + s + '"' + (s === DEFAULT_PS ? ' selected' : '') + '>' + s + ' / p\u00e1g</option>';
+                    return '<option value="' + s + '"' + (s === DEFAULT_PS ? ' selected' : '') + '>' + s + ' ' + t('per_page_suffix') + '</option>';
                 }).join('') +
               '</select>' +
             '</div>';
@@ -635,7 +729,7 @@ function initTableEnhancements(container) {
                     var na = parseFloat(ta.replace(/[^0-9.-]/g, ''));
                     var nb = parseFloat(tb.replace(/[^0-9.-]/g, ''));
                     if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
-                    return ta.localeCompare(tb, 'pt-BR', {sensitivity: 'base', numeric: true}) * sortDir;
+                    return ta.localeCompare(tb, t('locale_code'), {sensitivity: 'base', numeric: true}) * sortDir;
                 });
             }
             page = 1;
@@ -664,7 +758,7 @@ function initTableEnhancements(container) {
                     var td = document.createElement('td');
                     td.colSpan = headers.length || 99;
                     td.className = 'dt-no-results';
-                    td.textContent = 'Nenhum resultado encontrado.';
+                    td.textContent = t('no_results');
                     noRes.appendChild(td);
                     tbody.appendChild(noRes);
                 }
@@ -677,8 +771,8 @@ function initTableEnhancements(container) {
             var infoEl = toolbar.querySelector('.dt-info');
             if (infoEl) {
                 infoEl.textContent = total < allRows.length
-                    ? (start + 1) + '\u2013' + end + ' de ' + total + ' (filtrado de ' + allRows.length + ')'
-                    : (start + 1) + '\u2013' + end + ' de ' + total;
+                    ? t('table_range_filtered', start + 1, end, total, allRows.length)
+                    : t('table_range', start + 1, end, total);
             }
 
             // pagination controls

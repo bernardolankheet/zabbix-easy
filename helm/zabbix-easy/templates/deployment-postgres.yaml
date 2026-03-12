@@ -8,6 +8,8 @@ metadata:
     component: postgres
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: {{ .Release.Name }}
@@ -18,6 +20,7 @@ spec:
         app: {{ .Release.Name }}
         component: postgres
     spec:
+      terminationGracePeriodSeconds: {{ .Values.spec.terminationGracePeriodSeconds }}
       containers:
       - name: postgres
         image: {{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}
@@ -66,7 +69,17 @@ spec:
           failureThreshold: 3
         volumeMounts:
         - name: postgres-data
-          mountPath: /var/lib/postgresql
+          mountPath: /var/lib/postgresql/data
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                # try a fast but clean shutdown of Postgres
+                pg_ctl -D ${PGDATA:-/var/lib/postgresql/data} -m fast stop || true
+                sleep 5
       volumes:
       - name: postgres-data
         persistentVolumeClaim:
