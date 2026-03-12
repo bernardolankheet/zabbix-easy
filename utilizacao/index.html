@@ -1729,6 +1729,84 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#internacionalizacao-i18n" class="md-nav__link">
+    <span class="md-ellipsis">
+      Internacionalização (i18n)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Internacionalização (i18n)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#seletor-de-idioma" class="md-nav__link">
+    <span class="md-ellipsis">
+      Seletor de idioma
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona" class="md-nav__link">
+    <span class="md-ellipsis">
+      Como funciona
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atributos-de-traducao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Atributos de tradução
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estrutura-dos-arquivos-de-locale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Estrutura dos arquivos de locale
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#categorias-de-chaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      Categorias de chaves
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxo-de-carregamento" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fluxo de carregamento
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#traducao-no-servidor-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tradução no servidor (Go)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3169,6 +3247,84 @@
       Top Erros
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internacionalizacao-i18n" class="md-nav__link">
+    <span class="md-ellipsis">
+      Internacionalização (i18n)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Internacionalização (i18n)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#seletor-de-idioma" class="md-nav__link">
+    <span class="md-ellipsis">
+      Seletor de idioma
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#como-funciona" class="md-nav__link">
+    <span class="md-ellipsis">
+      Como funciona
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#atributos-de-traducao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Atributos de tradução
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estrutura-dos-arquivos-de-locale" class="md-nav__link">
+    <span class="md-ellipsis">
+      Estrutura dos arquivos de locale
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#categorias-de-chaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      Categorias de chaves
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fluxo-de-carregamento" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fluxo de carregamento
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#traducao-no-servidor-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tradução no servidor (Go)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5620,6 +5776,192 @@ if majorV &gt;= 7 {
   topErrors é percorrido para gerar a tabela de "Tipos de Erro Mais Comuns".</p>
 <hr />
 <p>Essas chamadas são feitas dinamicamente conforme a versão do Zabbix e os dados do ambiente. Consulte o código para detalhes de parâmetros opcionais e lógica de fallback.</p>
+<hr />
+<h2 id="internacionalizacao-i18n">Internacionalização (i18n)</h2>
+<p>A interface e o relatório suportam múltiplos idiomas. Atualmente estão disponíveis <strong>Português (pt_BR)</strong> — idioma padrão — e <strong>Inglês (en_US)</strong>.</p>
+<h3 id="seletor-de-idioma">Seletor de idioma</h3>
+<p>O seletor fica no <strong>header</strong> da página, à direita do título "ZBX-Easy". Ao trocar o idioma a interface é traduzida instantaneamente (sem recarregar).</p>
+<p>A preferência é salva no <code>localStorage</code> do navegador com a chave <code>zbx-lang</code> e restaurada automaticamente nas próximas visitas.</p>
+<h3 id="como-funciona">Como funciona</h3>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>Arquivo</th>
+<th>Responsabilidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dicionários</td>
+<td><code>app/web/locales/pt_BR/messages.json</code> e <code>app/web/locales/en_US/messages.json</code></td>
+<td>Contêm todas as traduções no formato <code>"chave": "texto traduzido"</code></td>
+</tr>
+<tr>
+<td>Runtime JS</td>
+<td><code>app/web/static/script.js</code></td>
+<td>Funções <code>t()</code>, <code>applyI18n()</code>, <code>setLang()</code> e <code>initI18n()</code> que carregam e aplicam as traduções</td>
+</tr>
+<tr>
+<td>HTML template</td>
+<td><code>app/web/templates/index.html</code></td>
+<td>Usa atributos <code>data-i18n</code>, <code>data-i18n-placeholder</code>, <code>data-i18n-title</code> e <code>data-i18n-aria</code></td>
+</tr>
+<tr>
+<td>Backend Go</td>
+<td><code>app/cmd/app/main.go</code></td>
+<td>Emite HTML com atributos <code>data-i18n</code> e <code>data-i18n-args</code> para textos dinâmicos do relatório</td>
+</tr>
+</tbody>
+</table>
+<h3 id="atributos-de-traducao">Atributos de tradução</h3>
+<p>O sistema de i18n utiliza atributos HTML que são processados pelo JavaScript no lado do cliente:</p>
+<table>
+<thead>
+<tr>
+<th>Atributo</th>
+<th>Alvo</th>
+<th>Exemplo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data-i18n="chave"</code></td>
+<td><code>textContent</code> do elemento</td>
+<td><code>&lt;span data-i18n="tabs.summary"&gt;&lt;/span&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-args="val1\|val2"</code></td>
+<td>Argumentos <code>%s</code> / <code>%d</code> na tradução</td>
+<td><code>&lt;span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"&gt;&lt;/span&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-placeholder="chave"</code></td>
+<td><code>placeholder</code> de inputs</td>
+<td><code>&lt;input data-i18n-placeholder="placeholder_url"&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-title="chave"</code></td>
+<td><code>title</code> (tooltip nativo)</td>
+<td><code>&lt;div data-i18n-title="kpi.server_attention"&gt;&lt;/div&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-aria="chave"</code></td>
+<td><code>aria-label</code></td>
+<td><code>&lt;button data-i18n-aria="aria_new_report"&gt;&lt;/button&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="estrutura-dos-arquivos-de-locale">Estrutura dos arquivos de locale</h3>
+<pre><code>app/web/locales/
+├── pt_BR/
+│   └── messages.json      # ~290 chaves — Português (Brasil)
+└── en_US/
+    └── messages.json      # ~290 chaves — Inglês (EUA)
+</code></pre>
+<p>Cada arquivo é um JSON plano (<code>"chave": "valor"</code>). Chaves com <code>%s</code> ou <code>%d</code> aceitam argumentos posicionais passados via <code>data-i18n-args</code>.</p>
+<h3 id="categorias-de-chaves">Categorias de chaves</h3>
+<table>
+<thead>
+<tr>
+<th>Prefixo</th>
+<th>Conteúdo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>label_*</code>, <code>btn_*</code>, <code>placeholder_*</code>, <code>aria_*</code>, <code>tooltip_*</code></td>
+<td>Interface (formulário, botões, campos)</td>
+</tr>
+<tr>
+<td><code>progress.*</code></td>
+<td>Mensagens de progresso durante a geração</td>
+</tr>
+<tr>
+<td><code>tabs.*</code></td>
+<td>Nomes das guias do relatório</td>
+</tr>
+<tr>
+<td><code>section.*</code></td>
+<td>Títulos de seções (h3) no relatório</td>
+</tr>
+<tr>
+<td><code>tip.*</code></td>
+<td>Textos de tooltip explicativo (ícone ?)</td>
+</tr>
+<tr>
+<td><code>table.*</code></td>
+<td>Cabeçalhos de tabelas</td>
+</tr>
+<tr>
+<td><code>summary.*</code></td>
+<td>Linhas da tabela de resumo do ambiente</td>
+</tr>
+<tr>
+<td><code>gauge.*</code></td>
+<td>Legendas dos gráficos doughnut</td>
+</tr>
+<tr>
+<td><code>proxy.*</code></td>
+<td>Rótulos de proxies (sumário, status)</td>
+</tr>
+<tr>
+<td><code>items.*</code>, <code>lld.*</code></td>
+<td>Parágrafos explicativos de items/LLD</td>
+</tr>
+<tr>
+<td><code>types.*</code></td>
+<td>Tipos de item (Zabbix Agent, SNMP, etc.)</td>
+</tr>
+<tr>
+<td><code>kpi.*</code></td>
+<td>KPIs da guia Recomendações</td>
+</tr>
+<tr>
+<td><code>sub.*</code></td>
+<td>Subtítulos das seções de Recomendações</td>
+</tr>
+<tr>
+<td><code>rec.*</code></td>
+<td>Frases auxiliares de Recomendações</td>
+</tr>
+<tr>
+<td><code>procdesc.*</code></td>
+<td>Descrições de processos internos (tooltips)</td>
+</tr>
+<tr>
+<td><code>badge.*</code></td>
+<td>Badges nos cards de recomendação</td>
+</tr>
+<tr>
+<td><code>error.*</code>, <code>stats.*</code>, <code>process.*</code></td>
+<td>Mensagens de erro e status</td>
+</tr>
+</tbody>
+</table>
+<h3 id="fluxo-de-carregamento">Fluxo de carregamento</h3>
+<ol>
+<li>Ao carregar a página, <code>initI18n()</code> lê <code>localStorage.zbx-lang</code> (fallback: <code>pt_BR</code>).</li>
+<li>Faz <code>fetch('/locales/{lang}/messages.json?cb=&lt;timestamp&gt;')</code> — o parâmetro <code>cb</code> evita cache.</li>
+<li>Armazena o dicionário em <code>_i18n</code> e chama <code>applyI18n()</code>.</li>
+<li><code>applyI18n()</code> percorre todos os elementos com <code>data-i18n*</code> e substitui o conteúdo/atributo pela tradução.</li>
+<li>Quando o relatório é inserido dinamicamente (via AJAX), <code>applyI18n()</code> é chamado novamente para traduzir o HTML injetado pelo servidor.</li>
+</ol>
+<h3 id="traducao-no-servidor-go">Tradução no servidor (Go)</h3>
+<p>O backend <strong>não</strong> traduz os textos — ele emite HTML com marcadores <code>data-i18n</code> que o JavaScript traduz no cliente. Exemplos:</p>
+<pre><code class="language-go">// Título de seção com tooltip
+html += titleWithInfo(&quot;h3&quot;, &quot;i18n:section.pollers&quot;, &quot;i18n:tip.pollers|15d&quot;)
+
+// Sub-seção numerada
+html += nextSub(&amp;sub, &quot;i18n:sub.items_unsupported&quot;)
+
+// Tabela com cabeçalhos traduzíveis
+html += `&lt;th data-i18n='table.description'&gt;&lt;/th&gt;`
+
+// Célula com argumentos
+html += `&lt;span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'&gt;&lt;/span&gt;`
+</code></pre>
+<p>Os helpers <code>titleWithInfo()</code> e <code>nextSub()</code> detectam o prefixo <code>i18n:</code> e geram automaticamente os atributos <code>data-i18n</code> e <code>data-i18n-args</code>.</p>
 
 
 

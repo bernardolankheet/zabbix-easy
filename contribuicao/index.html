@@ -322,6 +322,17 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Contribuição
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -331,6 +342,85 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#contribuindo-com-novos-idiomas" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contribuindo com novos idiomas
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contribuindo com novos idiomas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-copiar-um-locale-existente" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Copiar um locale existente
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-traduzir-as-chaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Traduzir as chaves
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-registrar-o-idioma-no-seletor" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Registrar o idioma no seletor
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-testar" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Testar
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicas" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dicas
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -356,6 +446,74 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#contribuindo-com-novos-idiomas" class="md-nav__link">
+    <span class="md-ellipsis">
+      Contribuindo com novos idiomas
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contribuindo com novos idiomas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-copiar-um-locale-existente" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Copiar um locale existente
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-traduzir-as-chaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Traduzir as chaves
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-registrar-o-idioma-no-seletor" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Registrar o idioma no seletor
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-testar" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Testar
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dicas" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dicas
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -380,6 +538,46 @@
 <li>Envie seu PR</li>
 </ol>
 <p>Sugestões, issues e melhorias são apreciadas.</p>
+<hr />
+<h2 id="contribuindo-com-novos-idiomas">Contribuindo com novos idiomas</h2>
+<p>O ZBX-Easy utiliza um sistema de i18n baseado em arquivos JSON. Adicionar um novo idioma requer apenas quatro passos:</p>
+<h3 id="1-copiar-um-locale-existente">1. Copiar um locale existente</h3>
+<p>Crie uma pasta para o novo idioma dentro de <code>app/web/locales/</code> usando o código de locale padrão (<code>xx_YY</code>):</p>
+<pre><code class="language-bash">cp -r app/web/locales/pt_BR app/web/locales/es_ES
+</code></pre>
+<h3 id="2-traduzir-as-chaves">2. Traduzir as chaves</h3>
+<p>Abra o arquivo <code>app/web/locales/es_ES/messages.json</code> e traduza <strong>apenas os valores</strong> (lado direito). As chaves (lado esquerdo) devem permanecer iguais:</p>
+<pre><code class="language-json">{
+  &quot;label_url&quot;: &quot;URL del Zabbix&quot;,
+  &quot;label_token&quot;: &quot;Token de API&quot;,
+  &quot;btn_generate&quot;: &quot;Generar informe&quot;,
+  &quot;tabs.summary&quot;: &quot;Resumen&quot;,
+  ...
+}
+</code></pre>
+<p>!!! warning "Atenção"
+    - Mantenha os marcadores <code>%s</code> e <code>%d</code> nas traduções que os contêm — eles são substituídos por valores dinâmicos.
+    - Não altere as chaves JSON.
+    - O arquivo <code>pt_BR/messages.json</code> (~290 chaves) é a referência mais completa.</p>
+<h3 id="3-registrar-o-idioma-no-seletor">3. Registrar o idioma no seletor</h3>
+<p>Edite <code>app/web/templates/index.html</code> e adicione um <code>&lt;option&gt;</code> ao seletor <code>#lang-select</code>:</p>
+<pre><code class="language-html">&lt;select id=&quot;lang-select&quot;&gt;
+  &lt;option value=&quot;pt_BR&quot;&gt;🇧🇷 PT&lt;/option&gt;
+  &lt;option value=&quot;en_US&quot;&gt;🇺🇸 EN&lt;/option&gt;
+  &lt;option value=&quot;es_ES&quot;&gt;🇪🇸 ES&lt;/option&gt;  &lt;!-- novo --&gt;
+&lt;/select&gt;
+</code></pre>
+<h3 id="4-testar">4. Testar</h3>
+<p>Suba o ambiente com Docker Compose para validar:</p>
+<pre><code class="language-bash">docker compose up -d --build
+</code></pre>
+<p>Acesse a interface, selecione o novo idioma no seletor do header e verifique se todos os textos estão traduzidos corretamente — tanto na interface quanto no relatório gerado.</p>
+<h3 id="dicas">Dicas</h3>
+<ul>
+<li>Use o console do navegador para verificar chaves não traduzidas: se uma chave não existir no dicionário, o texto original do HTML será mantido.</li>
+<li>Compare seu <code>messages.json</code> com o de <code>pt_BR</code> para garantir que nenhuma chave foi omitida.</li>
+<li>Contribua via Pull Request com o título <code>i18n: add &lt;idioma&gt;</code> (ex.: <code>i18n: add es_ES</code>).</li>
+</ul>
 
 
 
