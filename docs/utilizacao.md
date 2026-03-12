@@ -1533,3 +1533,98 @@ Abaixo estão listadas as principais chamadas feitas pelo backend Go à API do Z
 
 Essas chamadas são feitas dinamicamente conforme a versão do Zabbix e os dados do ambiente. Consulte o código para detalhes de parâmetros opcionais e lógica de fallback.
 
+---
+
+## Internacionalização (i18n)
+
+A interface e o relatório suportam múltiplos idiomas. Atualmente estão disponíveis **Português (pt_BR)** — idioma padrão — e **Inglês (en_US)**.
+
+### Seletor de idioma
+
+O seletor fica no **header** da página, à direita do título "ZBX-Easy". Ao trocar o idioma a interface é traduzida instantaneamente (sem recarregar).
+
+A preferência é salva no `localStorage` do navegador com a chave `zbx-lang` e restaurada automaticamente nas próximas visitas.
+
+### Como funciona
+
+| Componente | Arquivo | Responsabilidade |
+|---|---|---|
+| Dicionários | `app/web/locales/pt_BR/messages.json` e `app/web/locales/en_US/messages.json` | Contêm todas as traduções no formato `"chave": "texto traduzido"` |
+| Runtime JS | `app/web/static/script.js` | Funções `t()`, `applyI18n()`, `setLang()` e `initI18n()` que carregam e aplicam as traduções |
+| HTML template | `app/web/templates/index.html` | Usa atributos `data-i18n`, `data-i18n-placeholder`, `data-i18n-title` e `data-i18n-aria` |
+| Backend Go | `app/cmd/app/main.go` | Emite HTML com atributos `data-i18n` e `data-i18n-args` para textos dinâmicos do relatório |
+
+### Atributos de tradução
+
+O sistema de i18n utiliza atributos HTML que são processados pelo JavaScript no lado do cliente:
+
+| Atributo | Alvo | Exemplo |
+|---|---|---|
+| `data-i18n="chave"` | `textContent` do elemento | `<span data-i18n="tabs.summary"></span>` |
+| `data-i18n-args="val1\|val2"` | Argumentos `%s` / `%d` na tradução | `<span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"></span>` |
+| `data-i18n-placeholder="chave"` | `placeholder` de inputs | `<input data-i18n-placeholder="placeholder_url">` |
+| `data-i18n-title="chave"` | `title` (tooltip nativo) | `<div data-i18n-title="kpi.server_attention"></div>` |
+| `data-i18n-aria="chave"` | `aria-label` | `<button data-i18n-aria="aria_new_report"></button>` |
+
+### Estrutura dos arquivos de locale
+
+```
+app/web/locales/
+├── pt_BR/
+│   └── messages.json      # ~290 chaves — Português (Brasil)
+└── en_US/
+    └── messages.json      # ~290 chaves — Inglês (EUA)
+```
+
+Cada arquivo é um JSON plano (`"chave": "valor"`). Chaves com `%s` ou `%d` aceitam argumentos posicionais passados via `data-i18n-args`.
+
+### Categorias de chaves
+
+| Prefixo | Conteúdo |
+|---|---|
+| `label_*`, `btn_*`, `placeholder_*`, `aria_*`, `tooltip_*` | Interface (formulário, botões, campos) |
+| `progress.*` | Mensagens de progresso durante a geração |
+| `tabs.*` | Nomes das guias do relatório |
+| `section.*` | Títulos de seções (h3) no relatório |
+| `tip.*` | Textos de tooltip explicativo (ícone ?) |
+| `table.*` | Cabeçalhos de tabelas |
+| `summary.*` | Linhas da tabela de resumo do ambiente |
+| `gauge.*` | Legendas dos gráficos doughnut |
+| `proxy.*` | Rótulos de proxies (sumário, status) |
+| `items.*`, `lld.*` | Parágrafos explicativos de items/LLD |
+| `types.*` | Tipos de item (Zabbix Agent, SNMP, etc.) |
+| `kpi.*` | KPIs da guia Recomendações |
+| `sub.*` | Subtítulos das seções de Recomendações |
+| `rec.*` | Frases auxiliares de Recomendações |
+| `procdesc.*` | Descrições de processos internos (tooltips) |
+| `badge.*` | Badges nos cards de recomendação |
+| `error.*`, `stats.*`, `process.*` | Mensagens de erro e status |
+
+### Fluxo de carregamento
+
+1. Ao carregar a página, `initI18n()` lê `localStorage.zbx-lang` (fallback: `pt_BR`).
+2. Faz `fetch('/locales/{lang}/messages.json?cb=<timestamp>')` — o parâmetro `cb` evita cache.
+3. Armazena o dicionário em `_i18n` e chama `applyI18n()`.
+4. `applyI18n()` percorre todos os elementos com `data-i18n*` e substitui o conteúdo/atributo pela tradução.
+5. Quando o relatório é inserido dinamicamente (via AJAX), `applyI18n()` é chamado novamente para traduzir o HTML injetado pelo servidor.
+
+### Tradução no servidor (Go)
+
+O backend **não** traduz os textos — ele emite HTML com marcadores `data-i18n` que o JavaScript traduz no cliente. Exemplos:
+
+```go
+// Título de seção com tooltip
+html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|15d")
+
+// Sub-seção numerada
+html += nextSub(&sub, "i18n:sub.items_unsupported")
+
+// Tabela com cabeçalhos traduzíveis
+html += `<th data-i18n='table.description'></th>`
+
+// Célula com argumentos
+html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'></span>`
+```
+
+Os helpers `titleWithInfo()` e `nextSub()` detectam o prefixo `i18n:` e geram automaticamente os atributos `data-i18n` e `data-i18n-args`.
+
