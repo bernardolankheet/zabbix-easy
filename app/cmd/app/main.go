@@ -1329,6 +1329,18 @@ func generateZabbixReport(url, token string) (string, error) {
 				}
 				return fmt.Sprintf("<%s><span class='title-text' data-i18n='%s'></span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(key), sv, tipEsc, tag)
 			}
+			// title is plain text but tip may still be an i18n key
+			if strings.HasPrefix(tip, "i18n:") {
+				r := strings.TrimPrefix(tip, "i18n:")
+				rparts := strings.Split(r, "|")
+				tipKey := rparts[0]
+				tipArgs := ""
+				if len(rparts) > 1 { tipArgs = strings.Join(rparts[1:], "|") }
+				if tipArgs != "" {
+					return fmt.Sprintf("<%s><span class='title-text'>%s</span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip' data-i18n='%s' data-i18n-args='%s'></span></span></%s>", tag, htmlpkg.EscapeString(title), sv, htmlpkg.EscapeString(tipKey), htmlpkg.EscapeString(tipArgs), tag)
+				}
+				return fmt.Sprintf("<%s><span class='title-text'>%s</span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip' data-i18n='%s'></span></span></%s>", tag, htmlpkg.EscapeString(title), sv, htmlpkg.EscapeString(tipKey), tag)
+			}
 			// default: emit escaped title and tooltip
 			return fmt.Sprintf("<%s><span class='title-text'>%s</span> <span class='info-icon' tabindex='0'>%s<span class='info-tooltip'>%s</span></span></%s>", tag, htmlpkg.EscapeString(title), sv, tipEsc, tag)
 		}

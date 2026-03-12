@@ -239,7 +239,7 @@
   ,"procdesc.icmp_pinger": "Parâmetro \"StartPingers\": pollers de ICMP (ping) para verificar disponibilidade de hosts; aumente se muitos hosts necessitam de verificação frequente."
   ,"procdesc.internal_poller": "Parâmetro \"InternalPollers\": poller para verificações internas do servidor Zabbix (saúde e métricas internas); ajuste se coleta interna estiver sobrecarregada."
   ,"procdesc.ipmi_manager": "Parâmetro \"IPMIManager\": gerencia pollers IPMI para coletar métricas via IPMI; dimensione quando houver muitos dispositivos IPMI."
-  ,"procdesc.ipmi_poller": "Parâmetro \"IPMIPollers\": poller que executa checagens IPMI em equipamentos; aumente para maior paralelismo em ambientes com IPMI extensivo."
+  ,"procdesc.ipmi_poller": "Parâmetro \"IPMIPollers\": poller que executa checagens IPMI em equipamentos; recomendavel 1 Poller por equipamento IPMI para evitar timeouts de BMCs."
   ,"procdesc.java_poller": "Parâmetro \"JavaPollers\": poller para coletas do tipo Java; ajuste quando houver muitos checadores baseados em Java."
   ,"procdesc.lld_manager": "Parâmetro \"LLDManager\": gerencia tarefas de Low-Level Discovery (LLD) que detectam automaticamente serviços/instâncias; aumente para acelerar descobertas em larga escala."
   ,"procdesc.lld_worker": "Parâmetro \"LLDWorkers\": workers do LLD que executam regras de descoberta e geram itens/dispositivos; dimensione conforme a frequência e quantidade de regras LLD."

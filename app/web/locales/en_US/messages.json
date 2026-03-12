@@ -239,7 +239,7 @@
   ,"procdesc.icmp_pinger": "Parameter \"StartPingers\": ICMP (ping) pollers to check host availability; increase if many hosts need frequent checks."
   ,"procdesc.internal_poller": "Parameter \"InternalPollers\": poller for internal server checks (health/metrics); adjust if internal collection is overloaded."
   ,"procdesc.ipmi_manager": "Parameter \"IPMIManager\": manages IPMI pollers for collecting metrics via IPMI; scale when many IPMI devices are present."
-  ,"procdesc.ipmi_poller": "Parameter \"IPMIPollers\": poller that performs IPMI checks on devices; increase for higher parallelism with IPMI."
+  ,"procdesc.ipmi_poller": "Parameter \"IPMIPollers\": A poller that performs IPMI checks on equipment; it is recommended to use 1 poller per IPMI device to avoid BMC timeouts."
   ,"procdesc.java_poller": "Parameter \"JavaPollers\": poller for Java-based collections; tune when many Java checks are present."
   ,"procdesc.lld_manager": "Parameter \"LLDManager\": manages Low-Level Discovery (LLD) tasks that detect services/instances; increase to speed large-scale discovery."
   ,"procdesc.lld_worker": "Parameter \"LLDWorkers\": workers that execute LLD rules and generate items/devices; size according to rule frequency and quantity."

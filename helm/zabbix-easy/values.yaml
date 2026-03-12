@@ -28,6 +28,8 @@ spec:
     limits:
       cpu: 500m
       memory: 728Mi
+  # grace period (seconds) given to Pods before SIGKILL on termination
+  terminationGracePeriodSeconds: 60
 
 container:
   args: []
