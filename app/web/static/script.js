@@ -414,6 +414,7 @@ function checkProgress(taskId, progress) {
                 document.getElementById('progress-bar').style.display = 'none';
                 document.getElementById('report-area').innerHTML = data.report || '<div style="color:red;">' + t('error_process_task') + '</div>';
                 document.getElementById('report-area').style.display = 'block';
+                try { applyI18n(); } catch(e) {}
             } else {
                 document.getElementById('progress-bar').style.display = 'none';
                 document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_process_task') + '</div>';

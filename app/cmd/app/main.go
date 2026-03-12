@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"github.com/gin-gonic/gin"
@@ -1833,50 +1833,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
 	// render
 	for _, pr := range procRows {
-		nameCell := `<td style='position:relative;padding:0;'>` +
-		`<div style='display:flex;align-items:center;gap:4px;'>` +
+		nameCell := `<td class='proc-name-cell'>` +
+		`<div class='proc-name-wrap'>` +
 		`<span>` + pr.Friendly + `</span>` +
-		`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
-		`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-		`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
+		`<span class='info-icon' tabindex='0'>` +
+		`<svg class='info-svg-q' viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+		`<span class='info-tooltip' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
 		`</span>` +
 		`</div></td>`
-			// Adiciona JS/CSS para tooltip interrogação
-			html += `<style>
-			.info-icon:focus .info-tooltip,
-			.info-icon:hover .info-tooltip {
-				display: block;
-			}
-			.info-icon {
-				outline: none;
-			}
-			\.info-tooltip {
-							transition: opacity 0.15s;
-							white-space: normal;
-							overflow: visible;
-							max-width: 520px;
-							word-break: normal;
-							overflow-wrap: break-word;
-						}
-			</style>
-			<script>
-			function setupInfoTooltips(){
-			  document.querySelectorAll('.info-icon').forEach(function(icon){
-				if(icon._tooltipBound) return;
-				icon._tooltipBound = true;
-				icon.addEventListener('click',function(e){
-				  var tip = this.querySelector('.info-tooltip');
-				  if(tip){ tip.style.display = (tip.style.display==='block') ? 'none' : 'block'; }
-				  e.stopPropagation();
-				});
-			  });
-			}
-			setupInfoTooltips();
-			document.addEventListener('click',function(){
-			  document.querySelectorAll('.info-tooltip').forEach(function(tip){ tip.style.display='none'; });
-			});
-			// Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
-			</script>`
 		if pr.Err {
 			html += `<tr>` + nameCell + `<td colspan='4' data-i18n='error.fetch_data'></td></tr>`
 			continue
@@ -2089,9 +2053,9 @@ func generateZabbixReport(url, token string) (string, error) {
 				}
 				// Proxy online mas chave não encontrada no template — exibe "-" com ícone de aviso no tooltip
 				if effState == "2" && itemsUnsupportedVal == "-" {
-					itemsUnsupportedVal = `-<span class='info-icon' tabindex='0' style='margin-left:4px;'>` +
-						`<svg viewBox='0 0 16 16' width='14' height='14'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
-						`<span class='info-tooltip'>Criar chave zabbix[items_unsupported] no Template de Proxy</span></span>`
+					itemsUnsupportedVal = `-<span class='info-icon info-icon-sm' tabindex='0'>` +
+						`<svg class='info-svg-w' viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
+						`<span class='info-tooltip info-tooltip-left' data-i18n='tip.create_unsupported_key'></span></span>`
 				}
 
 				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
@@ -2349,19 +2313,19 @@ func generateZabbixReport(url, token string) (string, error) {
 				descKey := procDesc[dispBaseName]
 				if descKey == "" { descKey = "procdesc.process" }
 
-				nameCell := `<td style='position:relative;padding:0;'>` +
-					`<div style='display:flex;align-items:center;gap:4px;'><span>` + htmlpkg.EscapeString(friendly) + `</span>` +
-					`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
-					`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:300px;max-width:640px;white-space:normal;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(descKey) + `'></span></span></div></td>`
+				nameCell := `<td class='proc-name-cell'>` +
+					`<div class='proc-name-wrap'><span>` + htmlpkg.EscapeString(friendly) + `</span>` +
+					`<span class='info-icon' tabindex='0'>` +
+					`<svg class='info-svg-q' viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+					`<span class='info-tooltip' data-i18n='` + htmlpkg.EscapeString(descKey) + `'></span></span></div></td>`
 
 				item := itemsMap[baseName]
 				if item == nil {
 					res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: -1,
-						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>` +
-							`-<span class='info-icon' tabindex='0' style='margin-left:4px;'>` +
-							`<svg viewBox='0 0 16 16' width='14' height='14'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
-							`<span class='info-tooltip' style='left:auto;right:22px;' data-i18n='tip.create_item_or_process_disabled'></span></span>` +
+						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td class='status-na'>` +
+							`-<span class='info-icon info-icon-sm' tabindex='0'>` +
+							`<svg class='info-svg-w' viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#e6a817' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#e6a817' font-family='Arial' font-weight='bold'>!</text></svg>` +
+							`<span class='info-tooltip info-tooltip-left' data-i18n='tip.create_item_or_process_disabled'></span></span>` +
 							`</td></tr>`})
 					continue
 				}
@@ -2369,7 +2333,7 @@ func generateZabbixReport(url, token string) (string, error) {
 				tr := trendMap[iid]
 				if tr == nil {
 					res.rows = append(res.rows, proxyProcRow{friendly: friendly, vavg: -1,
-						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'>Sem dados</td></tr>`})
+						rowHTML: `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td class='status-na'>Sem dados</td></tr>`})
 					continue
 				}
 				smin, savg, smax, vavg, stText, stStyle := parseStat(tr)
@@ -2846,6 +2810,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			"history":    []interface{}{"1h", "1d", "7d", "31d"},
 		},
 		"sortfield":  "name",
+		"limit":      500,
 		// include hosts info for each item
 		"selectHosts": []string{"hostid"},
 	}

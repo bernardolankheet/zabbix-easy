@@ -957,3 +957,38 @@ label {
         margin: 12mm;
     }
 }
+
+/* ── Process table: name cell with tooltip icon ────────────────────────────── */
+.proc-name-cell {
+    position: relative;
+    padding: 0;
+}
+.proc-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.info-svg-q {
+    display: block;
+}
+.info-svg-w {
+    display: block;
+}
+/* Modifier: small margin icon (inline within a cell value) */
+.info-icon-sm {
+    margin-left: 4px;
+}
+/* Tooltip pointing left (default) — already in report global style block */
+/* Tooltip pointing right (for cells near right edge) */
+.info-tooltip.info-tooltip-left {
+    left: auto;
+    right: 22px;
+}
+/* Status badge: no-data / disabled */
+.status-na {
+    background: #cccccc;
+    color: #000;
+    padding: 4px 6px;
+    border-radius: 4px;
+    text-align: center;
+}
