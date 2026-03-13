@@ -160,7 +160,7 @@
   ,"table.details": "Details"
 
   ,"summary.templates_count": "Number of templates"
-  ,"summary.hosts_count": "Hosts"
+  ,"summary.hosts_count": "Hosts (enabled/disabled)"
   ,"summary.items_count": "Number of items (enabled/disabled/unsupported)"
   ,"summary.proxies_count": "Number of proxies"
   ,"summary.users_count": "Number of users"
@@ -263,13 +263,13 @@
   ,"procdesc.vmware_collector": "Parameter \"StartVMwareCollectors\": collector for VMware integrations that queries VMware APIs; increase for higher parallelism in virtualized environments."
   ,"procdesc.data_sender": "Proxy-only process responsible for sending collected data to the Zabbix Server. High load indicates slow server connection or accumulated data queues."
 
-  ,"kpi.server_attention": "Processes requiring attention"
+  ,"kpi.server_attention": "Zabbix Server - Poller/Managers with high AVG"
   ,"kpi.proxies_offline": "Proxies Offline"
   ,"kpi.proxies_unknown": "Proxies Unknown"
   ,"kpi.items_unsupported": "Items Unsupported"
   ,"kpi.items_text_history": "Text Items with History"
 
-  ,"kpi.proxy_process_attention": "Proxies - Poller processes with high AVG"
+  ,"kpi.proxy_process_attention": "Proxies - Poller/Managers with high AVG"
   ,"kpi.snmp_templates_migration": "SNMP Templates for Poller Migration"
   ,"kpi.snmp_items_label": "Items - SNMP-POLLER"
 
@@ -308,8 +308,8 @@
   ,"table.occurrences": "Occurrences"
 
   ,"proxy.detected_with_status": "Detected %d proxies with status"
-  ,"proxy.status_unknown": "Unknown"
-  ,"proxy.status_offline": "Offline"
+  ,"proxy.status_unknown": "Proxies Unknown"
+  ,"proxy.status_offline": "Proxies Offline"
   ,"tip.proxy_unknown": "Check if the proxy is reachable on the network and if the service is active. Check %s -> Proxies for details and try restarting the proxy if necessary. Confirm versions and compatibility (version field in the proxy record)."
   ,"tip.proxy_offline": "Check if the proxy is reachable on the network and if the service is active. Check %s -> Proxies for details and try restarting the proxy if necessary. Confirm versions and compatibility (version field in the proxy record)."
 
@@ -329,4 +329,32 @@
   ,"process.disabled": "Process not enabled"
   ,"process.not_in_version": "Process not available in this Zabbix version"
   ,"error.hostid_not_found": "Hostid %s not found, set the value in the ZABBIX_SERVER_HOSTID env var."
+  ,"fix.how_to_resolve": "How to resolve"
+
+  ,"rec.desc.server_attention": "%d proc(s) avg ≥ 60%"
+  ,"rec.desc.server_async": "%d async to enable"
+  ,"rec.desc.proxy_offline": "%d offline"
+  ,"rec.desc.proxy_unknown": "%d unknown"
+  ,"rec.desc.proxy_process_attn": "%d processes avg ≥ 60%"
+  ,"rec.desc.items_unsupported": "%d unsupported"
+  ,"rec.desc.items_short_interval": "%d short-interval"
+  ,"rec.desc.items_text_history": "%d text w/ history"
+  ,"rec.desc.lld_short_interval": "%d short-interval rules"
+  ,"rec.desc.lld_unsupported": "%d unsupported rules"
+  ,"rec.desc.templates_review": "%d templates to review"
+  ,"rec.desc.templates_error_types": "%d error types"
+  ,"rec.desc.templates_snmp_migrate": "%d SNMP to migrate"
+
+  ,"fix.server_intro": "Edit zabbix_server.conf, adjust the values and restart:"
+  ,"fix.proxy_offline_hint": "Proxy offline — check status, logs and connectivity"
+  ,"fix.proxy_processes_hint": "Processes at attention: increase in zabbix_proxy.conf"
+  ,"fix.items_unsupported_hint": "Unsupported items: check the Templates tab for breakdown by template and error message"
+  ,"fix.items_short_interval_hint": "Short collection interval: increase delay in the item/template editor"
+  ,"fix.items_text_history_hint": "Text items with history: reduce History retention in the template editor"
+  ,"fix.lld_unsupported_hint": "Test unsupported LLD key"
+  ,"fix.lld_json_format": "Response must be valid JSON"
+  ,"fix.lld_short_interval_hint": "Short interval: increase discovery rule Update interval to minimum 300s (5 min)"
+  ,"fix.templates_tab_hint": "See the Templates tab for the full list of unsupported items per template"
+  ,"fix.templates_update_hint": "For each template, check error messages and update OIDs, credentials or item keys accordingly"
+  ,"fix.templates_snmp_hint": "SNMP migration: update OIDs to use get[OID] or walk[OID] format to use the async SNMP Poller"
 }
