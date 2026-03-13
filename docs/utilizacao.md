@@ -23,12 +23,17 @@ Estas variáveis afetam o comportamento de toda a geração do relatório:
 
 ## Fluxo geral de geração
 
-A função principal é `generateZabbixReport(url, token string)` em `cmd/app/main.go`.
+A função principal é `generateZabbixReport(url, token string, progressCb func(string))` em `cmd/app/main.go`.
+
+- `url` e `token` devem ser não-vazios — a função retorna erro imediatamente se qualquer um estiver vazio.
+- `url` pode ser fornecida como `http://host/` ou `http://host/api_jsonrpc.php` — ambas são aceitas, o sufixo `/api_jsonrpc.php` é adicionado apenas quando necessário.
+- `progressCb` é passada como parâmetro (não global), tornando chamadas concorrentes completamente isoladas.
 
 ```
 POST /api/start
-  → cria Task em memória → goroutine: generateZabbixReport()
-      → progressCb() atualiza mensagem de progresso
+  → valida url e token (retorna 400 se vazios)
+  → cria Task em memória → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() atualiza mensagem de progresso (parâmetro, não global)
       → retorna HTML fragment
       → salva no PostgreSQL (se DB_HOST configurado)
 
@@ -71,22 +76,24 @@ Visão consolidada do ambiente Zabbix com os principais contadores. É a guia ex
 
 ### Chamadas à API do Zabbix
 
+As chamadas de resumo são executadas em **paralelas** (via `sync.WaitGroup`), reduzindo o tempo de coleta inicial significativamente:
+
+| Goroutine | Chamadas executadas | Dados extraídos |
+|-----------|--------------------|-----------------|
+| 1 | `user.get` | Contagem de usuários |
+| 2 | `host.get` ×3 | Total, habilitados e desabilitados |
+| 3 | `template.get` | Total de templates |
+| 4 | `item.get` ×3 | Total, habilitados e desabilitados de itens |
+| 5 | `item.get` (não suportados) | Total de itens não suportados |
+
+Chamadas executadas fora de resumo (sempre seriais, pois outras partes dependem delas):
+
 | Chamada | Parâmetros relevantes | Dado extraído |
 |---------|----------------------|---------------|
 | `apiinfo.version` | _(sem auth)_ | Versão do Zabbix; determina o `majorV` usado em todo o relatório |
-| `item.get` | `filter:{state:1,status:0}, monitored:true, countOutput:true` | Total de itens não suportados |
-| `user.get` | `output:"userid"` | Contagem de usuários |
 | `item.get` | `filter:{key_:"zabbix[requiredperformance]"}, hostids:<ZABBIX_SERVER_HOSTID>` | Localiza o item de NVPS |
 | `history.get` | `itemids:<id>, sortorder:DESC, limit:1` | Último valor do item NVPS |
-| `host.get` | `output:"hostid"` | Total de hosts |
-| `host.get` | `filter:{status:0}` | Hosts habilitados |
-| `host.get` | `filter:{status:1}` | Hosts desabilitados |
-| `template.get` | `countOutput:true` | Total de templates |
-| `item.get` | `countOutput:true, templated:false, webitems:true` | Total de itens |
-| `item.get` | `countOutput:true, monitored:true, filter:{status:0,state:0}` | Itens habilitados |
-| `item.get` | `countOutput:true, filter:{status:1}` | Itens desabilitados |
-| `proxy.get` | `countOutput:true` | Total de proxies |
-| `proxy.get` | `output:extend` | Lista completa de proxies (usada em outras guias) |
+| `proxy.get` | `output:extend` | Lista completa de proxies (usada em outras guias); contagem derivada de `len(proxies)` |
 
 ### Funções Go responsáveis
 
@@ -94,8 +101,7 @@ Visão consolidada do ambiente Zabbix com os principais contadores. É a guia ex
 |--------|-----------|
 | `getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)` | Localiza o item NVPS com cache em memória |
 | `getLastHistoryValue(apiUrl, token, itemid, histType)` | Busca o último valor do history para o NVPS |
-| `getProxyCount(apiUrl, token)` | Retorna `countOutput` de `proxy.get` |
-| `getProxies(apiUrl, token)` | Retorna lista completa de proxies |
+| `getProxies(apiUrl, token)` | Retorna lista completa de proxies; a contagem de proxies é derivada de `len(proxies)` |
 
 ---
 

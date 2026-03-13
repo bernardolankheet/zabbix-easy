@@ -88,9 +88,6 @@ var httpTransport *http.Transport
 // Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
 var itemLookupCache sync.Map
 
-// Optional progress callback used to send textual progress updates back to caller
-var progressCb func(string)
-
 func initHttpClient() {
 	if httpClient != nil {
 		return
@@ -659,91 +656,6 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 	return nil, nil
 }
 
-// getProxyCount retorna o número total de proxies configurados no Zabbix
-// usando proxy.get com countOutput:true.
-//
-// Usado apenas no card de resumo ("Número de Proxys"). Para obter a lista
-// completa de proxies com detalhes, use getProxies.
-func getProxyCount(apiUrl, token string) (int, error) {
-	params := map[string]interface{}{
-		"output": "extend",
-		"countOutput": true,
-	}
-	resp, err := zabbixApiRequest(apiUrl, token, "proxy.get", params)
-	if err != nil { return 0, err }
-	if r, ok := resp["result"]; ok {
-		switch v := r.(type) {
-		case float64:
-			return int(v), nil
-		case int:
-			return v, nil
-		default:
-			if v2, err := strconv.Atoi(fmt.Sprintf("%v", v)); err == nil { return v2, nil }
-		}
-	}
-	return 0, nil
-}
-
-// getProcessItemsBulkByHostids busca itens de processo para MÚLTIPLOS hosts em
-// UMA única chamada item.get, usando wildcard na key_ (mesma estratégia de
-// getProcessItemsBulk) e agrupando os resultados por hostid.
-//
-// Retorna map[hostid] → map[nomeEmMinúsculas] → item.
-//
-// ─── Estado atual ─────────────────────────────────────────────────────────
-// Função disponível mas não utilizada diretamente pelos proxies no momento
-// (substituída por getProxyProcessItems, que usa type=5 + match client-side).
-// Mantida para uso futuro ou em cenários onde a abordagem wildcard seja
-// preferível (ex: buscar itens de vários hosts de uma vez de forma eficiente).
-//
-// ─── Quando usar ──────────────────────────────────────────────────────────
-// Prefira esta função quando:
-//   - Os hostids de todos os proxies/hosts já forem conhecidos antecipadamente.
-//   - O formato das chaves for previsível (wildcard confiável).
-// Prefira getProxyProcessItems quando o formato da key_ for incerto entre
-// versões do Zabbix.
-func getProcessItemsBulkByHostids(apiUrl, token string, names []string, hostids []string) (map[string]map[string]map[string]interface{}, error) {
-	if len(names) == 0 || len(hostids) == 0 {
-		return map[string]map[string]map[string]interface{}{}, nil
-	}
-	patterns := make([]string, len(names))
-	for i, n := range names { patterns[i] = nameToWildcard(n) }
-	params := map[string]interface{}{
-		"output":                 []string{"itemid", "hostid", "name", "key_", "value_type"},
-		"hostids":                hostids,
-		"search":                 map[string]interface{}{"key_": patterns},
-		"searchByAny":            true,
-		"searchWildcardsEnabled": true,
-	}
-	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
-	if err != nil { return nil, err }
-	// Sort entries by word count desc — most specific pattern wins
-	type nameEntry struct{ norm string; words int; pattern string }
-	entries := make([]nameEntry, len(names))
-	for i, n := range names {
-		entries[i] = nameEntry{norm: strings.ToLower(strings.TrimSpace(n)), words: len(strings.Fields(n)), pattern: patterns[i]}
-	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
-	result := map[string]map[string]map[string]interface{}{}
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		for _, raw := range arr {
-			item, _ := raw.(map[string]interface{})
-			if item == nil { continue }
-			hid := fmt.Sprintf("%v", item["hostid"])
-			itemKey := fmt.Sprintf("%v", item["key_"])
-			for _, e := range entries {
-				if wildcardMatch(e.pattern, itemKey) {
-					if result[hid] == nil { result[hid] = map[string]map[string]interface{}{} }
-					if _, exists := result[hid][e.norm]; !exists { result[hid][e.norm] = item }
-					break
-				}
-			}
-		}
-	}
-	return result, nil
-}
-
 // getTrendsBulkStats busca dados de trend para TODOS os itemids em UMA única
 // chamada trend.get e agrega os resultados por item.
 //
@@ -953,8 +865,14 @@ func getProxies(apiUrl, token string) ([]map[string]interface{}, error) {
 	return nil, nil
 }
 
-func generateZabbixReport(url, token string) (string, error) {
+func generateZabbixReport(url, token string, progressCb func(string)) (string, error) {
 		nItemsNaoSuportados := "-"
+	if strings.TrimSpace(url) == "" {
+		return "", fmt.Errorf("zabbix URL is required")
+	}
+	if strings.TrimSpace(token) == "" {
+		return "", fmt.Errorf("zabbix API token is required")
+	}
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
 	apiUrl := url
 	// compute frontend base URL (ambienteUrl) early so links can be built
@@ -962,9 +880,16 @@ func generateZabbixReport(url, token string) (string, error) {
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
 		ambienteUrl = ambienteUrl[:len(ambienteUrl)-len("/api_jsonrpc.php")]
 	}
+	// Normalize trailing slash before appending the API path
+	if strings.HasSuffix(apiUrl, "/api_jsonrpc.php") {
+		// already correct, keep as-is
+	} else if strings.HasSuffix(apiUrl, "/") {
+		apiUrl += "api_jsonrpc.php"
+	} else {
+		apiUrl += "/api_jsonrpc.php"
+	}
 	// Concurrency limit for parallel API calls (can be configured with env MAX_CCONCURRENT)
 	// Default 4: evita sobrecarregar a API do Zabbix com muitas chamadas simultâneas.
-	// Com 4 goroutines e 3-4 chamadas seriais cada, são até ~16 requests em paralelo.
 	maxConcurrent := 4
 	if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
@@ -972,11 +897,6 @@ func generateZabbixReport(url, token string) (string, error) {
 	log.Printf("[DEBUG] MAX_CCONCURRENT=%d", maxConcurrent)
 	// semaphore channel used to bound concurrent API requests across sections
 	sem := make(chan struct{}, maxConcurrent)
-	if apiUrl[len(apiUrl)-1] != '/' {
-		apiUrl += "/api_jsonrpc.php"
-	} else {
-		apiUrl += "api_jsonrpc.php"
-	}
 
 	// get Zabbix API version (apiinfo.version)
 	zabbixVersion := ""
@@ -988,21 +908,14 @@ func generateZabbixReport(url, token string) (string, error) {
 	}
 	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
-	minorV := 0
 	if zabbixVersion != "" {
 		parts := strings.SplitN(zabbixVersion, ".", 3)
 		if len(parts) > 0 {
 			if v, err := strconv.Atoi(parts[0]); err == nil { majorV = v }
 		}
-		if len(parts) > 1 {
-			if v, err := strconv.Atoi(parts[1]); err == nil { minorV = v }
-		}
 	}
-	// minorV may be used elsewhere; avoid unused variable compile error
-	_ = minorV
 	// get em Consulta quantidade de itens não suportados
 	itensNaoSuportadosResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-		"output": "extend",
 		"filter": map[string]interface{}{ "state": 1, "status": 0 },
 		"monitored": true,
 		"countOutput": true,
@@ -1010,27 +923,108 @@ func generateZabbixReport(url, token string) (string, error) {
 	if err == nil {
 		nItemsNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
-	// get Usuários
+	// ── Parallel summary collection ──────────────────────────────────────────────
+	// All 9 calls below are independent; run them concurrently to reduce latency.
 	if progressCb != nil { progressCb("progress.collecting_users") }
-	userResp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{ "output": "userid" })
-	if err != nil { return "", err }
-	users := userResp["result"].([]interface{})
-	nUsers := len(users)
+	var (
+		nUsers          int
+		nUsersErr       error
+		nTotalHosts     int
+		nEnabledHosts   int
+		nDisabledHosts  int
+		hostsErr        error
+		templatesCount  = "N/A"
+		nItemsTotal     = "-"
+		nItemsEnabled   = "-"
+		nItemsDisabled  = "-"
+	)
+	var summaryWg sync.WaitGroup
+	summaryWg.Add(5) // users, hosts(3-in-1), templates, items-total, items-enabled+disabled
 
-	// get NVPS (Required server performance, new values per second) utilizando a chave zabbix[requiredperformance] 
+	// 1. Users
+	go func() {
+		defer summaryWg.Done()
+		resp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{"output": "userid"})
+		nUsersErr = err
+		if err == nil {
+			if arr, ok := resp["result"].([]interface{}); ok { nUsers = len(arr) }
+		}
+	}()
+
+	// 2. Hosts total + enabled + disabled (3 calls — kept serial within this goroutine
+	//    because they share the hostsErr variable and are fast count-only queries)
+	go func() {
+		defer summaryWg.Done()
+		r1, e1 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid"})
+		hostsErr = e1
+		if e1 == nil {
+			if arr, ok := r1["result"].([]interface{}); ok { nTotalHosts = len(arr) }
+		}
+		r2, e2 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid", "filter": map[string]interface{}{"status": 0}})
+		if e2 == nil {
+			if arr, ok := r2["result"].([]interface{}); ok { nEnabledHosts = len(arr) }
+		}
+		r3, e3 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid", "filter": map[string]interface{}{"status": 1}})
+		if e3 == nil {
+			if arr, ok := r3["result"].([]interface{}); ok { nDisabledHosts = len(arr) }
+		}
+	}()
+
+	// 3. Templates count
+	go func() {
+		defer summaryWg.Done()
+		resp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{"countOutput": true})
+		if err == nil { templatesCount = fmt.Sprintf("%v", resp["result"]) }
+	}()
+
+	// 4. Items total
+	go func() {
+		defer summaryWg.Done()
+		resp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"countOutput": true,
+			"templated": false,
+			"webitems": true,
+		})
+		if err == nil { nItemsTotal = fmt.Sprintf("%v", resp["result"]) }
+	}()
+
+	// 5. Items enabled + disabled (both fast count queries, serial within goroutine)
+	go func() {
+		defer summaryWg.Done()
+		rE, eE := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"countOutput": true,
+			"monitored": true,
+			"templated": false,
+			"webitems": true,
+			"filter": map[string]interface{}{"status": 0, "state": 0},
+		})
+		if eE == nil { nItemsEnabled = fmt.Sprintf("%v", rE["result"]) }
+		rD, eD := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
+			"countOutput": true,
+			"templated": false,
+			"webitems": true,
+			"filter": map[string]interface{}{"status": 1},
+		})
+		if eD == nil { nItemsDisabled = fmt.Sprintf("%v", rD["result"]) }
+	}()
+
+	summaryWg.Wait()
+	if progressCb != nil { progressCb("progress.collecting_hosts") }
+	if nUsersErr != nil { return "", nUsersErr }
+	if hostsErr != nil { return "", hostsErr }
+	if progressCb != nil { progressCb("progress.collecting_templates") }
+	if progressCb != nil { progressCb("progress.collecting_items") }
+
+	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
-	// Flow: item.get with hostid + key_ -> if exists, history.get(last) using item's value_type
-	// nvpsDisplay may contain plain numbers or an HTML span with data-i18n for messages
 	nvps := "N/A"
 	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
 	if requiredHost == "" { requiredHost = "10084" }
 	log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for item.get", requiredHost)
 	if item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", requiredHost); err == nil {
 		if item != nil {
-			// log item details for debugging
 			log.Printf("[DEBUG] Found requiredperformance item: itemid=%v hostid=%v value_type=%v key=%v", item["itemid"], item["hostid"], item["value_type"], item["key_"])
 			itemid := fmt.Sprintf("%v", item["itemid"])
-			// determine history type from value_type (fallback to 0)
 			histType := 0
 			if vt, ok := item["value_type"]; ok {
 				switch v := vt.(type) {
@@ -1045,96 +1039,27 @@ func generateZabbixReport(url, token string) (string, error) {
 			log.Printf("[DEBUG] Using history type %d for itemid %s", histType, itemid)
 			if val, err := getLastHistoryValue(apiUrl, token, itemid, histType); err == nil {
 				if val != "" {
-					// try to format as float with 2 decimals
 					if f, ferr := strconv.ParseFloat(strings.TrimSpace(val), 64); ferr == nil {
 						nvps = fmt.Sprintf("%.2f", f)
 					} else {
 						nvps = val
 					}
 				} else {
-					// no history
 					nvps = "<span data-i18n=\"stats.no_history\"></span>"
 				}
 			} else {
 				log.Printf("[ERROR] history.get failed for itemid %s: %v", itemid, err)
-				// read history error
 				nvps = "<span data-i18n=\"error.read_history\"></span>"
 			}
-			} else {
-				// missing required key
-				nvps = "<span data-i18n=\"error.create_requiredperformance_key\"></span>"
-			}
+		} else {
+			nvps = "<span data-i18n=\"error.create_requiredperformance_key\"></span>"
+		}
 	} else {
 		log.Printf("[ERROR] item.get failed for requiredperformance: %v", err)
-			nvps = "<span data-i18n=\"error.search_item\"></span>"
+		nvps = "<span data-i18n=\"error.search_item\"></span>"
 	}
 
-	//get Hosts
-	if progressCb != nil { progressCb("progress.collecting_hosts") }
 
-    
-	hostsResp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{ "output": "hostid" })
-	if err != nil { return "", err }
-	totalHosts := hostsResp["result"].([]interface{})
-	nTotalHosts := len(totalHosts)
-
-	enabledResp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{ "output": "hostid", "filter": map[string]interface{}{ "status": 0 } })
-	enabledHosts := []interface{}{}
-	if err == nil { enabledHosts = enabledResp["result"].([]interface{}) }
-	nEnabledHosts := len(enabledHosts)
-
-	disabledResp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{ "output": "hostid", "filter": map[string]interface{}{ "status": 1 } })
-	disabledHosts := []interface{}{}
-	if err == nil { disabledHosts = disabledResp["result"].([]interface{}) }
-	nDisabledHosts := len(disabledHosts)
-
-	// get templates
-	if progressCb != nil { progressCb("progress.collecting_templates") }
-	templatesCount := "N/A"
-	templatesCountResp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{
-		"countOutput": true,
-	})
-	if err == nil {
-		templatesCount = fmt.Sprintf("%v", templatesCountResp["result"])
-	}
-
-	// get total de items
-	if progressCb != nil { progressCb("progress.collecting_items") }
-	nItemsTotal := "-"
-	nItemsEnabled := "-"
-	nItemsDisabled := "-"	
-	itemsTotalResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-		"output": "extend",
-		"countOutput": true,
-		"templated": false,
-		"webitems": true,
-	})
-	if err == nil {
-		nItemsTotal = fmt.Sprintf("%v", itemsTotalResp["result"])
-	}
-	// get em itens habilitados 
-	itemsEnabledResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-		"countOutput": true,
-		"monitored": true,
-		"templated": false,
-		"webitems": true,
-		"filter": map[string]interface{}{ "status": 0, "state": 0 },
-	})
-	if err == nil {
-		nItemsEnabled = fmt.Sprintf("%v", itemsEnabledResp["result"])
-	}
-	// get em itens desabilitados
-	itemsDisabledResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-		"countOutput": true,
-		"templated": false,
-		"webitems": true,
-		"filter": map[string]interface{}{ "status": 1 },
-	})
-	if err == nil {
-		nItemsDisabled = fmt.Sprintf("%v", itemsDisabledResp["result"])
-	}
-
-	// get em Items não suportados por host ID
 	if progressCb != nil { progressCb("progress.collecting_unsupported_items") }
 	itemsResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"output": []string{"itemid","name","templateid","error","key_"},
@@ -1144,7 +1069,9 @@ func generateZabbixReport(url, token string) (string, error) {
 		"inherited": true,
 	})
 	items := []interface{}{}
-	if err == nil { items = itemsResp["result"].([]interface{}) }
+	if err == nil {
+		if arr, ok := itemsResp["result"].([]interface{}); ok { items = arr }
+	}
 
 	// Buscar nome do template real de cada item (usar templateid como chave)
 	// Primeiro crio a lista única de templateids, para retornados nos itens não suportados
@@ -1168,7 +1095,7 @@ func generateZabbixReport(url, token string) (string, error) {
 			"selectHosts": []string{"name", "hostid"},
 		})
 		if err == nil {
-			for _, item := range cacheResp["result"].([]interface{}) {
+			for _, item := range func() []interface{} { if r, ok := cacheResp["result"].([]interface{}); ok { return r }; return nil }() {
 				itemMap := item.(map[string]interface{})
 				itemid := fmt.Sprintf("%v", itemMap["itemid"]) 
 				hostsArr, _ := itemMap["hosts"].([]interface{})
@@ -1243,9 +1170,13 @@ func generateZabbixReport(url, token string) (string, error) {
 			"templateids": tplIds,
 		})
 		if err == nil {
-			for _, tpl := range tplResp["result"].([]interface{}) {
-				tplMap := tpl.(map[string]interface{})
-				templateNames[fmt.Sprintf("%v", tplMap["templateid"])] = fmt.Sprintf("%v", tplMap["name"])
+			if arr, ok := tplResp["result"].([]interface{}); ok {
+				for _, tpl := range arr {
+					tplMap, _ := tpl.(map[string]interface{})
+					if tplMap != nil {
+						templateNames[fmt.Sprintf("%v", tplMap["templateid"])] = fmt.Sprintf("%v", tplMap["name"])
+					}
+				}
 			}
 		}
 		// preencha nomes a partir do cache também (fallback/compatibilidade)
@@ -1382,11 +1313,13 @@ func generateZabbixReport(url, token string) (string, error) {
 	html += `<tr><td data-i18n='summary.items_count'></td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItemsNaoSuportados + `</td></tr>`
 	// Proxys
 	if progressCb != nil { progressCb("progress.collecting_proxies") }
-	proxyCount := 0
 	var proxies []map[string]interface{}
-	if pc, perr := getProxyCount(apiUrl, token); perr == nil { proxyCount = pc } else { log.Printf("[ERROR] proxy.get failed: %v", perr) }
-	// fetch full proxy list to render names and types
-	if plist, perr2 := getProxies(apiUrl, token); perr2 == nil && plist != nil { proxies = plist } else if perr2 != nil { log.Printf("[ERROR] proxy.get (list) failed: %v", perr2) }
+	if plist, perr := getProxies(apiUrl, token); perr == nil && plist != nil {
+		proxies = plist
+	} else if perr != nil {
+		log.Printf("[ERROR] proxy.get (list) failed: %v", perr)
+	}
+	proxyCount := len(proxies)
 	html += `<tr><td data-i18n='summary.proxies_count'></td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
 	// Usuários
 	html += `<tr><td data-i18n='summary.users_count'></td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
@@ -1653,61 +1586,25 @@ func generateZabbixReport(url, token string) (string, error) {
 	// render pollRows via closure — chamada após Phase 3 (stats corretos)
 	renderPollRows := func() {
 		for _, pr := range pollRows {
-				nameCell := `<td style='position:relative;padding:0;'>` +
-					`<div style='display:flex;align-items:center;gap:4px;'>` +
-					`<span>` + pr.Friendly + `</span>` +
-					`<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;outline:none;'>` +
-					`<svg viewBox='0 0 16 16' width='14' height='14' style='display:block;'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
-					`<span class='info-tooltip' style='display:none;position:absolute;z-index:10;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:7px 12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);font-size:13px;min-width:360px;max-width:720px;white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word;' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
-					`</span>` +
-					`</div></td>`
-		       // Adiciona JS/CSS para tooltip interrogação (apenas uma vez, mas seguro repetir)
-		       html += `<style>
-		       .info-icon:focus .info-tooltip,
-		       .info-icon:hover .info-tooltip {
-			       display: block;
-		       }
-		       .info-icon {
-			       outline: none;
-		       }
-			\.info-tooltip {
-							transition: opacity 0.15s;
-							white-space: normal;
-							overflow: visible;
-							max-width: 520px;
-							word-break: normal;
-							overflow-wrap: break-word;
-						}
-		       </style>
-		       <script>
-		       function setupInfoTooltips(){
-			 document.querySelectorAll('.info-icon').forEach(function(icon){
-			       if(icon._tooltipBound) return;
-			       icon._tooltipBound = true;
-			       icon.addEventListener('click',function(e){
-				 var tip = this.querySelector('.info-tooltip');
-				 if(tip){ tip.style.display = (tip.style.display==='block') ? 'none' : 'block'; }
-				 e.stopPropagation();
-			       });
-			 });
-		       }
-		       setupInfoTooltips();
-		       document.addEventListener('click',function(){
-			 document.querySelectorAll('.info-tooltip').forEach(function(tip){ tip.style.display='none'; });
-		       });
-		       // Se usar SPA ou renderização dinâmica, chame setupInfoTooltips() após atualizar a tabela
-		       </script>`
-		       if pr.Err {
-				   html += `<tr>` + nameCell + `<td colspan='4' data-i18n='error.fetch_data'></td></tr>`
-			       continue
-		       }
-				       if pr.Disabled {
-					       dm := "<span data-i18n='process.disabled'></span>"
-					       if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
-					       html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + dm + `</td></tr>`
-					       continue
-				       }
-		       html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
+			nameCell := `<td class='proc-name-cell'>` +
+				`<div class='proc-name-wrap'>` +
+				`<span>` + pr.Friendly + `</span>` +
+				`<span class='info-icon' tabindex='0'>` +
+				`<svg class='info-svg-q' viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='2' fill='white'/><text x='8' y='12' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
+				`<span class='info-tooltip' data-i18n='` + htmlpkg.EscapeString(pr.Desc) + `'></span>` +
+				`</span>` +
+				`</div></td>`
+			if pr.Err {
+				html += `<tr>` + nameCell + `<td colspan='4' data-i18n='error.fetch_data'></td></tr>`
+				continue
+			}
+			if pr.Disabled {
+				dm := "<span data-i18n='process.disabled'></span>"
+				if pr.DisabledMsg != "" { dm = pr.DisabledMsg }
+				html += `<tr>` + nameCell + `<td>-</td><td>-</td><td>-</td><td style='background:#cccccc;color:#000;padding:6px;border-radius:4px;text-align:center;'>` + dm + `</td></tr>`
+				continue
+			}
+			html += `<tr>` + nameCell + `<td>` + pr.Smin + `</td><td>` + pr.Savg + `</td><td>` + pr.Smax + `</td><td style='` + pr.StatusStyle + `'>` + pr.StatusText + `</td></tr>`
 		}
 	}
 	// procDesc
@@ -3839,14 +3736,8 @@ func main() {
 				r.Run(":8080")
 			}
 
-			// Wrapper for progress reporting
+// Wrapper for progress reporting
 			func generateZabbixReportWithProgress(url, token string, setProgress func(string)) (string, error) {
-				// install callback for use inside generateZabbixReport
-				progressCb = setProgress
-				// ensure we clear callback when finished
-				defer func(){ progressCb = nil }()
-				// initial message
-				if progressCb != nil { progressCb("progress.detecting_version") }
-				// Call the original report generator which will call progressCb at key points
-				return generateZabbixReport(url, token)
+				if setProgress != nil { setProgress("progress.detecting_version") }
+				return generateZabbixReport(url, token, setProgress)
 			}
