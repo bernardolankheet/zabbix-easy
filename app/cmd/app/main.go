@@ -3073,41 +3073,54 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	if templatesShown > topN { templatesShown = topN }
 
 	html += `<style>
-.rec-kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.kpi{min-width:150px;padding:12px;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.04);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start}
-.kpi .kpi-num{font-weight:700;font-size:20px}
-.kpi .kpi-label{font-size:12px;color:#334155}
-.kpi-warn{border-left:4px solid #ffcc00}
-.kpi-crit{border-left:4px solid #ff6666}
-.kpi-ok{border-left:4px solid #16a34a}
-.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:14px}
-.rec-card{background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.04)}
-.rec-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rec-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:20px}
+.kpi{padding:14px 16px;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;transition:box-shadow .15s;border-left:4px solid transparent}
+.kpi:hover{box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.kpi .kpi-num{font-weight:800;font-size:24px;line-height:1;margin-bottom:2px}
+.kpi .kpi-label{font-size:11px;color:#5a6776;font-weight:500}
+.kpi-warn{border-left-color:#ffcc00}
+.kpi-crit{border-left-color:#ff6666}
+.kpi-ok{border-left-color:#16a34a}
 .status-badge{padding:4px 8px;border-radius:999px;font-weight:600;font-size:12px}
 .status-badge.ok{background:#e6ffef;color:#065f46}
 .status-badge.warn{background:#fff7e6;color:#b26b00}
 .status-badge.crit{background:#fff1f0;color:#b02a2a}
-.rec-toggle{background:#eef2ff;border:0;padding:6px 8px;border-radius:6px;cursor:pointer}
+details.rec-section{border:1px solid rgba(0,0,0,.09);border-radius:10px;margin-bottom:12px;overflow:hidden;background:#fff}
+details.rec-section[open]{border-color:rgba(0,0,0,.18)}
+details.rec-section>summary{padding:13px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none}
+details.rec-section>summary::-webkit-details-marker{display:none}
+details.rec-section>summary:hover{background:rgba(0,0,0,.02)}
+.rec-sec-icon{font-size:17px;flex-shrink:0}
+.rec-sec-text{flex:1;min-width:0}
+.rec-sec-title{font-size:14px;font-weight:600}
+.rec-sec-desc{font-size:12px;color:#64748b;margin-top:1px}
+.rec-sec-arrow{color:#94a3b8;font-size:10px;transition:transform .2s;flex-shrink:0}
+details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
+.rec-sec-body{padding:0 16px 16px}
+.fix-box{background:rgba(25,118,210,.04);border:1px solid rgba(25,118,210,.15);border-radius:8px;padding:12px 14px;margin-top:14px}
+.fix-box-title{font-size:11px;font-weight:700;color:#1565c0;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.fix-box pre{background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.08);border-radius:5px;padding:10px;font-size:11px;overflow-x:auto;font-family:'Courier New',monospace;line-height:1.6;margin:6px 0;color:#1a2332;white-space:pre}
+.fix-box code{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px;font-family:'Courier New',monospace;font-size:11px}
+.fix-box ul{padding-left:16px;margin:4px 0}
+.fix-box li{font-size:12px;color:#475569;margin-bottom:3px}
 </style>`
-	html += `<div class='rec-grid'>` +
-		`<div id='card-server' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.server'></strong><span class='status-badge ` + func() string { if attentionCount>0 { return "warn" } ; return "ok" }() + `'><span data-i18n='badge.processes_threads' data-i18n-args='` + fmt.Sprintf("%d", attentionCount) + `'></span></span></div><div class='rec-card-body'><!-- server content below --></div></div>` +
-		`<div id='card-proxys' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.proxies'></strong><span class='status-badge ` + func() string { if proxyOfflineCount>0 || proxyUnknownCount>0 { return "crit" } ; return "ok" }() + `'>` + fmt.Sprintf("%d/%d", proxyOfflineCount, proxyUnknownCount) + `</span></div><div class='rec-card-body'><!-- proxy content below --></div></div>` +
-		`<div id='card-items' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.items'></strong><span class='status-badge ` + func() string { if unsupportedCount>0 { return "crit" } ; return "ok" }() + `'><span data-i18n='badge.items_unsupported_count' data-i18n-args='` + fmt.Sprintf("%d", unsupportedCount) + `'></span></span></div><div class='rec-card-body'><!-- items content below --></div></div>` +
-		`<div id='card-lld' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.lld'></strong><span class='status-badge ok'><span data-i18n='badge.lld_short_interval' data-i18n-args='` + fmt.Sprintf("%d", lldLe300) + `'></span></span></div><div class='rec-card-body'><!-- lld content below --></div></div>` +
-		`<div id='card-templates' class='rec-card'><div class='rec-card-header'><strong data-i18n='section.templates'></strong><span class='status-badge ok'><span data-i18n='badge.templates_count' data-i18n-args='` + fmt.Sprintf("%d", templatesShown) + `'></span></span></div><div class='rec-card-body'><!-- templates content below --></div></div>` +
-	`</div>`
+
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
 	html += `<div class='rec-kpis'>`
-	html += `<div class='kpi kpi-warn' data-target='#card-server' data-i18n-title='kpi.server_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label' data-i18n='kpi.server_attention'></div></div>`
-	html += `<div class='kpi kpi-crit' data-target='#card-proxys' data-i18n-title='kpi.proxies_offline' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_offline'></div></div>`
-	html += `<div class='kpi' data-target='#card-proxys' data-i18n-title='kpi.proxies_unknown' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_unknown'></div></div>`
+	serverAttnClass := "kpi-ok"; if attentionCount > 0 { serverAttnClass = "kpi-warn" }
+	html += `<div class='kpi ` + serverAttnClass + `' data-target='#card-server' data-i18n-title='kpi.server_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label' data-i18n='kpi.server_attention'></div></div>`
+	proxyOfflineClass := "kpi-ok"; if proxyOfflineCount > 0 { proxyOfflineClass = "kpi-crit" }
+	html += `<div class='kpi ` + proxyOfflineClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_offline' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_offline'></div></div>`
+	proxyUnknownClass := "kpi-ok"; if proxyUnknownCount > 0 { proxyUnknownClass = "kpi-warn" }
+	html += `<div class='kpi ` + proxyUnknownClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_unknown' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_unknown'></div></div>`
 	// KPI: processos dos proxys com AVG alto (≥ 60%)
 	proxyAttnClass := "kpi-ok"
 	if len(proxyProcAttnList) > 0 { proxyAttnClass = "kpi-warn" }
 	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxy_process_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label' data-i18n='kpi.proxy_process_attention'></div></div>`
-	html += `<div class='kpi kpi-crit' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
+	itemsUnsupportedClass := "kpi-ok"; if unsupportedCount > 0 { itemsUnsupportedClass = "kpi-crit" }
+	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
@@ -3119,28 +3132,22 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if snmpPct >= 80.0 { kclass = "kpi-ok" }
 		html += `<div class='kpi ` + kclass + `' data-target='#card-items' data-i18n-title='kpi.snmp_items_label' title=''><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label' data-i18n='kpi.snmp_items_label'></div></div>`
 	}
-	html += `<div class='kpi kpi-warn' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
+	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
+	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	html += `</div>`	
 
 	html += `<script>
 document.querySelectorAll('.rec-kpis .kpi').forEach(k=>k.addEventListener('click',function(){var t=this.getAttribute('data-target');if(!t)return;var el=document.querySelector(t);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}));
 // ensure our info tooltips still work after possible dynamic toggles
 setTimeout(setupInfoTooltips,50);
+// re-fetch i18n to ensure all new keys are loaded, then re-apply
+fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(function(r){return r.json();}).then(function(d){_i18n=d;applyI18n();}).catch(function(){});
 </script>`
 
 	// Recomendações dinâmicas (uses precomputed aggregates above)
 	// secNum auto-increments each time a top-level section is emitted;
 	// subNum resets to 1 at each new section and increments per sub-item.
 	secNum := 0
-	nextSec := func(cardID, title string) string {
-		secNum++
-		// support i18n: keys (e.g. "i18n:section.items") — render a data-i18n span
-		if strings.HasPrefix(title, "i18n:") {
-			key := strings.TrimPrefix(title, "i18n:")
-			return fmt.Sprintf("<h4 id='%s'>%d) <span data-i18n='%s'></span></h4>", cardID, secNum, key)
-		}
-		return fmt.Sprintf("<h4 id='%s'>%d) %s</h4>", cardID, secNum, title)
-	}
 	nextSub := func(sub *int, label string) string {
 		*sub++
 		num := fmt.Sprintf("%d.%d)", secNum, *sub)
@@ -3172,7 +3179,20 @@ setTimeout(setupInfoTooltips,50);
 	// --- Seção: Zabbix Server (só aparece quando há recomendação) ---
 	if len(attention) > 0 || len(missingAsync) > 0 {
 		serverSub := 0
-		html += nextSec("card-server", "i18n:section.server")
+		secNum++
+		serverBadge := "ok"; if len(attention) > 0 { serverBadge = "warn" }
+		serverBadgeIcon := "🟢"; if serverBadge == "warn" { serverBadgeIcon = "🟡" }
+		serverDescParts := []string{}
+		if len(attention) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_attention' data-i18n-args='%d'></span>", len(attention))) }
+		if len(missingAsync) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_async' data-i18n-args='%d'></span>", len(missingAsync))) }
+		html += `<details class='rec-section' open id='card-server'>` +
+			`<summary><span class='rec-sec-icon'>⚙️</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.server'></span></div>` +
+			`<div class='rec-sec-desc'>` + strings.Join(serverDescParts, " · ") + `</div>` +
+			`</div><span class='status-badge ` + serverBadge + `'>` + serverBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
 		if len(attention) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "i18n:sub.server_suggestions"))
 			html += `<p>` + titleWithInfo("strong", "i18n:sub.customize_processes_threads", "i18n:tip.internal_process|"+checkTrendDisplay) + `</p>`
@@ -3194,12 +3214,37 @@ setTimeout(setupInfoTooltips,50);
 			}
 			html += `</ul></div>`
 		}
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>`
+		html += `<p style='margin:0 0 6px;'><span data-i18n='fix.server_intro'></span></p>`
+		html += "<pre># /etc/zabbix/zabbix_server.conf\nStartPollers=60   # increase until avg drops below 60%\n"
+		if majorV >= 7 {
+			html += "# Zabbix 7 — async pollers (recommended)\nStartAgentPollers=100\nStartHTTPAgentPollers=100\nStartSNMPPollers=100\n"
+		}
+		html += "systemctl restart zabbix-server</pre>"
+		html += `</div>` // fix-box
+		html += `</div></details>` // rec-sec-body + accordion
 	}
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
 		proxySub := 0
-		html += nextSec("card-proxys", "i18n:section.proxies")
+		secNum++
+		proxyBadge := "ok"
+		if offline > 0 { proxyBadge = "crit" } else if unknown > 0 || len(proxyProcAttnList) > 0 { proxyBadge = "warn" }
+		proxyBadgeIcon := "🟢"
+		if proxyBadge == "crit" { proxyBadgeIcon = "🔴" } else if proxyBadge == "warn" { proxyBadgeIcon = "🟡" }
+		proxyDescParts := []string{}
+		if offline > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_offline' data-i18n-args='%d'></span>", offline)) }
+		if unknown > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_unknown' data-i18n-args='%d'></span>", unknown)) }
+		if len(proxyProcAttnList) > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_process_attn' data-i18n-args='%d'></span>", len(proxyProcAttnList))) }
+		html += `<details class='rec-section' open id='card-proxys'>` +
+			`<summary><span class='rec-sec-icon'>📡</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.proxies'></span></div>` +
+			`<div class='rec-sec-desc'>` + strings.Join(proxyDescParts, " · ") + `</div>` +
+			`</div><span class='status-badge ` + proxyBadge + `'>` + proxyBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
 			if len(proxyProcAttnList) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.customize_processes_threads"))
 			html += `<p data-i18n='tip.proxy_processes' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
@@ -3271,7 +3316,12 @@ setTimeout(setupInfoTooltips,50);
 			}
 			html += `</ol>`
 		}
-		html += `<div style='height:8px'></div>`
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.proxy_offline_hint'></span>: <code>systemctl status zabbix-proxy</code> · <code>tail -100 /var/log/zabbix/zabbix_proxy.log</code> · <code>nc -zv &lt;server&gt; 10051</code></li>` +
+			`<li><span data-i18n='fix.proxy_processes_hint'></span>: <code>StartPollers</code>, <code>StartHTTPPollers</code>, <code>StartPollersUnreachable</code></li>` +
+			`</ul></div>`
+		html += `</div></details>` // rec-sec-body + accordion
 	}
 
 	// --- Seção: Items (sempre mostrada) ---
@@ -3287,7 +3337,23 @@ setTimeout(setupInfoTooltips,50);
 	itemsHasData := itemsNoTplCount > 0 || unsupportedVal > 0 || disabledCount > 0 || itemsLe60 > 0 || textCount > 0 || (majorV >= 7 && snmpTplCount > 0)
 	if itemsHasData {
 		itemsSub := 0
-		html += nextSec("card-items", "i18n:section.items")
+		secNum++
+		itemsBadge := "ok"
+		if unsupportedVal > 0 { itemsBadge = "crit" } else if itemsLe60 > 0 || textCount > 0 || itemsNoTplCount > 0 { itemsBadge = "warn" }
+		itemsBadgeIcon := "🟢"
+		if itemsBadge == "crit" { itemsBadgeIcon = "🔴" } else if itemsBadge == "warn" { itemsBadgeIcon = "🟡" }
+		itemsDescParts := []string{}
+		if unsupportedVal > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_unsupported' data-i18n-args='%d'></span>", unsupportedVal)) }
+		if itemsLe60 > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_short_interval' data-i18n-args='%d'></span>", itemsLe60)) }
+		if textCount > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_text_history' data-i18n-args='%d'></span>", textCount)) }
+		html += `<details class='rec-section' open id='card-items'>` +
+			`<summary><span class='rec-sec-icon'>📋</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.items'></span></div>` +
+			`<div class='rec-sec-desc'>` + strings.Join(itemsDescParts, " · ") + `</div>` +
+			`</div><span class='status-badge ` + itemsBadge + `'>` + itemsBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if itemsNoTplCount > 0 {
 			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
@@ -3311,12 +3377,32 @@ setTimeout(setupInfoTooltips,50);
 			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_snmp_poller") + `</strong>` + snmpIcon + ` <span data-i18n='items.snmp_poller_paragraph' data-i18n-args='` + fmt.Sprintf("%d", snmpTplCount) + `|` + fmt.Sprintf("%d", snmpGetWalkCount) + `|` + pct(snmpGetWalkCount, totalItemsVal) + `'></span></p>`
 		}
 		html += `</div>`
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.items_unsupported_hint'></span></li>` +
+			`<li><span data-i18n='fix.items_short_interval_hint'></span>: <code>delay ≥ 60s</code></li>` +
+			`<li><span data-i18n='fix.items_text_history_hint'></span>: <code>History = 1–7d</code></li>` +
+			`</ul></div>`
+		html += `</div></details>` // rec-sec-body + accordion
 	}
 
 	// --- Seção: Regras de LLD (só aparece quando há dado) ---
 	if lldLe300 > 0 || lldNotSupCnt > 0 {
 		lldSub := 0
-		html += nextSec("card-lld", "i18n:section.lld")
+		secNum++
+		lldBadge := "warn"
+		lldBadgeIcon := "🟡"
+		lldDescParts := []string{}
+		if lldLe300 > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_short_interval' data-i18n-args='%d'></span>", lldLe300)) }
+		if lldNotSupCnt > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_unsupported' data-i18n-args='%d'></span>", lldNotSupCnt)) }
+		html += `<details class='rec-section' open id='card-lld'>` +
+			`<summary><span class='rec-sec-icon'>🔍</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.lld'></span></div>` +
+			`<div class='rec-sec-desc'>` + strings.Join(lldDescParts, " · ") + `</div>` +
+			`</div><span class='status-badge ` + lldBadge + `'>` + lldBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
 			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldLe300) + `'></span></p>`
@@ -3325,14 +3411,33 @@ setTimeout(setupInfoTooltips,50);
 			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldNotSupCnt) + `'></span></p>`
 		}
 		html += `</div>`
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.lld_unsupported_hint'></span>: <code>zabbix_get -s &lt;host_ip&gt; -p 10050 -k &lt;lld_key&gt;</code></li>` +
+			`<li><span data-i18n='fix.lld_json_format'></span>: <code>{"data":[{...}]}</code></li>` +
+			`<li><span data-i18n='fix.lld_short_interval_hint'></span></li>` +
+			`</ul></div>`
+		html += `</div></details>` // rec-sec-body + accordion
 	}
 
 	// --- Seção: Templates (só aparece quando há dado) ---
 	tplHasData := len(topTemplates) > 0 || len(topErrors) > 0 || (majorV >= 7 && len(snmpMigrationTpls) > 0)
 	if tplHasData {
 		tplSub := 0
-		html += "<div id='card-templates'></div>"
-		html += nextSec("card-templates", "i18n:section.templates")
+		secNum++
+		tplBadgeIcon := "🟡"
+		tplDescParts := []string{}
+		if len(topTemplates) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_review' data-i18n-args='%d'></span>", templatesShown)) }
+		if len(topErrors) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_error_types' data-i18n-args='%d'></span>", func() int { if len(topErrors) > topN { return topN }; return len(topErrors) }())) }
+		if majorV >= 7 && len(snmpMigrationTpls) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_snmp_migrate' data-i18n-args='%d'></span>", len(snmpMigrationTpls))) }
+		html += `<details class='rec-section' open id='card-templates'>` +
+			`<summary><span class='rec-sec-icon'>📑</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.templates'></span></div>` +
+			`<div class='rec-sec-desc'>` + strings.Join(tplDescParts, " · ") + `</div>` +
+			`</div><span class='status-badge warn'>` + tplBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
 		html += `<p data-i18n='tip.templates_more' style='font-size:0.88em;margin:0 0 8px 0;'></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if len(topTemplates) > 0 {
@@ -3375,6 +3480,15 @@ setTimeout(setupInfoTooltips,50);
 			html += `</ul>`
 		}
 		html += `</div>`
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.templates_tab_hint'></span></li>` +
+			`<li><span data-i18n='fix.templates_update_hint'></span></li>`
+		if majorV >= 7 && len(snmpMigrationTpls) > 0 {
+			html += `<li><span data-i18n='fix.templates_snmp_hint'></span>: <code>get[OID]</code> / <code>walk[OID]</code></li>`
+		}
+		html += `</ul></div>`
+		html += `</div></details>` // rec-sec-body + accordion
 	}
 	html += `</div>` // fecha tab-recomendacoes
 
@@ -3689,7 +3803,7 @@ func main() {
 					c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 					return
 				}
-				// wrap fragment into a full document with CSS / JS / gauge init
+				// Aplica ma parte documento completo com CSS / JS / inicialização de gauge
 				cssLink := `<link rel="stylesheet" href="/static/style.css">`
 				jsChart := `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>`
 				extra := `<script src="/static/script.js"></script>`
@@ -3698,7 +3812,7 @@ func main() {
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(full))
 				})
 
-				// delete a single report by id
+				// Deletar um único relatório por id
 				r.DELETE("/api/reportdb/:id", func(c *gin.Context) {
 					if db == nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
@@ -3718,7 +3832,7 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"deleted": id})
 				})
 
-				// delete all reports
+				// Deletar todos os relatórios
 				r.DELETE("/api/reports", func(c *gin.Context) {
 					if db == nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
@@ -3736,8 +3850,11 @@ func main() {
 				r.Run(":8080")
 			}
 
-// Wrapper for progress reporting
+// Wrapper para gerar progresso do relatorio
 			func generateZabbixReportWithProgress(url, token string, setProgress func(string)) (string, error) {
 				if setProgress != nil { setProgress("progress.detecting_version") }
 				return generateZabbixReport(url, token, setProgress)
 			}
+
+
+//Se chegou até aqui, parabens!

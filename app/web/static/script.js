@@ -214,6 +214,7 @@ function renderReport(html, titleHint, createdAt) {
     reportArea.appendChild(container);
     // translate any server-provided data-i18n placeholders inside the inserted report
     try { applyI18n(); } catch(e) {}
+    setTimeout(function(){ try { applyI18n(); } catch(e) {} }, 0);
 
     // hide the input form when report is displayed
     const form = document.getElementById('zabbix-form');
