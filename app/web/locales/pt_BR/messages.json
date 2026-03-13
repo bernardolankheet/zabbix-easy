@@ -325,6 +325,7 @@
   ,"lld.not_supported_paragraph": "Existem %d regras de LLD com status Não Suportado. Necessita validação e correção; impacta diretamente o processo interno LLD Manager."
 
   ,"tip.create_item_or_process_disabled": "Criar item no template ou Processo não habilitado"
+  ,"tip.create_unsupported_key": "Criar chave zabbix[items_unsupported] no Template de Proxy"
   ,"process.disabled": "Processo não habilitado"
   ,"process.not_in_version": "Processo não disponível nesta versão do Zabbix"
   ,"error.hostid_not_found": "Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID."
