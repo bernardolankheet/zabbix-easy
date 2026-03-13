@@ -427,7 +427,9 @@ func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (
 	params := map[string]interface{}{
 		"output":  []string{"itemid", "hostid", "name", "key_", "value_type"},
 		"hostids": hostid,
-		"filter":  map[string]interface{}{"type": 5}, // Zabbix internal items only
+		// include both Internal (5) and Dependent (18) item types so keys like
+		// process.availability_manager.avg.busy and derived items are found
+		"filter":  map[string]interface{}{"type": []int{5, 18}},
 	}
 	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
 	if err != nil { return nil, err }
@@ -445,7 +447,7 @@ func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (
 	result := map[string]map[string]interface{}{}
 	if r, ok := resp["result"]; ok {
 		arr, _ := r.([]interface{})
-		if debugApi { log.Printf("[DEBUG] getProxyProcessItems hostid=%s: %d type=5 items returned", hostid, len(arr)) }
+		if debugApi { log.Printf("[DEBUG] getProxyProcessItems hostid=%s: %d type=5/18 items returned", hostid, len(arr)) }
 		for _, raw := range arr {
 			item, _ := raw.(map[string]interface{})
 			if item == nil { continue }
@@ -3305,9 +3307,9 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			html += `<p style='font-size:0.88em;'><span data-i18n='rec.proxy_no_template_prefix'></span> ` + tplSearchLink + ` <span data-i18n='rec.proxy_no_template_suffix'></span></p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			for _, pt := range proxyNoTemplateList {
-				// Zabbix 7: filter_name (campo display name); Zabbix 6: filter_host (campo technical name)
+				// Zabbix 7: filter_host (campo display name); Zabbix 6: filter_host (campo technical name)
 				// Ambos recebem &filter_set=1 para aplicar o filtro automaticamente
-				hostLinkPath := "/zabbix.php?action=host.list&filter_name=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_dns=&filter_ip=&filter_port=&filter_status=-1&filter_monitored_by=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_set=1"
+				hostLinkPath := "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_dns=&filter_ip=&filter_port=&filter_status=-1&filter_monitored_by=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_set=1"
 				if majorV < 7 {
 					hostLinkPath = "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_set=1"
 				}
@@ -3381,7 +3383,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<ul>` +
 			`<li><span data-i18n='fix.items_unsupported_hint'></span></li>` +
 			`<li><span data-i18n='fix.items_short_interval_hint'></span>: <code>delay ≥ 60s</code></li>` +
-			`<li><span data-i18n='fix.items_text_history_hint'></span>: <code>History = 1–7d</code></li>` +
+			`<li><span data-i18n='fix.items_text_history_hint'></span>: <code>History = Do not store</code></li>` +
 			`</ul></div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
