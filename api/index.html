@@ -506,6 +506,7 @@
   &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
 }
 </code></pre>
+<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
 <h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
 <p>Verifica o progresso da coleta.</p>
 <h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>

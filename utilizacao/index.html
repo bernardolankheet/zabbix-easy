@@ -3394,10 +3394,16 @@
 </table>
 <hr />
 <h2 id="fluxo-geral-de-geracao">Fluxo geral de geração</h2>
-<p>A função principal é <code>generateZabbixReport(url, token string)</code> em <code>cmd/app/main.go</code>.</p>
+<p>A função principal é <code>generateZabbixReport(url, token string, progressCb func(string))</code> em <code>cmd/app/main.go</code>.</p>
+<ul>
+<li><code>url</code> e <code>token</code> devem ser não-vazios — a função retorna erro imediatamente se qualquer um estiver vazio.</li>
+<li><code>url</code> pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code> — ambas são aceitas, o sufixo <code>/api_jsonrpc.php</code> é adicionado apenas quando necessário.</li>
+<li><code>progressCb</code> é passada como parâmetro (não global), tornando chamadas concorrentes completamente isoladas.</li>
+</ul>
 <pre><code>POST /api/start
-  → cria Task em memória → goroutine: generateZabbixReport()
-      → progressCb() atualiza mensagem de progresso
+  → valida url e token (retorna 400 se vazios)
+  → cria Task em memória → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() atualiza mensagem de progresso (parâmetro, não global)
       → retorna HTML fragment
       → salva no PostgreSQL (se DB_HOST configurado)
 
@@ -3460,6 +3466,44 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 - <strong>Hosts Desabilitados</strong> — doughnut com proporção habilitados vs desabilitados
 - <strong>Itens Não Suportados</strong> — doughnut com proporção suportados vs não suportados</p>
 <h3 id="chamadas-a-api-do-zabbix">Chamadas à API do Zabbix</h3>
+<p>As chamadas de resumo são executadas em <strong>paralelas</strong> (via <code>sync.WaitGroup</code>), reduzindo o tempo de coleta inicial significativamente:</p>
+<table>
+<thead>
+<tr>
+<th>Goroutine</th>
+<th>Chamadas executadas</th>
+<th>Dados extraídos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>user.get</code></td>
+<td>Contagem de usuários</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>host.get</code> ×3</td>
+<td>Total, habilitados e desabilitados</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>template.get</code></td>
+<td>Total de templates</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>item.get</code> ×3</td>
+<td>Total, habilitados e desabilitados de itens</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>item.get</code> (não suportados)</td>
+<td>Total de itens não suportados</td>
+</tr>
+</tbody>
+</table>
+<p>Chamadas executadas fora de resumo (sempre seriais, pois outras partes dependem delas):</p>
 <table>
 <thead>
 <tr>
@@ -3476,16 +3520,6 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 </tr>
 <tr>
 <td><code>item.get</code></td>
-<td><code>filter:{state:1,status:0}, monitored:true, countOutput:true</code></td>
-<td>Total de itens não suportados</td>
-</tr>
-<tr>
-<td><code>user.get</code></td>
-<td><code>output:"userid"</code></td>
-<td>Contagem de usuários</td>
-</tr>
-<tr>
-<td><code>item.get</code></td>
 <td><code>filter:{key_:"zabbix[requiredperformance]"}, hostids:&lt;ZABBIX_SERVER_HOSTID&gt;</code></td>
 <td>Localiza o item de NVPS</td>
 </tr>
@@ -3495,49 +3529,9 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <td>Último valor do item NVPS</td>
 </tr>
 <tr>
-<td><code>host.get</code></td>
-<td><code>output:"hostid"</code></td>
-<td>Total de hosts</td>
-</tr>
-<tr>
-<td><code>host.get</code></td>
-<td><code>filter:{status:0}</code></td>
-<td>Hosts habilitados</td>
-</tr>
-<tr>
-<td><code>host.get</code></td>
-<td><code>filter:{status:1}</code></td>
-<td>Hosts desabilitados</td>
-</tr>
-<tr>
-<td><code>template.get</code></td>
-<td><code>countOutput:true</code></td>
-<td>Total de templates</td>
-</tr>
-<tr>
-<td><code>item.get</code></td>
-<td><code>countOutput:true, templated:false, webitems:true</code></td>
-<td>Total de itens</td>
-</tr>
-<tr>
-<td><code>item.get</code></td>
-<td><code>countOutput:true, monitored:true, filter:{status:0,state:0}</code></td>
-<td>Itens habilitados</td>
-</tr>
-<tr>
-<td><code>item.get</code></td>
-<td><code>countOutput:true, filter:{status:1}</code></td>
-<td>Itens desabilitados</td>
-</tr>
-<tr>
-<td><code>proxy.get</code></td>
-<td><code>countOutput:true</code></td>
-<td>Total de proxies</td>
-</tr>
-<tr>
 <td><code>proxy.get</code></td>
 <td><code>output:extend</code></td>
-<td>Lista completa de proxies (usada em outras guias)</td>
+<td>Lista completa de proxies (usada em outras guias); contagem derivada de <code>len(proxies)</code></td>
 </tr>
 </tbody>
 </table>
@@ -3559,12 +3553,8 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <td>Busca o último valor do history para o NVPS</td>
 </tr>
 <tr>
-<td><code>getProxyCount(apiUrl, token)</code></td>
-<td>Retorna <code>countOutput</code> de <code>proxy.get</code></td>
-</tr>
-<tr>
 <td><code>getProxies(apiUrl, token)</code></td>
-<td>Retorna lista completa de proxies</td>
+<td>Retorna lista completa de proxies; a contagem de proxies é derivada de <code>len(proxies)</code></td>
 </tr>
 </tbody>
 </table>
