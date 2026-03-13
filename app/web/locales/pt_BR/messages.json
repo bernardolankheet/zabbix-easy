@@ -160,7 +160,7 @@
   ,"table.details": "Detalhes"
 
   ,"summary.templates_count": "Número de templates"
-  ,"summary.hosts_count": "Número de hosts"
+  ,"summary.hosts_count": "Número de hosts (habilitados/desabilitados)"
   ,"summary.items_count": "Número de items (habilitados/desabilitados/não suportados)"
   ,"summary.proxies_count": "Número de Proxys"
   ,"summary.users_count": "Número de usuários"

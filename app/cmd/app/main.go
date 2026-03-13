@@ -2126,7 +2126,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			itemsMap, iErr := getProxyProcessItems(apiUrl, token, proxyAllProcNames, hostId)
 			if iErr != nil {
 				log.Printf("[ERROR] proxy '%s' item.get failed: %v", pm.Name, iErr)
-				res.noItemsNote = fmt.Sprintf("Erro ao consultar itens (hostid=%s).", hostId)
+				res.noItemsNote = fmt.Sprintf("Erro ao consultar itens (hostid=%s).", htmlpkg.EscapeString(hostId))
 				ppCh <- res
 				return
 			}
@@ -2351,7 +2351,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			}
 			html += `<div style='padding:8px 14px 12px;'>`
 			if res.noItemsNote != "" {
-				html += `<div class='como-corrigir' style='margin:4px 0 8px;'>` + htmlpkg.EscapeString(res.noItemsNote) + `</div>`
+				html += `<div class='como-corrigir' style='margin:4px 0 8px;'>` + res.noItemsNote + `</div>`
 			}
 			if len(res.rows) > 0 {
 				html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
@@ -3307,7 +3307,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			for _, pt := range proxyNoTemplateList {
 				// Zabbix 7: filter_name (campo display name); Zabbix 6: filter_host (campo technical name)
 				// Ambos recebem &filter_set=1 para aplicar o filtro automaticamente
-				hostLinkPath := "/zabbix.php?action=host.list&filter_name=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_set=1"
+				hostLinkPath := "/zabbix.php?action=host.list&filter_name=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_dns=&filter_ip=&filter_port=&filter_status=-1&filter_monitored_by=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_set=1"
 				if majorV < 7 {
 					hostLinkPath = "/zabbix.php?action=host.list&filter_host=" + htmlpkg.EscapeString(pt.ProxyName) + "&filter_set=1"
 				}
