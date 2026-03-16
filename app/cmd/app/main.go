@@ -3216,8 +3216,14 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	proxyAttnClass := "kpi-ok"
 	if len(proxyProcAttnList) > 0 { proxyAttnClass = "kpi-warn" }
 	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxy_process_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label' data-i18n='kpi.proxy_process_attention'></div></div>`
-	itemsUnsupportedClass := "kpi-ok"; if unsupportedCount > 0 { itemsUnsupportedClass = "kpi-crit" }
-	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
+	// KPI Items não suportados... (verde < 4%, amarelo 4–10%, vermelho > 10%)
+	unsupportedPct := 0.0
+	if totalItemsVal > 0 { unsupportedPct = (float64(unsupportedCount) * 100.0) / float64(totalItemsVal) }
+	itemsUnsupportedClass := "kpi-ok"
+	if unsupportedPct > 10.0 { itemsUnsupportedClass = "kpi-crit" } else if unsupportedPct >= 4.0 { itemsUnsupportedClass = "kpi-warn" }
+	unsupportedPctStr := ""
+	if totalItemsVal > 0 { unsupportedPctStr = fmt.Sprintf(" (%.1f%%)", unsupportedPct) }
+	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + unsupportedPctStr + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
@@ -3559,7 +3565,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		}
 		if len(proxyNoTemplateList) > 0 {
 			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_no_template_hint'></span></div>` +
-				`<div style='font-size:0.88em;margin-top:10px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
+				`<div style='font-size:'10';margin-top:6px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
 		}
 		html += `</ul></div>`
 		html += `</div>`
