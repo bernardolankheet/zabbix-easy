@@ -103,7 +103,7 @@
   ,"tabs.summary": "Resumo do Ambiente"
 
   ,"section.pollers": "Pollers (Coletores de Dados)"
-  ,"tip.pollers": "Os pollers (de forma passiva) consultam ativamente os agentes configurados em intervalos definidos para coletar métricas. Ajuste com base nas tendências dos últimos %s; aumente gradualmente se a utilização média e picos indicarem necessidade."
+  ,"tip.pollers": "Os pollers consultam ativamente os agentes configurados em intervalos definidos para coletar métricas. Ajuste com base nas tendências dos últimos %s; aumente gradualmente se a utilização média e picos indicarem necessidade."
 
   ,"section.internal_process": "Processos Internos"
   ,"tip.internal_process": "Os processos internos são responsáveis pelo processamento de informações do servidor e impactam o desempenho dos serviços. Ajuste com base nas tendências dos últimos %s."
@@ -160,7 +160,7 @@
   ,"table.details": "Detalhes"
 
   ,"summary.templates_count": "Número de templates"
-  ,"summary.hosts_count": "Número de hosts"
+  ,"summary.hosts_count": "Número de hosts (habilitados/desabilitados)"
   ,"summary.items_count": "Número de items (habilitados/desabilitados/não suportados)"
   ,"summary.proxies_count": "Número de Proxys"
   ,"summary.users_count": "Número de usuários"
@@ -217,7 +217,7 @@
   ,"procdesc.internal_process": "Processo Interno"
   ,"procdesc.process": "Processo"
 
-  ,"procdesc.agent_poller": "Parâmetro \"StartPollers\": especifica o número de processadores de coleta (pollers) para itens passivos. Aumente este valor para elevar a taxa de processamento de verificações passivas."
+  ,"procdesc.agent_poller": "Parâmetro \"StartAgentPollers\": especifica o número de processadores de coleta (pollers) para itens passivos. Aumente este valor para elevar a taxa de processamento de verificações passivas."
   ,"procdesc.alert_manager": "Parâmetro \"AlertManager\": gerencia a fila de alertas e coordena o encaminhamento para o serviço de envio de notificações. Ajuste quando houver atraso no processamento de alertas."
   ,"procdesc.alert_syncer": "Parâmetro \"AlertSyncer\": responsável por gravar alertas na base de dados; aumente se há acúmulo de gravações."
   ,"procdesc.alerter": "Parâmetro \"Alerter\": processo responsável pelo envio efetivo de notificações (e-mail, SMS, etc.); aumente para melhorar paralelismo no envio."
@@ -278,7 +278,7 @@
   ,"items.disabled_paragraph": "Existem %d items desabilitados, cerca de %s do total. Não consomem processos, mas é necessário avaliar o motivo e o impacto no monitoramento."
   ,"items.interval_le_60_paragraph": "Existem %d items com intervalo de coleta ≤ 60s. Quanto menor o intervalo, maior o consumo de CPU, memória e crescimento do banco de dados. Avalie a real necessidade."
   ,"items.text_with_history_paragraph": "Existem %d items do tipo Texto com retenção de histórico e intervalo ≤ 300s. Items de Texto têm custo elevado em disco; prefira não reter histórico."
-  ,"items.snmp_poller_paragraph": "Existem %d items SNMP em Templates, porém somente %d utilizando SNMP OID com get[] e walk[], cerca de %s do total. Verificar os templates passíveis para migração para SNMP-POLLER."
+  ,"items.snmp_poller_paragraph": "Existem %d items SNMP em Templates SNMP, porém somente %d utilizando SNMP OID com get[] e walk[], cerca de %s do total. Verificar os templates passíveis para migração para SNMP-POLLER."
 
   ,"types.zabbix_agent": "Zabbix Agent"
   ,"types.zabbix_trapper": "Zabbix Trapper"
@@ -332,7 +332,7 @@
   ,"fix.how_to_resolve": "Como resolver"
 
   ,"rec.desc.server_attention": "%d proc(s) média ≥ 60%"
-  ,"rec.desc.server_async": "%d async p/ habilitar"
+  ,"rec.desc.server_async": "%d Async Poller p/ habilitar"
   ,"rec.desc.proxy_offline": "%d offline"
   ,"rec.desc.proxy_unknown": "%d unknown"
   ,"rec.desc.proxy_process_attn": "%d processos média ≥ 60%"
@@ -343,18 +343,27 @@
   ,"rec.desc.lld_unsupported": "%d regras não suportadas"
   ,"rec.desc.templates_review": "%d templates a revisar"
   ,"rec.desc.templates_error_types": "%d tipos de erro"
-  ,"rec.desc.templates_snmp_migrate": "%d SNMP a migrar"
+  ,"rec.desc.templates_snmp_migrate": "%d templates SNMP a migrar"
 
   ,"fix.server_intro": "Edite o zabbix_server.conf, ajuste os valores e reinicie:"
   ,"fix.proxy_offline_hint": "Proxy offline — verifique status, logs e conectividade"
-  ,"fix.proxy_processes_hint": "Processos em atenção: aumente no zabbix_proxy.conf"
+  ,"fix.proxy_processes_hint": "Processos em atenção: aumente nos respectivos proxys os parâmetros no zabbix_proxy.conf"
+  ,"fix.proxy_async_hint": "Pollers assíncronos ausentes: habilite no zabbix_proxy.conf (Zabbix 7+)"
   ,"fix.items_unsupported_hint": "Itens não suportados: verifique a aba Templates para detalhes por template e mensagem de erro"
   ,"fix.items_short_interval_hint": "Intervalo curto: aumente o delay no editor do item/template"
-  ,"fix.items_text_history_hint": "Itens texto com histórico: reduza a retenção de Histórico no editor do template"
+  ,"fix.items_text_history_hint": "Itens texto com histórico: Utilize `Do not store` para não gravar em banco, crie Item Dependentes"
   ,"fix.lld_unsupported_hint": "Teste a chave LLD não suportada"
   ,"fix.lld_json_format": "A resposta deve ser JSON válido"
-  ,"fix.lld_short_interval_hint": "Intervalo curto: aumente o Update interval da regra para no mínimo 300s (5 min)"
+  ,"fix.lld_short_interval_hint": "LLD com Intervalo curto: aumente o Update interval da regra para no mínimo 300s (5 min)"
   ,"fix.templates_tab_hint": "Veja a aba Templates para a lista completa de itens não suportados por template"
   ,"fix.templates_update_hint": "Para cada template, verifique as mensagens de erro e atualize OIDs, credenciais ou chaves de item"
   ,"fix.templates_snmp_hint": "Migração SNMP: atualize os OIDs para o formato get[OID] ou walk[OID] para utilizar o SNMP Poller assíncrono"
+  ,"fix.items_no_template_hint": "Itens sem template: revise e vincule os itens a um template ou remova os não utilizados"
+  ,"fix.items_disabled_hint": "Itens desabilitados: habilite os itens que devem ser monitorados ou remova os que não forem mais necessários"
+  ,"fix.proxy_no_template_hint": "Proxy sem template de Zabbix Proxy Health"
+  ,"fix.proxy_no_template_action": "Vincule o template 'Zabbix Proxy Health' ao host do proxy para monitorar uso de processos e filas"
+  ,"fix.proxy_highlight_process_title": "Ajustar pollers e parâmetros de processo",
+  "fix.proxy_highlight_offline_title": "Verificar proxy: status, logs, conectividade",
+  "fix.proxy_highlight_async_title": "Habilitar pollers assíncronos (Zabbix 7+)",
+  "fix.proxy_increase_hint": "aumente até o avg cair abaixo de 60%"
 }

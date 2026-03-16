@@ -103,7 +103,7 @@
   ,"tabs.summary": "Environment Summary"
 
   ,"section.pollers": "Pollers (Data Collectors)"
-  ,"tip.pollers": "Pollers (passive collectors) actively query agents to collect metrics. Tune based on trends for the last %s; increase gradually if average and peak utilization indicate need."
+  ,"tip.pollers": "Pollers actively query agents to collect metrics. Tune based on trends for the last %s; increase gradually if average and peak utilization indicate need."
 
   ,"section.internal_process": "Internal Processes"
   ,"tip.internal_process": "Internal processes handle server workloads and affect service performance. Tune based on trends for the last %s."
@@ -217,7 +217,7 @@
   ,"procdesc.internal_process": "Internal process"
   ,"procdesc.process": "Process"
 
-  ,"procdesc.agent_poller": "Parameter \"StartPollers\": specifies the number of poller processes for passive items. Increase this value to raise the throughput for passive checks."
+  ,"procdesc.agent_poller": "Parameter \"StartAgentPollers\": specifies the number of poller processes for passive items. Increase this value to raise the throughput for passive checks."
   ,"procdesc.alert_manager": "Parameter \"AlertManager\": manages the alerts queue and coordinates forwarding to notification services. Tune when alert processing is delayed."
   ,"procdesc.alert_syncer": "Parameter \"AlertSyncer\": responsible for writing alerts to the database; increase if alert writes are accumulating."
   ,"procdesc.alerter": "Parameter \"Alerter\": process responsible for sending notifications (email, SMS, etc.); increase for higher sending parallelism."
@@ -278,7 +278,7 @@
   ,"items.disabled_paragraph": "There are %d disabled items, about %s of the total. They do not consume processes but should be reviewed to assess impact on monitoring."
   ,"items.interval_le_60_paragraph": "There are %d items with collection interval ≤ 60s. Shorter intervals increase CPU, memory and DB growth; evaluate necessity."
   ,"items.text_with_history_paragraph": "There are %d text items with history retention and interval ≤ 300s. Text items are costly on disk; prefer not to retain history."
-  ,"items.snmp_poller_paragraph": "There are %d SNMP items in templates, but only %d using get[]/walk[] OIDs, about %s of the total. Review templates for migration to SNMP-POLLER."
+  ,"items.snmp_poller_paragraph": "There are %d SNMP items in Templates SNMP, but only %d using get[]/walk[] OIDs, about %s of the total. Review templates for migration to SNMP-POLLER."
 
   ,"types.zabbix_agent": "Zabbix Agent"
   ,"types.zabbix_trapper": "Zabbix Trapper"
@@ -332,7 +332,7 @@
   ,"fix.how_to_resolve": "How to resolve"
 
   ,"rec.desc.server_attention": "%d proc(s) avg ≥ 60%"
-  ,"rec.desc.server_async": "%d async to enable"
+  ,"rec.desc.server_async": "%d Async Poller to enable"
   ,"rec.desc.proxy_offline": "%d offline"
   ,"rec.desc.proxy_unknown": "%d unknown"
   ,"rec.desc.proxy_process_attn": "%d processes avg ≥ 60%"
@@ -343,18 +343,27 @@
   ,"rec.desc.lld_unsupported": "%d unsupported rules"
   ,"rec.desc.templates_review": "%d templates to review"
   ,"rec.desc.templates_error_types": "%d error types"
-  ,"rec.desc.templates_snmp_migrate": "%d SNMP to migrate"
+  ,"rec.desc.templates_snmp_migrate": "%d templates SNMP to migrate"
 
   ,"fix.server_intro": "Edit zabbix_server.conf, adjust the values and restart:"
   ,"fix.proxy_offline_hint": "Proxy offline — check status, logs and connectivity"
-  ,"fix.proxy_processes_hint": "Processes at attention: increase in zabbix_proxy.conf"
+  ,"fix.proxy_processes_hint": "Processes requiring attention: increase the parameters in the respective proxies in zabbix_proxy.conf."
+  ,"fix.proxy_async_hint": "Missing async pollers: enable in zabbix_proxy.conf (Zabbix 7+)"
   ,"fix.items_unsupported_hint": "Unsupported items: check the Templates tab for breakdown by template and error message"
   ,"fix.items_short_interval_hint": "Short collection interval: increase delay in the item/template editor"
-  ,"fix.items_text_history_hint": "Text items with history: reduce History retention in the template editor"
+  ,"fix.items_text_history_hint": "Text items with history: Used `Do not store` to not store on database, used Dependente Item"
   ,"fix.lld_unsupported_hint": "Test unsupported LLD key"
   ,"fix.lld_json_format": "Response must be valid JSON"
-  ,"fix.lld_short_interval_hint": "Short interval: increase discovery rule Update interval to minimum 300s (5 min)"
+  ,"fix.lld_short_interval_hint": "LLD with Short interval: increase discovery rule Update interval to minimum 300s (5 min)"
   ,"fix.templates_tab_hint": "See the Templates tab for the full list of unsupported items per template"
   ,"fix.templates_update_hint": "For each template, check error messages and update OIDs, credentials or item keys accordingly"
   ,"fix.templates_snmp_hint": "SNMP migration: update OIDs to use get[OID] or walk[OID] format to use the async SNMP Poller"
+  ,"fix.items_no_template_hint": "Items without template: review and link items to a template or remove unused ones"
+  ,"fix.items_disabled_hint": "Disabled items: enable items that should be monitored or remove ones no longer needed"
+  ,"fix.proxy_no_template_hint": "Proxy without Zabbix Proxy Health template"
+  ,"fix.proxy_no_template_action": "Link the 'Zabbix Proxy Health' template to the proxy host to monitor process usage and queues"
+  ,"fix.proxy_highlight_process_title": "Adjust pollers and process parameters",
+  "fix.proxy_highlight_offline_title": "Check proxy status, logs and connectivity",
+  "fix.proxy_highlight_async_title": "Enable asynchronous pollers (Zabbix 7+)",
+  "fix.proxy_increase_hint": "increase until the avg drops below 60%"
 }
