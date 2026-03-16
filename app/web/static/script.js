@@ -439,7 +439,7 @@ function checkProgress(taskId, progress) {
 })();
 
 // Load list of reports from server DB and populate selector
-document.getElementById('btn-load-db').addEventListener('click', function() {
+function loadReportList() {
     fetch('/api/reports')
         .then(res => res.json())
         .then(data => {
@@ -458,7 +458,16 @@ document.getElementById('btn-load-db').addEventListener('click', function() {
                     sel.appendChild(opt);
                 });
             }
-        }).catch(err => { alert(t('error_load_list') + err); });
+        }).catch(function() { /* ignora erro silenciosamente no carregamento automático */ });
+}
+
+document.getElementById('btn-load-db').addEventListener('click', function() {
+    loadReportList();
+});
+
+// Carrega a lista automaticamente ao abrir a página
+document.addEventListener('DOMContentLoaded', function() {
+    loadReportList();
 });
 
 // Load selected report from DB and render inline (same layout + export/print buttons)
