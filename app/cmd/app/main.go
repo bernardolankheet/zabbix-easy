@@ -3559,7 +3559,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		}
 		if len(proxyNoTemplateList) > 0 {
 			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_no_template_hint'></span></div>` +
-				`<div style='font-size:0.88em;margin-top:8px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
+				`<div style='font-size:0.88em;margin-top:10px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
 		}
 		html += `</ul></div>`
 		html += `</div>`
