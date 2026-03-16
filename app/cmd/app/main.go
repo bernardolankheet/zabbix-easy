@@ -81,6 +81,46 @@ func parseCheckTrendEnv() {
 
 }
 
+// parseCountResult interpreta o campo result de uma resposta JSON-RPC do Zabbix
+// para consultas com `countOutput:true`. Suporta `[]interface{}` (retorno antigo),
+// números (float64) e strings que contenham números.
+func parseCountResult(resp map[string]interface{}) (int, error) {
+	if resp == nil {
+		return 0, fmt.Errorf("nil response")
+	}
+	v, ok := resp["result"]
+	if !ok {
+		return 0, fmt.Errorf("no result")
+	}
+	switch t := v.(type) {
+	case []interface{}:
+		return len(t), nil
+	case float64:
+		return int(t), nil
+	case int:
+		return t, nil
+	case int64:
+		return int(t), nil
+	case string:
+		if n, err := strconv.Atoi(t); err == nil {
+			return n, nil
+		}
+		if f, err := strconv.ParseFloat(t, 64); err == nil {
+			return int(f), nil
+		}
+		return 0, fmt.Errorf("cannot parse count string: %v", t)
+	default:
+		s := fmt.Sprintf("%v", t)
+		if n, err := strconv.Atoi(s); err == nil {
+			return n, nil
+		}
+		if f, err := strconv.ParseFloat(s, 64); err == nil {
+			return int(f), nil
+		}
+		return 0, fmt.Errorf("cannot parse count: %v", s)
+	}
+}
+
 // Reusable HTTP client to improve performance (connection reuse)
 var httpClient *http.Client
 var httpTransport *http.Transport
@@ -872,6 +912,11 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	if strings.TrimSpace(token) == "" {
 		return "", fmt.Errorf("zabbix API token is required")
 	}
+
+ 	// Normalize inputs so validation and usage operate on the same values
+ 	url = strings.TrimSpace(url)
+ 	token = strings.TrimSpace(token)
+
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
 	apiUrl := url
 	// compute frontend base URL (ambienteUrl) early so links can be built
@@ -943,10 +988,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// 1. Users
 	go func() {
 		defer summaryWg.Done()
-		resp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{"output": "userid"})
+		resp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{"countOutput": true})
 		nUsersErr = err
 		if err == nil {
-			if arr, ok := resp["result"].([]interface{}); ok { nUsers = len(arr) }
+			if n, perr := parseCountResult(resp); perr == nil {
+				nUsers = n
+			} else {
+				nUsersErr = perr
+			}
 		}
 	}()
 
@@ -954,18 +1003,18 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	//    because they share the hostsErr variable and are fast count-only queries)
 	go func() {
 		defer summaryWg.Done()
-		r1, e1 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid"})
+		r1, e1 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true})
 		hostsErr = e1
 		if e1 == nil {
-			if arr, ok := r1["result"].([]interface{}); ok { nTotalHosts = len(arr) }
+			if n, perr := parseCountResult(r1); perr == nil { nTotalHosts = n } else { hostsErr = perr }
 		}
-		r2, e2 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid", "filter": map[string]interface{}{"status": 0}})
+		r2, e2 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true, "filter": map[string]interface{}{"status": 0}})
 		if e2 == nil {
-			if arr, ok := r2["result"].([]interface{}); ok { nEnabledHosts = len(arr) }
+			if n, perr := parseCountResult(r2); perr == nil { nEnabledHosts = n } else { hostsErr = perr }
 		}
-		r3, e3 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"output": "hostid", "filter": map[string]interface{}{"status": 1}})
+		r3, e3 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true, "filter": map[string]interface{}{"status": 1}})
 		if e3 == nil {
-			if arr, ok := r3["result"].([]interface{}); ok { nDisabledHosts = len(arr) }
+			if n, perr := parseCountResult(r3); perr == nil { nDisabledHosts = n } else { hostsErr = perr }
 		}
 	}()
 
@@ -3338,6 +3387,11 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
+		// When rendering highlighted recommendation blocks we may need a single
+		// surrounding `<div><ul class='rec-highlight-list'>` that contains
+		// multiple `<li class='rec-highlight-item'>` entries (per-proxy and
+		// general fixes). Track whether we've opened it to avoid duplicates.
+		recListOpened := false
 		proxySub := 0
 		secNum++
 		proxyBadge := "ok"
@@ -3430,13 +3484,12 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>`
 		// Per-proxy process fixes when there are attn rows
 		if len(proxyProcAttnList) > 0 {
-			html += `<ul>`
-			// collect suggested params per proxy to group them in a single code box
+			// Pass 1: pre-build all suggested params per proxy (deduped, order preserved)
 			proxyParams := map[string][]string{}
+			proxyOrder := []string{}
+			procParamMap := map[string]string{} // p.ProxyName+"|"+p.ProcFriendly -> param
 			for _, p := range proxyProcAttnList {
 				lname := strings.ToLower(strings.TrimSpace(p.ProcFriendly))
-				tipKey := "procdesc.process"
-				if v, ok := procDesc[lname]; ok { tipKey = v }
 				param := ""
 				if strings.Contains(lname, "http") && strings.Contains(lname, "agent") {
 					param = "StartHTTPAgentPollers"
@@ -3451,39 +3504,51 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				} else if strings.Contains(lname, "poller") {
 					param = "StartPollers"
 				}
-				// show proxy name + process friendly with tooltip and suggested param
+				procParamMap[p.ProxyName+"|"+p.ProcFriendly] = param
+				if _, seen := proxyParams[p.ProxyName]; !seen {
+					proxyOrder = append(proxyOrder, p.ProxyName)
+					proxyParams[p.ProxyName] = []string{}
+				}
+				if param != "" {
+					dup := false
+					for _, ex := range proxyParams[p.ProxyName] { if ex == param { dup = true; break } }
+					if !dup { proxyParams[p.ProxyName] = append(proxyParams[p.ProxyName], param) }
+				}
+			}
+			_ = proxyOrder
+
+			// Pass 2: render <ul> with inline <pre> after the first <li> of each proxy
+			html += `<ul>`
+			emittedCodeBox := map[string]bool{}
+			for _, p := range proxyProcAttnList {
+				lname := strings.ToLower(strings.TrimSpace(p.ProcFriendly))
+				tipKey := "procdesc.process"
+				if v, ok := procDesc[lname]; ok { tipKey = v }
+				param := procParamMap[p.ProxyName+"|"+p.ProcFriendly]
 				html += `<li>` + titleWithInfo("span", p.ProxyName+" — "+p.ProcFriendly, "i18n:"+tipKey)
 				if param != "" {
 					html += ` — <code>` + param + `</code> — <code>/etc/zabbix/zabbix_proxy.conf</code>`
-					// add param to proxy map (dedupe)
-					existing := proxyParams[p.ProxyName]
-					dup := false
-					for _, ex := range existing { if ex == param { dup = true; break } }
-					if !dup { proxyParams[p.ProxyName] = append(proxyParams[p.ProxyName], param) }
 				}
 				html += `</li>`
-			}
-			html += `</ul>`
-
-			// render one code box per proxy with collected params
-			if len(proxyParams) > 0 {
-				proxyNames := make([]string, 0, len(proxyParams))
-				for pn := range proxyParams { proxyNames = append(proxyNames, pn) }
-				sort.Strings(proxyNames)
-				for _, pn := range proxyNames {
-					params := proxyParams[pn]
-					if len(params) == 0 { continue }
-					html += `<div class='rec-highlight-item' style='margin-top:8px;'><div class='rec-title'>` + htmlpkg.EscapeString(pn) + `</div>`
-					html += "<pre># /etc/zabbix/zabbix_proxy.conf\n"
-					for _, pr := range params {
-						html += pr + "=   # <span data-i18n='fix.proxy_increase_hint'></span>\n"
+				// Emit the code box once, right after the first <li> for this proxy
+				if !emittedCodeBox[p.ProxyName] {
+					emittedCodeBox[p.ProxyName] = true
+					if params := proxyParams[p.ProxyName]; len(params) > 0 {
+						html += "<pre># /etc/zabbix/zabbix_proxy.conf\n"
+						for _, pr := range params {
+							html += pr + "=   # <span data-i18n='fix.proxy_increase_hint'></span>\n"
+						}
+						html += "systemctl restart zabbix-proxy</pre>"
 					}
-					html += "systemctl restart zabbix-proxy</pre></div>"
 				}
 			}
+			html += `</ul>`
 		}
 		// Highlighted fixes list (compact yellow blocks)
-		html += `<div style='margin:8px 0;'><ul class='rec-highlight-list'>`
+		if !recListOpened {
+			html += `<div style='margin:8px 0;'><ul class='rec-highlight-list'>`
+			recListOpened = true
+		}
 		if len(proxyMissingAsyncMap) > 0 {
 			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_async_title'></span></div>` +
 				"<pre># /etc/zabbix/zabbix_proxy.conf\n# Zabbix 7 — async pollers (recommended)\nStartAgentPollers= \nStartHTTPPollers= \nStartSNMPPollers= \nsystemctl restart zabbix-proxy</pre></li>"
@@ -3492,12 +3557,11 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_offline_title'></span></div>` +
 				"<pre>systemctl status zabbix-proxy\ntail -100 /var/log/zabbix/zabbix_proxy.log\nnc -zv &lt;server&gt; 10051</pre></li>"
 		}
-		html += `</ul></div>`
-		// Proxy sem template de Zabbix Proxy Health
 		if len(proxyNoTemplateList) > 0 {
-			html += `<p style='margin:0 0 6px;'><span data-i18n='fix.proxy_no_template_hint'></span></p>` +
-				`<ul style='margin:0 0 4px;font-size:0.88em;'><li><span data-i18n='fix.proxy_no_template_action'></span></li></ul>`
+			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_no_template_hint'></span></div>` +
+				`<div style='font-size:0.88em;margin-top:8px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
 		}
+		html += `</ul></div>`
 		html += `</div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
