@@ -992,3 +992,38 @@ label {
     border-radius: 4px;
     text-align: center;
 }
+
+/* Highlighted recommendation list (yellow blocks) */
+.rec-highlight-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.rec-highlight-item {
+    background: #fff9db;
+    border-left: 4px solid #ffd54f;
+    padding: 12px 14px;
+    border-radius: 8px;
+    color: #222;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+.rec-highlight-item .rec-title {
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 8px;
+    display: block;
+}
+.rec-highlight-item pre {
+    background: #fff;
+    border: 1px solid #f3e9bf;
+    padding: 10px;
+    border-radius: 6px;
+    overflow: auto;
+    font-family: monospace;
+    font-size: 0.95em;
+    white-space: pre-wrap;
+    margin: 0;
+}

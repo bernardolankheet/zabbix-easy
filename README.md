@@ -52,3 +52,10 @@ Proximas Funcionalidades:
 - Os dados no atualmente podem ser armazenados apenas em HTML;
 - O sistema é escalável e pronto para ambientes com grande volume de dados.
 ---
+
+## Novidades
+Incluso em Recomendações uma sessão de Como Resolver.
+
+- Facilitando correções rapidas, com blocos de codigos pré-formatados para ajustes comuns, como aumento de pollers, ajustes de itens e templates, etc.
+
+Veja as notas completas em `docs/changes.md`.

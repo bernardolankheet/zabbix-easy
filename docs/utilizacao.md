@@ -297,6 +297,35 @@ A lista de proxies já foi coletada no início (Resumo). Por proxy ativo, são f
 | `item.get` | `search:{key_:["*queue,10m*","*items_unsupported*", ...]}, proxyids:<id>, monitored:true` | `lastvalue` de `zabbix[queue,10m]` e `zabbix[items_unsupported]` |
 | `item.get` | `countOutput:true, templated:false, proxyids:<id>` | Total de itens monitorados pelo proxy |
 
+### Processos do Proxy — chaves e tipos de item
+
+A detecção de processos dos proxies usa uma chamada `item.get` que procura por *internal items* e *dependent items* (tipos `5` e `18`). Isso garante que a ferramenta encontre tanto chaves no formato "dot-style" (ex.: `process.*.avg.busy`) quanto no formato de função Zabbix (`zabbix[process,*,avg,busy]`), já que a busca compara tanto o campo `key_` quanto o `name`.
+
+Pontos importantes:
+
+- O filtro agora inclui `type: [5, 18]` — Internal (5) e Dependent (18). Antes só eram consultados items `type=5` (internal), o que fazia com que chaves dependentes não fossem retornadas pela API.
+- A correspondência usa curingas (wildcards). Por isso usamos padrões como `*availability*manager*` para cobrir ambas as notações.
+- Se o relatório mostrar "Nenhum item de processo encontrado", verifique:
+  - Se o Template (por exemplo `Zabbix Proxy Health` ou `Remote Zabbix Proxy Health`) está vinculado ao host/proxy.
+  - Se o template usa dependent items — no Zabbix, dependent items dependem de um item mestre; confirme que o item mestre existe e está ativo.
+  - Para debug, use a API diretamente para listar itens do host com `filter: {"type": [5,18]}` e `searchWildcardsEnabled:true`, por exemplo:
+
+```json
+{"jsonrpc":"2.0","method":"item.get","params":{
+  "output":"extend",
+  "hostids":"<HOSTID>",
+  "search":{"key_":["*availability*manager*","*poller*","*trapper*"]},
+  "searchByAny":true,
+  "searchWildcardsEnabled":true,
+  "filter":{"type":[5,18]},
+  "monitored":true
+},"auth":"<TOKEN>","id":1}
+```
+
+Isso retorna tanto itens com `key_` estilo dot quanto os itens dependentes que usam `zabbix[...]` no `name`/`key_`.
+
+Essa mudança corrige casos em que chaves como `process.availability_manager.avg.busy` não eram encontradas porque eram retornadas como dependent items.
+
 ### Lógica de versão
 
 #### Tipo do proxy (Active / Passive)
@@ -783,6 +812,12 @@ len(proxyMissingAsyncMap) == 0
 ```
 
 > Os subnúmeros são gerados automaticamente por `nextSub(&proxySub, ...)` — se apenas alguns subitens aparecem, a numeração é sequencial a partir de `2.1)`.
+
+Além desses subitens, o relatório também exibe uma área de recomendações destacadas (blocos amarelos) para ações rápidas relacionadas a proxies. Essa área utiliza as classes CSS `.rec-highlight-list` e `.rec-highlight-item` (em `app/web/static/style.css`) e contém, por exemplo:
+
+- Um bloco por proxy com as linhas `Start...=   # aumente até o avg cair abaixo de 60%` agrupadas e deduplicadas (uma linha por parâmetro `Start*`), seguido de `systemctl restart zabbix-proxy`.
+- Um bloco compacto com ações comuns e diagnósticos: sugestão de habilitar pollers assíncronos (Zabbix ≥ 7) e comandos de verificação (`systemctl status zabbix-proxy`, `tail -100 /var/log/zabbix/zabbix_proxy.log`, `nc -zv <server> 10051`).
+- Os títulos e o comentário de sugestão são localizados via as chaves i18n `fix.proxy_highlight_*` e `fix.proxy_increase_hint`.
 
 #### Subitem "Customizar Processos e Threads"
 
