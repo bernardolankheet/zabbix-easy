@@ -235,6 +235,26 @@
   
   
     <li class="md-nav__item">
+      <a href="../changes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Novidades
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../instalacao/" class="md-nav__link">
         
   
@@ -561,6 +581,15 @@
   <a href="#chamadas-a-api-do-zabbix_2" class="md-nav__link">
     <span class="md-ellipsis">
       Chamadas à API do Zabbix
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processos-do-proxy-chaves-e-tipos-de-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processos do Proxy — chaves e tipos de item
     </span>
   </a>
   
@@ -2082,6 +2111,15 @@
   <a href="#chamadas-a-api-do-zabbix_2" class="md-nav__link">
     <span class="md-ellipsis">
       Chamadas à API do Zabbix
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processos-do-proxy-chaves-e-tipos-de-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processos do Proxy — chaves e tipos de item
     </span>
   </a>
   
@@ -3852,6 +3890,29 @@ if majorV &gt;= 7 {
 </tr>
 </tbody>
 </table>
+<h3 id="processos-do-proxy-chaves-e-tipos-de-item">Processos do Proxy — chaves e tipos de item</h3>
+<p>A detecção de processos dos proxies usa uma chamada <code>item.get</code> que procura por <em>internal items</em> e <em>dependent items</em> (tipos <code>5</code> e <code>18</code>). Isso garante que a ferramenta encontre tanto chaves no formato "dot-style" (ex.: <code>process.*.avg.busy</code>) quanto no formato de função Zabbix (<code>zabbix[process,*,avg,busy]</code>), já que a busca compara tanto o campo <code>key_</code> quanto o <code>name</code>.</p>
+<p>Pontos importantes:</p>
+<ul>
+<li>O filtro agora inclui <code>type: [5, 18]</code> — Internal (5) e Dependent (18). Antes só eram consultados items <code>type=5</code> (internal), o que fazia com que chaves dependentes não fossem retornadas pela API.</li>
+<li>A correspondência usa curingas (wildcards). Por isso usamos padrões como <code>*availability*manager*</code> para cobrir ambas as notações.</li>
+<li>Se o relatório mostrar "Nenhum item de processo encontrado", verifique:</li>
+<li>Se o Template (por exemplo <code>Zabbix Proxy Health</code> ou <code>Remote Zabbix Proxy Health</code>) está vinculado ao host/proxy.</li>
+<li>Se o template usa dependent items — no Zabbix, dependent items dependem de um item mestre; confirme que o item mestre existe e está ativo.</li>
+<li>Para debug, use a API diretamente para listar itens do host com <code>filter: {"type": [5,18]}</code> e <code>searchWildcardsEnabled:true</code>, por exemplo:</li>
+</ul>
+<pre><code class="language-json">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;item.get&quot;,&quot;params&quot;:{
+  &quot;output&quot;:&quot;extend&quot;,
+  &quot;hostids&quot;:&quot;&lt;HOSTID&gt;&quot;,
+  &quot;search&quot;:{&quot;key_&quot;:[&quot;*availability*manager*&quot;,&quot;*poller*&quot;,&quot;*trapper*&quot;]},
+  &quot;searchByAny&quot;:true,
+  &quot;searchWildcardsEnabled&quot;:true,
+  &quot;filter&quot;:{&quot;type&quot;:[5,18]},
+  &quot;monitored&quot;:true
+},&quot;auth&quot;:&quot;&lt;TOKEN&gt;&quot;,&quot;id&quot;:1}
+</code></pre>
+<p>Isso retorna tanto itens com <code>key_</code> estilo dot quanto os itens dependentes que usam <code>zabbix[...]</code> no <code>name</code>/<code>key_</code>.</p>
+<p>Essa mudança corrige casos em que chaves como <code>process.availability_manager.avg.busy</code> não eram encontradas porque eram retornadas como dependent items.</p>
 <h3 id="logica-de-versao_1">Lógica de versão</h3>
 <h4 id="tipo-do-proxy-active-passive">Tipo do proxy (Active / Passive)</h4>
 <table>
@@ -4768,6 +4829,12 @@ len(proxyMissingAsyncMap) == 0
 <blockquote>
 <p>Os subnúmeros são gerados automaticamente por <code>nextSub(&amp;proxySub, ...)</code> — se apenas alguns subitens aparecem, a numeração é sequencial a partir de <code>2.1)</code>.</p>
 </blockquote>
+<p>Além desses subitens, o relatório também exibe uma área de recomendações destacadas (blocos amarelos) para ações rápidas relacionadas a proxies. Essa área utiliza as classes CSS <code>.rec-highlight-list</code> e <code>.rec-highlight-item</code> (em <code>app/web/static/style.css</code>) e contém, por exemplo:</p>
+<ul>
+<li>Um bloco por proxy com as linhas <code>Start...=   # aumente até o avg cair abaixo de 60%</code> agrupadas e deduplicadas (uma linha por parâmetro <code>Start*</code>), seguido de <code>systemctl restart zabbix-proxy</code>.</li>
+<li>Um bloco compacto com ações comuns e diagnósticos: sugestão de habilitar pollers assíncronos (Zabbix ≥ 7) e comandos de verificação (<code>systemctl status zabbix-proxy</code>, <code>tail -100 /var/log/zabbix/zabbix_proxy.log</code>, <code>nc -zv &lt;server&gt; 10051</code>).</li>
+<li>Os títulos e o comentário de sugestão são localizados via as chaves i18n <code>fix.proxy_highlight_*</code> e <code>fix.proxy_increase_hint</code>.</li>
+</ul>
 <h4 id="subitem-customizar-processos-e-threads">Subitem "Customizar Processos e Threads"</h4>
 <ul>
 <li>Exibido apenas quando <code>len(proxyProcAttnList) &gt; 0</code></li>
