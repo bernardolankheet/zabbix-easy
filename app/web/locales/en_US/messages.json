@@ -7,7 +7,6 @@
   "btn_generate": "Generate Report",
   "title_saved_reports": "Saved Reports",
   "tooltip_reload": "Reload list from database",
-  "btn_load_list": "Load list",
   "option_no_report": "-- no report loaded --",
   "title_open_report": "Open selected report",
   "btn_open": "Open",
@@ -210,6 +209,11 @@
   ,"proxy.total_items": "Total Items"
   ,"proxy.items_unsupported": "Items unsupported"
   ,"proxy.queue_10m": "Queue-10m"
+  ,"proxy.compatibility": "Compatibility"
+  ,"compatibility.undefined": "Undefined"
+  ,"compatibility.current": "Current version"
+  ,"compatibility.outdated": "Outdated version"
+  ,"compatibility.unsupported": "Unsupported version"
 
   ,"edit": "Edit"
   ,"tip.templates_more": "For template review and problem items, use the information in the Templates tab."

@@ -7,7 +7,6 @@
   "btn_generate": "Gerar Relatório",
   "title_saved_reports": "Relatórios Salvos",
   "tooltip_reload": "Recarregar lista do banco",
-  "btn_load_list": "Carregar lista",
   "option_no_report": "-- nenhum relatório carregado --",
   "title_open_report": "Abrir relatório selecionado",
   "btn_open": "Abrir",
@@ -210,6 +209,11 @@
   ,"proxy.total_items": "Total de Items"
   ,"proxy.items_unsupported": "Items não suportados"
   ,"proxy.queue_10m": "Queue-10m"
+  ,"proxy.compatibility": "Compatibilidade"
+  ,"compatibility.undefined": "Indefinido"
+  ,"compatibility.current": "Versão Compatível"
+  ,"compatibility.outdated": "Versão antiga"
+  ,"compatibility.unsupported": "Versão não suportada"
 
   ,"edit": "Editar"
   ,"tip.templates_more": "Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates."

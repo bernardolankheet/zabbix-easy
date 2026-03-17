@@ -1880,7 +1880,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	var proxyHostIdMu sync.Mutex
 	if len(proxies) > 0 {
 		html += `<h4 data-i18n='section.proxies'></h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		// Render table header conditionally: show Compatibility column only on Zabbix 7+
+		html += `<div class='table-responsive'><table class='modern-table'>`
+		if majorV >= 7 {
+			html += `<colgroup><col style='width:36%'><col style='width:9%'><col style='width:11%'><col style='width:11%'><col style='width:11%'><col style='width:11%'><col style='width:11%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='proxy.compatibility'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		} else {
+			// Zabbix <7: do not include compatibility column
+			html += `<colgroup><col style='width:46%'><col style='width:9%'><col style='width:13%'><col style='width:13%'><col style='width:19%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		}
 			// parallelize per-proxy item calls to improve throughput
 			type proxyRow struct{ idx int; html string }
 			resultsP := make(chan proxyRow, len(proxies))
@@ -1976,6 +1983,22 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 						}
 					}
 
+					// compatibility — read from proxy record (returned by proxy.get)
+					compatRaw := fmt.Sprintf("%v", p["compatibility"])
+					compCell := "<td style='text-align:center;'>-</td>"
+					switch compatRaw {
+					case "", "<nil>", "0":
+						compCell = "<td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.undefined'></span></td>"
+					case "1":
+						compCell = "<td style='background:#66c28a;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.current'></span></td>"
+					case "2":
+						compCell = "<td style='background:#ffe08a;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.outdated'></span></td>"
+					case "3":
+						compCell = "<td style='background:#ff6666;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.unsupported'></span></td>"
+					default:
+						compCell = fmt.Sprintf("<td style='text-align:center;'>%s</td>", htmlpkg.EscapeString(compatRaw))
+					}
+
 				// Status column: Zabbix 7 returns 'state' (0=Unknown,1=Offline,2=Online).
 				// Zabbix 6 não retorna 'state' — deriva o estado a partir de 'lastaccess'.
 				stateRaw2   := fmt.Sprintf("%v", p["state"])
@@ -2018,7 +2041,12 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 						`<span class='info-tooltip info-tooltip-left' data-i18n='tip.create_unsupported_key'></span></span>`
 				}
 
-				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
+				// Build row HTML; include compatibility column only for Zabbix 7+
+				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td>`
+				if majorV >= 7 {
+					rowHTML += compCell
+				}
+				rowHTML += `<td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
 				resultsP <- proxyRow{idx: i, html: rowHTML}
 			}()
 		}
@@ -3221,9 +3249,8 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	if totalItemsVal > 0 { unsupportedPct = (float64(unsupportedCount) * 100.0) / float64(totalItemsVal) }
 	itemsUnsupportedClass := "kpi-ok"
 	if unsupportedPct > 10.0 { itemsUnsupportedClass = "kpi-crit" } else if unsupportedPct >= 4.0 { itemsUnsupportedClass = "kpi-warn" }
-	unsupportedPctStr := ""
-	if totalItemsVal > 0 { unsupportedPctStr = fmt.Sprintf(" (%.1f%%)", unsupportedPct) }
-	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + unsupportedPctStr + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
+	unsupportedPctStr := fmt.Sprintf("%.1f%%", unsupportedPct)
+	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + unsupportedPctStr + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
