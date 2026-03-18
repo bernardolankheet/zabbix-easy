@@ -36,11 +36,13 @@ Zabbix Easy é uma Interface simples, precisando apenas de um token de API para 
 ✅ Exportação HTML e PDF;
 ✅ Banco de dados Postgres para armazenamento de dados, por enquanto somente html armazenado;
 ✅ Trends dos Pollers Proxys para analise de comportamento e performance do ambiente;
+✅ Checagem de compatibilidade dos proxys com a versão do Zabbix, identificando proxys com versão desatualizada ou incompatível;
 ✅ Banco de Dados para armazenamento de relatórios (no momento só armazena os HTML), permitindo comparação e histórico de análises anteriores;
 ✅ Recomendação de ações corretivas;
     - Processos e Threads do Zabbix Server (recomendação para habilitar conforme a versão do Zabbix, exemplo habilitar snmp poller no Zabbix 7);
     - Sugestões de correções em Items e Templates;
-    -Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
+    - Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
+    - Recomendação de ações corretivas para proxys desatualizados ou incompatíveis;
 
 Proximas Funcionalidades:
 ⬜ Botão de refresh para atualizar o relatório ou consulta específica sem precisar reiniciar a coleta;
