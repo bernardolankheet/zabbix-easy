@@ -1,0 +1,98 @@
+flowchart TD
+  App["zabbix-easy app\n(app/cmd/app/main.go)"]
+
+  subgraph ZabbixAPI["Zabbix API (JSON-RPC)"]
+    HostGet["host.get\nfields: hostid, host, name, status, templates[]"]
+    ProxyGet["proxy.get\nfields: proxyid, host, status, state"]
+    ItemGetProxy["item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status"]
+    ItemGetHost["item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type"]
+    ItemGetCount["item.get (countOutput:true)\nreturns count for KPIs"]
+    TrendGet["trend.get\nitemid, clock, value_min, value_avg, value_max"]
+    HistoryGet["history.get\nitemid, clock, value"]
+    TemplateGet["template.get\ntemplateid, name, hosts"]
+    UserGetCount["user.get (countOutput:true)\nreturns count"]
+    DiscoveryGet["discoveryrule.get\ncount / details"]
+  end
+
+  subgraph Helpers["App helpers (functions)"]
+    getItemByKey["getItemByKey()\nuses item.get"]
+    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
+    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
+    getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
+  end
+
+  subgraph Tabs["UI Tabs / Views"]
+    Summary["Resumo / Summary tab"]
+    Server["Processos / Server tab"]
+    Proxies["Proxys tab"]
+    Items["Items tab"]
+    Templates["Templates tab"]
+    Top["Top tab"]
+    Recs["Recomendações / Recommendations tab"]
+  end
+
+  App --> HostGet
+  App --> ProxyGet
+  App --> ItemGetProxy
+  App --> ItemGetHost
+  App --> ItemGetCount
+  App --> TrendGet
+  App --> HistoryGet
+  App --> TemplateGet
+  App --> UserGetCount
+  App --> DiscoveryGet
+
+  getItemByKey --> ItemGetHost
+  getProcessBulk --> ItemGetHost
+  getProxyProc --> ItemGetHost
+  getTrendsBulk --> TrendGet
+  getHistoryBulk --> HistoryGet
+
+  HostGet --> Summary
+  UserGetCount --> Summary
+  ItemGetCount --> Summary
+  TemplateGet --> Summary
+  ProxyGet --> Summary
+
+  getProcessBulk --> Server
+  getTrendsBulk --> Server
+  getHistoryBulk --> Server
+  ItemGetHost --> Server
+
+  ProxyGet --> Proxies
+  ItemGetProxy --> Proxies
+  ItemGetCount --> Proxies
+  getProxyProc --> Proxies
+  HostGet --> Proxies
+
+  ItemGetHost --> Items
+  TemplateGet --> Items
+  DiscoveryGet --> Items
+  ItemGetCount --> Items
+
+  TemplateGet --> Templates
+  TemplateGet --> Top
+  ItemGetCount --> Top
+
+  getTrendsBulk --> Recs
+  getHistoryBulk --> Recs
+  ItemGetProxy --> Recs
+  ItemGetHost --> Recs
+  TemplateGet --> Recs
+  DiscoveryGet --> Recs
+  ProxyGet --> Recs
+  ItemGetCount --> Recs
+
+  %% Notes / fixes
+  Fix1["Fix hostid resolution for proxies:\n1) item.get by proxyids\n2) capture hostid from process items\n3) item.get by hostid for details"]
+  Fix2["Use countOutput:true for count-only queries\nand parseCountResult helper"]
+  Fix3["UI: one code block per proxy; group Start settings; dynamic server blocks"]
+
+  ItemGetProxy -.-> Fix1
+  UserGetCount -.-> Fix2
+  ItemGetCount -.-> Fix2
+  App -.-> Fix3
+
+  classDef fix fill:#fff4a3,stroke:#e6c800
+  class Fix1,Fix2,Fix3 fix
