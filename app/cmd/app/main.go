@@ -2118,6 +2118,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		HostId   string // hostid discovered from earlier item.get (if available)
 	}
 	var proxyMetaList []proxyMetaP
+	// track proxies with compatibility issues (2=outdated, 3=unsupported)
+	var proxyCompatOutdated []string
+	var proxyCompatUnsupported []string
 	for i, p := range proxies {
 		pid := fmt.Sprintf("%v", p["proxyid"])
 		if pid == "" || pid == "<nil>" { continue }
@@ -2148,6 +2151,13 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			hostFromMap = v
 		}
 		proxyHostIdMu.Unlock()
+		// detect compatibility issues reported in the proxy record
+		compatRaw2 := fmt.Sprintf("%v", p["compatibility"])
+		if compatRaw2 == "2" {
+			proxyCompatOutdated = append(proxyCompatOutdated, nm)
+		} else if compatRaw2 == "3" {
+			proxyCompatUnsupported = append(proxyCompatUnsupported, nm)
+		}
 		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: effState == "2", EffState: effState, HostId: hostFromMap})
 	}
 
@@ -3436,11 +3446,6 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
-		// When rendering highlighted recommendation blocks we may need a single
-		// surrounding `<div><ul class='rec-highlight-list'>` that contains
-		// multiple `<li class='rec-highlight-item'>` entries (per-proxy and
-		// general fixes). Track whether we've opened it to avoid duplicates.
-		recListOpened := false
 		proxySub := 0
 		secNum++
 		proxyBadge := "ok"
@@ -3593,24 +3598,39 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			}
 			html += `</ul>`
 		}
-		// Highlighted fixes list (compact yellow blocks)
-		if !recListOpened {
-			html += `<div style='margin:8px 0;'><ul class='rec-highlight-list'>`
-			recListOpened = true
-		}
+		// Renderizar fix-box para forcar o fixbox styling mesmo quando só há missing async pollers ou proxies offline/unknown (sem processos em atenção)
+		html += `<ul>`
 		if len(proxyMissingAsyncMap) > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_async_title'></span></div>` +
+			html += `<li><span data-i18n='fix.proxy_highlight_async_title'></span>` +
 				"<pre># /etc/zabbix/zabbix_proxy.conf\n# Zabbix 7 — async pollers (recommended)\nStartAgentPollers= \nStartHTTPPollers= \nStartSNMPPollers= \nsystemctl restart zabbix-proxy</pre></li>"
 		}
 		if offline > 0 || unknown > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_offline_title'></span></div>` +
+			html += `<li><span data-i18n='fix.proxy_highlight_offline_title'></span>` +
 				"<pre>systemctl status zabbix-proxy\ntail -100 /var/log/zabbix/zabbix_proxy.log\nnc -zv &lt;server&gt; 10051</pre></li>"
 		}
 		if len(proxyNoTemplateList) > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_no_template_hint'></span></div>` +
-				`<div style='font-size:'10';margin-top:6px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
+			html += `<li><span data-i18n='fix.proxy_no_template_hint'></span>` +
+				`<div style='margin-top:4px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
 		}
-		html += `</ul></div>`
+		// Compatibility recommendation: show if any proxy reports outdated or unsupported compatibility
+		if len(proxyCompatOutdated) > 0 || len(proxyCompatUnsupported) > 0 {
+			docURL := "https://www.zabbix.com/documentation/7.0/en/manual/installation/upgrade"
+			docLink := `<a href='` + htmlpkg.EscapeString(docURL) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(docURL) + `</a>`
+			html += `<li><span data-i18n='fix.proxy_compatibility_title'></span>` +
+				`<div style='margin-top:4px;font-size:0.95em;'><span data-i18n='fix.proxy_compatibility_action'></span> ` + docLink + `</div>`
+			if len(proxyCompatOutdated) > 0 {
+				esc := make([]string, 0, len(proxyCompatOutdated))
+				for _, n := range proxyCompatOutdated { esc = append(esc, htmlpkg.EscapeString(n)) }
+				html += `<div style='margin-top:4px;font-size:0.88em;'>Outdated: ` + strings.Join(esc, ", ") + `</div>`
+			}
+			if len(proxyCompatUnsupported) > 0 {
+				esc2 := make([]string, 0, len(proxyCompatUnsupported))
+				for _, n := range proxyCompatUnsupported { esc2 = append(esc2, htmlpkg.EscapeString(n)) }
+				html += `<div style='margin-top:4px;font-size:0.88em;'>Unsupported: ` + strings.Join(esc2, ", ") + `</div>`
+			}
+			html += `</li>`
+		}
+		html += `</ul>`
 		html += `</div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
