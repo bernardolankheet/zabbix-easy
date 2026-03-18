@@ -461,9 +461,7 @@ function loadReportList() {
         }).catch(function() { /* ignora erro silenciosamente no carregamento automático */ });
 }
 
-document.getElementById('btn-load-db').addEventListener('click', function() {
-    loadReportList();
-});
+
 
 // Carrega a lista automaticamente ao abrir a página
 document.addEventListener('DOMContentLoaded', function() {

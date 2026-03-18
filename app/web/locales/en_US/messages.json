@@ -7,7 +7,6 @@
   "btn_generate": "Generate Report",
   "title_saved_reports": "Saved Reports",
   "tooltip_reload": "Reload list from database",
-  "btn_load_list": "Load list",
   "option_no_report": "-- no report loaded --",
   "title_open_report": "Open selected report",
   "btn_open": "Open",
@@ -210,6 +209,11 @@
   ,"proxy.total_items": "Total Items"
   ,"proxy.items_unsupported": "Items unsupported"
   ,"proxy.queue_10m": "Queue-10m"
+  ,"proxy.compatibility": "Compatibility"
+  ,"compatibility.undefined": "Undefined"
+  ,"compatibility.current": "Current version"
+  ,"compatibility.outdated": "Outdated version"
+  ,"compatibility.unsupported": "Unsupported version"
 
   ,"edit": "Edit"
   ,"tip.templates_more": "For template review and problem items, use the information in the Templates tab."
@@ -362,8 +366,10 @@
   ,"fix.items_disabled_hint": "Disabled items: enable items that should be monitored or remove ones no longer needed"
   ,"fix.proxy_no_template_hint": "Proxy without Zabbix Proxy Health template"
   ,"fix.proxy_no_template_action": "Link the 'Zabbix Proxy Health' template to the proxy host to monitor process usage and queues"
-  ,"fix.proxy_highlight_process_title": "Adjust pollers and process parameters",
-  "fix.proxy_highlight_offline_title": "Check proxy status, logs and connectivity",
-  "fix.proxy_highlight_async_title": "Enable asynchronous pollers (Zabbix 7+)",
-  "fix.proxy_increase_hint": "increase until the avg drops below 60%"
+  ,"fix.proxy_highlight_process_title": "Adjust pollers and process parameters"
+  ,"fix.proxy_highlight_offline_title": "Check proxy status, logs and connectivity"
+  ,"fix.proxy_highlight_async_title": "Enable asynchronous pollers (Zabbix 7+)"
+  ,"fix.proxy_compatibility_title": "Proxy Compatibility — Outdated/Unsupported Versions"
+  ,"fix.proxy_compatibility_action": "Upgrade the Zabbix Proxy to a version compatible with the Zabbix Server"
+  ,"fix.proxy_increase_hint": "increase until the avg drops below 60%"
 }

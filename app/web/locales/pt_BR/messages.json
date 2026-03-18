@@ -7,7 +7,6 @@
   "btn_generate": "Gerar Relatório",
   "title_saved_reports": "Relatórios Salvos",
   "tooltip_reload": "Recarregar lista do banco",
-  "btn_load_list": "Carregar lista",
   "option_no_report": "-- nenhum relatório carregado --",
   "title_open_report": "Abrir relatório selecionado",
   "btn_open": "Abrir",
@@ -210,6 +209,11 @@
   ,"proxy.total_items": "Total de Items"
   ,"proxy.items_unsupported": "Items não suportados"
   ,"proxy.queue_10m": "Queue-10m"
+  ,"proxy.compatibility": "Compatibilidade"
+  ,"compatibility.undefined": "Indefinido"
+  ,"compatibility.current": "Versão Compatível"
+  ,"compatibility.outdated": "Versão antiga"
+  ,"compatibility.unsupported": "Versão não suportada"
 
   ,"edit": "Editar"
   ,"tip.templates_more": "Para revisão dos templates e itens problemáticos, utilize as informações contidas na guia Templates."
@@ -362,8 +366,10 @@
   ,"fix.items_disabled_hint": "Itens desabilitados: habilite os itens que devem ser monitorados ou remova os que não forem mais necessários"
   ,"fix.proxy_no_template_hint": "Proxy sem template de Zabbix Proxy Health"
   ,"fix.proxy_no_template_action": "Vincule o template 'Zabbix Proxy Health' ao host do proxy para monitorar uso de processos e filas"
-  ,"fix.proxy_highlight_process_title": "Ajustar pollers e parâmetros de processo",
-  "fix.proxy_highlight_offline_title": "Verificar proxy: status, logs, conectividade",
-  "fix.proxy_highlight_async_title": "Habilitar pollers assíncronos (Zabbix 7+)",
-  "fix.proxy_increase_hint": "aumente até o avg cair abaixo de 60%"
+  ,"fix.proxy_highlight_process_title": "Ajustar pollers e parâmetros de processo"
+  ,"fix.proxy_highlight_offline_title": "Verificar proxy: status, logs e conectividade"
+  ,"fix.proxy_highlight_async_title": "Habilitar pollers assíncronos (Zabbix 7+)"
+  ,"fix.proxy_compatibility_title": "Compatibilidade do Proxy — Versões desatualizadas/não suportadas"
+  ,"fix.proxy_compatibility_action": "Atualize o Zabbix Proxy para uma versão compatível com o Zabbix Server"
+  ,"fix.proxy_increase_hint": "aumente até o avg cair abaixo de 60%"
 }

@@ -1880,7 +1880,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	var proxyHostIdMu sync.Mutex
 	if len(proxies) > 0 {
 		html += `<h4 data-i18n='section.proxies'></h4>`
-		html += `<div class='table-responsive'><table class='modern-table'><colgroup><col style='width:38%'><col style='width:10%'><col style='width:12%'><col style='width:12%'><col style='width:14%'><col style='width:14%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		// Render table header conditionally: show Compatibility column only on Zabbix 7+
+		html += `<div class='table-responsive'><table class='modern-table'>`
+		if majorV >= 7 {
+			html += `<colgroup><col style='width:36%'><col style='width:9%'><col style='width:11%'><col style='width:11%'><col style='width:11%'><col style='width:11%'><col style='width:11%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='proxy.compatibility'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		} else {
+			// Zabbix <7: do not include compatibility column
+			html += `<colgroup><col style='width:46%'><col style='width:9%'><col style='width:13%'><col style='width:13%'><col style='width:19%'></colgroup><thead><tr><th data-i18n='proxy.name'></th><th data-i18n='proxy.type'></th><th data-i18n='proxy.total_items'></th><th data-i18n='proxy.items_unsupported'></th><th data-i18n='proxy.queue_10m'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
+		}
 			// parallelize per-proxy item calls to improve throughput
 			type proxyRow struct{ idx int; html string }
 			resultsP := make(chan proxyRow, len(proxies))
@@ -1976,6 +1983,22 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 						}
 					}
 
+					// compatibility — read from proxy record (returned by proxy.get)
+					compatRaw := fmt.Sprintf("%v", p["compatibility"])
+					compCell := "<td style='text-align:center;'>-</td>"
+					switch compatRaw {
+					case "", "<nil>", "0":
+						compCell = "<td style='background:#cccccc;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.undefined'></span></td>"
+					case "1":
+						compCell = "<td style='background:#66c28a;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.current'></span></td>"
+					case "2":
+						compCell = "<td style='background:#ffe08a;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.outdated'></span></td>"
+					case "3":
+						compCell = "<td style='background:#ff6666;color:#000;padding:4px 6px;border-radius:4px;text-align:center;'><span data-i18n='compatibility.unsupported'></span></td>"
+					default:
+						compCell = fmt.Sprintf("<td style='text-align:center;'>%s</td>", htmlpkg.EscapeString(compatRaw))
+					}
+
 				// Status column: Zabbix 7 returns 'state' (0=Unknown,1=Offline,2=Online).
 				// Zabbix 6 não retorna 'state' — deriva o estado a partir de 'lastaccess'.
 				stateRaw2   := fmt.Sprintf("%v", p["state"])
@@ -2018,7 +2041,12 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 						`<span class='info-tooltip info-tooltip-left' data-i18n='tip.create_unsupported_key'></span></span>`
 				}
 
-				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td><td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
+				// Build row HTML; include compatibility column only for Zabbix 7+
+				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td>`
+				if majorV >= 7 {
+					rowHTML += compCell
+				}
+				rowHTML += `<td style='` + statusStyle + `'>` + statusLabel + `</td></tr>`
 				resultsP <- proxyRow{idx: i, html: rowHTML}
 			}()
 		}
@@ -2090,6 +2118,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		HostId   string // hostid discovered from earlier item.get (if available)
 	}
 	var proxyMetaList []proxyMetaP
+	// track proxies with compatibility issues (2=outdated, 3=unsupported)
+	var proxyCompatOutdated []string
+	var proxyCompatUnsupported []string
 	for i, p := range proxies {
 		pid := fmt.Sprintf("%v", p["proxyid"])
 		if pid == "" || pid == "<nil>" { continue }
@@ -2120,6 +2151,13 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			hostFromMap = v
 		}
 		proxyHostIdMu.Unlock()
+		// detect compatibility issues reported in the proxy record
+		compatRaw2 := fmt.Sprintf("%v", p["compatibility"])
+		if compatRaw2 == "2" {
+			proxyCompatOutdated = append(proxyCompatOutdated, nm)
+		} else if compatRaw2 == "3" {
+			proxyCompatUnsupported = append(proxyCompatUnsupported, nm)
+		}
 		proxyMetaList = append(proxyMetaList, proxyMetaP{Idx: i, ProxyId: pid, Name: nm, Online: effState == "2", EffState: effState, HostId: hostFromMap})
 	}
 
@@ -2505,7 +2543,23 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	itemsNoTplLink := ambienteUrl + "/" + itemsNoTplPath
 
-	unsupportedLink := ambienteUrl + "/" + itemsPath
+	// Link used to open the full listing for unsupported items (reused)
+	var unsupportedPath string
+	if majorV >= 7 {
+		unsupportedPath = "zabbix.php?action=item.list&context=host&filter_evaltype=0&filter_name=&filter_type=-1&filter_key=&filter_snmp_oid=&filter_value_type=-1&filter_delay=&filter_history=&filter_trends=&filter_status=-1&filter_state=1&filter_inherited=-1&filter_discovered=-1&filter_with_triggers=-1&filter_profile=web.hosts.items.list.filter&filter_tab=1&sort=name&sortorder=ASC"
+	} else {
+		unsupportedPath = "items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
+	}
+	unsupportedLink := ambienteUrl + "/" + unsupportedPath
+
+	// Dedicated link for the "Items disabled" quick link (unique for that line)
+	var itemsDisabledPath string
+	if majorV >= 7 {
+		itemsDisabledPath = "zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_status=1&filter_state=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
+	} else {
+		itemsDisabledPath = "items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_status=1&filter_state=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
+	}
+	itemsDisabledLink := ambienteUrl + "/" + itemsDisabledPath
 	html += titleWithInfo("h3", "i18n:section.items_no_template", "i18n:tip.items_no_template")
 	if itemsNoTplCount > 0 {
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
@@ -3221,9 +3275,8 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	if totalItemsVal > 0 { unsupportedPct = (float64(unsupportedCount) * 100.0) / float64(totalItemsVal) }
 	itemsUnsupportedClass := "kpi-ok"
 	if unsupportedPct > 10.0 { itemsUnsupportedClass = "kpi-crit" } else if unsupportedPct >= 4.0 { itemsUnsupportedClass = "kpi-warn" }
-	unsupportedPctStr := ""
-	if totalItemsVal > 0 { unsupportedPctStr = fmt.Sprintf(" (%.1f%%)", unsupportedPct) }
-	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", unsupportedCount) + unsupportedPctStr + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
+	unsupportedPctStr := fmt.Sprintf("%.1f%%", unsupportedPct)
+	html += `<div class='kpi ` + itemsUnsupportedClass + `' data-target='#card-items' data-i18n-title='kpi.items_unsupported' title=''><div class='kpi-num'>` + unsupportedPctStr + `</div><div class='kpi-label' data-i18n='kpi.items_unsupported'></div></div>`
 	// show SNMP KPIs only for Zabbix 7 (we computed counts earlier)
 	if majorV >= 7 {
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
@@ -3393,11 +3446,6 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 
 	// --- Seção: Zabbix Proxys (Unknown, Offline ou processos em Atenção ou sem template) ---
 	if unknown > 0 || offline > 0 || len(proxyProcAttnList) > 0 || len(proxyNoTemplateList) > 0 || len(proxyMissingAsyncMap) > 0 {
-		// When rendering highlighted recommendation blocks we may need a single
-		// surrounding `<div><ul class='rec-highlight-list'>` that contains
-		// multiple `<li class='rec-highlight-item'>` entries (per-proxy and
-		// general fixes). Track whether we've opened it to avoid duplicates.
-		recListOpened := false
 		proxySub := 0
 		secNum++
 		proxyBadge := "ok"
@@ -3550,24 +3598,39 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			}
 			html += `</ul>`
 		}
-		// Highlighted fixes list (compact yellow blocks)
-		if !recListOpened {
-			html += `<div style='margin:8px 0;'><ul class='rec-highlight-list'>`
-			recListOpened = true
-		}
+		// Renderizar fix-box para forcar o fixbox styling mesmo quando só há missing async pollers ou proxies offline/unknown (sem processos em atenção)
+		html += `<ul>`
 		if len(proxyMissingAsyncMap) > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_async_title'></span></div>` +
+			html += `<li><span data-i18n='fix.proxy_highlight_async_title'></span>` +
 				"<pre># /etc/zabbix/zabbix_proxy.conf\n# Zabbix 7 — async pollers (recommended)\nStartAgentPollers= \nStartHTTPPollers= \nStartSNMPPollers= \nsystemctl restart zabbix-proxy</pre></li>"
 		}
 		if offline > 0 || unknown > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_highlight_offline_title'></span></div>` +
+			html += `<li><span data-i18n='fix.proxy_highlight_offline_title'></span>` +
 				"<pre>systemctl status zabbix-proxy\ntail -100 /var/log/zabbix/zabbix_proxy.log\nnc -zv &lt;server&gt; 10051</pre></li>"
 		}
 		if len(proxyNoTemplateList) > 0 {
-			html += `<li class='rec-highlight-item'><div class='rec-title'><span data-i18n='fix.proxy_no_template_hint'></span></div>` +
-				`<div style='font-size:'10';margin-top:6px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
+			html += `<li><span data-i18n='fix.proxy_no_template_hint'></span>` +
+				`<div style='margin-top:4px;'><span data-i18n='fix.proxy_no_template_action'></span></div></li>`
 		}
-		html += `</ul></div>`
+		// Compatibility recommendation: show if any proxy reports outdated or unsupported compatibility
+		if len(proxyCompatOutdated) > 0 || len(proxyCompatUnsupported) > 0 {
+			docURL := "https://www.zabbix.com/documentation/7.0/en/manual/installation/upgrade"
+			docLink := `<a href='` + htmlpkg.EscapeString(docURL) + `' target='_blank' rel='noopener'>` + htmlpkg.EscapeString(docURL) + `</a>`
+			html += `<li><span data-i18n='fix.proxy_compatibility_title'></span>` +
+				`<div style='margin-top:4px;font-size:0.95em;'><span data-i18n='fix.proxy_compatibility_action'></span> ` + docLink + `</div>`
+			if len(proxyCompatOutdated) > 0 {
+				esc := make([]string, 0, len(proxyCompatOutdated))
+				for _, n := range proxyCompatOutdated { esc = append(esc, htmlpkg.EscapeString(n)) }
+				html += `<div style='margin-top:4px;font-size:0.88em;'>Outdated: ` + strings.Join(esc, ", ") + `</div>`
+			}
+			if len(proxyCompatUnsupported) > 0 {
+				esc2 := make([]string, 0, len(proxyCompatUnsupported))
+				for _, n := range proxyCompatUnsupported { esc2 = append(esc2, htmlpkg.EscapeString(n)) }
+				html += `<div style='margin-top:4px;font-size:0.88em;'>Unsupported: ` + strings.Join(esc2, ", ") + `</div>`
+			}
+			html += `</li>`
+		}
+		html += `</ul>`
 		html += `</div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
@@ -3607,10 +3670,10 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if unsupportedVal > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_unsupported") + `</strong> <span data-i18n='items.unsupported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", unsupportedVal) + `|` + pct(unsupportedVal, totalItemsVal) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_unsupported") + `</strong> <span data-i18n='items.unsupported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", unsupportedVal) + `|` + pct(unsupportedVal, totalItemsVal) + `'></span> <a href='` + unsupportedLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if disabledCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + fmt.Sprintf("%d", disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
+			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + fmt.Sprintf("%d", disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsDisabledLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if itemsLe60 > 0 {
 			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsLe60) + `'></span></p>`
