@@ -958,6 +958,79 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			if v, err := strconv.Atoi(parts[0]); err == nil { majorV = v }
 		}
 	}
+
+	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
+	formatInt := func(n int) string {
+		neg := n < 0
+		if neg { n = -n }
+		s := strconv.Itoa(n)
+		l := len(s)
+		rem := l % 3
+		var b strings.Builder
+		i := 0
+		if rem > 0 {
+			b.WriteString(s[:rem])
+			i = rem
+		}
+		for i < l {
+			if b.Len() > 0 { b.WriteByte('.') }
+			b.WriteString(s[i : i+3])
+			i += 3
+		}
+		if neg { return "-" + b.String() }
+		return b.String()
+	}
+
+	// Helper: recebe uma string possivelmente vinda da API e formata inteiros
+	// com separador de milhares, preserva fragments HTML e não altera percentuais.
+	formatMaybeNumber := func(s string) string {
+		s = strings.TrimSpace(s)
+		if s == "" || s == "-" { return "-" }
+		if strings.Contains(s, "<") { return s }
+		if strings.HasSuffix(s, "%") { return htmlpkg.EscapeString(s) }
+		if v, err := strconv.Atoi(s); err == nil { return formatInt(v) }
+		return htmlpkg.EscapeString(s)
+	}
+
+	// Helper: mapeia o nome de um processo Zabbix para o parâmetro de configuração
+	// correspondente (StartODBCPollers, StartPollers, etc.).
+	// Válido tanto para server quanto para proxy
+	procToParam := func(procName string) string {
+		lname := strings.ToLower(strings.TrimSpace(procName))
+		switch {
+		case strings.Contains(lname, "http") && strings.Contains(lname, "agent"):
+			return "StartHTTPAgentPollers"
+		case strings.Contains(lname, "http"):
+			return "StartHTTPPollers"
+		case strings.Contains(lname, "snmp") && strings.Contains(lname, "trapper"):
+			return "StartSNMPTrapper"
+		case strings.Contains(lname, "snmp"):
+			return "StartSNMPPollers"
+		case strings.Contains(lname, "unreachable"):
+			return "StartPollersUnreachable"
+		case strings.Contains(lname, "odbc"):
+			return "StartODBCPollers"
+		case strings.Contains(lname, "java"):
+			return "StartJavaPollers"
+		case strings.Contains(lname, "ipmi"):
+			return "StartIPMIPollers"
+		case strings.Contains(lname, "icmp"), strings.Contains(lname, "pinger"):
+			return "StartPingers"
+		case strings.Contains(lname, "browser"):
+			return "StartBrowserPollers"
+		case strings.Contains(lname, "agent"):
+			return "StartAgentPollers"
+		case strings.Contains(lname, "vmware"):
+			return "StartVMwareCollectors"
+		case strings.Contains(lname, "trapper"):
+			return "StartTrappers"
+		case strings.Contains(lname, "poller"):
+			return "StartPollers"
+		default:
+			return ""
+		}
+	}
+
 	// get em Consulta quantidade de itens não suportados
 	itensNaoSuportadosResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
 		"filter": map[string]interface{}{ "state": 1, "status": 0 },
@@ -1354,11 +1427,11 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<h2 class='tab-print-title' data-i18n='tabs.summary'></h2>`
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.param'></th><th data-i18n='table.value'></th><th data-i18n='table.details'></th></tr></thead><tbody>`
 	// Hosts
-	html += `<tr><td data-i18n='summary.hosts_count'></td><td>` + fmt.Sprintf("%d", nTotalHosts) + `</td><td>` + fmt.Sprintf("%d / %d", nEnabledHosts, nDisabledHosts) + `</td></tr>`
+	html += `<tr><td data-i18n='summary.hosts_count'></td><td>` + formatInt(nTotalHosts) + `</td><td>` + formatInt(nEnabledHosts) + ` / ` + formatInt(nDisabledHosts) + `</td></tr>`
 	// Templates
 	html += `<tr><td data-i18n='summary.templates_count'></td><td>` + templatesCount + `</td><td></td></tr>`
 	// Items
-	html += `<tr><td data-i18n='summary.items_count'></td><td>` + nItemsTotal + `</td><td>` + nItemsEnabled + ` / ` + nItemsDisabled + ` / ` + nItemsNaoSuportados + `</td></tr>`
+	html += `<tr><td data-i18n='summary.items_count'></td><td>` + formatMaybeNumber(nItemsTotal) + `</td><td>` + formatMaybeNumber(nItemsEnabled) + ` / ` + formatMaybeNumber(nItemsDisabled) + ` / ` + formatMaybeNumber(nItemsNaoSuportados) + `</td></tr>`
 	// Proxys
 	if progressCb != nil { progressCb("progress.collecting_proxies") }
 	var proxies []map[string]interface{}
@@ -1368,9 +1441,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		log.Printf("[ERROR] proxy.get (list) failed: %v", perr)
 	}
 	proxyCount := len(proxies)
-	html += `<tr><td data-i18n='summary.proxies_count'></td><td>` + fmt.Sprintf("%d", proxyCount) + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.proxies_count'></td><td>` + formatInt(proxyCount) + `</td><td></td></tr>`
 	// Usuários
-	html += `<tr><td data-i18n='summary.users_count'></td><td>` + fmt.Sprintf("%d", nUsers) + `</td><td></td></tr>`
+	html += `<tr><td data-i18n='summary.users_count'></td><td>` + formatInt(nUsers) + `</td><td></td></tr>`
 	// NVPS
 	html += `<tr><td data-i18n='summary.required_performance'></td><td>` + nvps + `</td><td></td></tr>`
 	html += `</tbody></table></div>`
@@ -1451,8 +1524,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	hostDisabledPct := 0.0
 	if nTotalHosts > 0 { hostDisabledPct = (float64(nDisabledHosts) * 100.0) / float64(nTotalHosts) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
-	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_hosts'></strong>&nbsp;` + fmt.Sprintf("%d", nTotalHosts) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong data-i18n='gauge.disabled'></strong>&nbsp;` + fmt.Sprintf("%d", nDisabledHosts) + ` (` + fmt.Sprintf("%.2f", hostDisabledPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_hosts'></strong>&nbsp;` + formatInt(nTotalHosts) + `</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ffcc66;border-radius:3px;'></span><strong data-i18n='gauge.disabled'></strong>&nbsp;` + formatInt(nDisabledHosts) + ` (` + fmt.Sprintf("%.2f", hostDisabledPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	// Items gauge (right)
@@ -1463,8 +1536,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	itemsUnsupportedPct := 0.0
 	if totalItemsVal > 0 { itemsUnsupportedPct = (float64(unsupportedVal) * 100.0) / float64(totalItemsVal) }
 	html += `<div class='gauge-legend' style='width:100%;margin-top:8px;font-size:0.95em;'>`
-	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_items'></strong>&nbsp;` + fmt.Sprintf("%d", totalItemsVal) + `</div>`
-	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong data-i18n='gauge.unsupported'></strong>&nbsp;` + fmt.Sprintf("%d", unsupportedVal) + ` (` + fmt.Sprintf("%.2f", itemsUnsupportedPct) + `%)</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'><span style='display:inline-block;width:12px;height:12px;background:#66c2a5;border-radius:3px;'></span><strong data-i18n='gauge.total_items'></strong>&nbsp;` + formatInt(totalItemsVal) + `</div>`
+	html += `<div style='display:flex;align-items:center;gap:8px;'><span style='display:inline-block;width:12px;height:12px;background:#ff7a7a;border-radius:3px;'></span><strong data-i18n='gauge.unsupported'></strong>&nbsp;` + formatInt(unsupportedVal) + ` (` + fmt.Sprintf("%.2f", itemsUnsupportedPct) + `%)</div>`
 	html += `</div>`
 	html += `</div>`
 	html += `</div>`
@@ -1866,11 +1939,11 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	if active > 0 { activeTdStyle = "background:#66c28a !important;color:#000 !important;" }
 	passiveTdStyle := ""
 	if passive > 0 { passiveTdStyle = "background:#ffe08a !important;color:#000 !important;" }
-	html += `<tr><td style='` + unknownTdStyle + `' data-i18n='proxy.unknown'></td><td style='` + unknownTdStyle + `'>` + fmt.Sprintf("%d", unknown) + `</td></tr>`
-	html += `<tr><td style='` + offlineTdStyle + `' data-i18n='proxy.offline'></td><td style='` + offlineTdStyle + `'>` + fmt.Sprintf("%d", offline) + `</td></tr>`
-	html += `<tr><td style='` + activeTdStyle + `' data-i18n='proxy.active'></td><td style='` + activeTdStyle + `'>` + fmt.Sprintf("%d", active) + `</td></tr>`
-	html += `<tr><td style='` + passiveTdStyle + `' data-i18n='proxy.passive'></td><td style='` + passiveTdStyle + `'>` + fmt.Sprintf("%d", passive) + `</td></tr>`
-	html += `<tr><td data-i18n='proxy.total'></td><td>` + fmt.Sprintf("%d", total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list&filter_rst=1' target='_blank' data-i18n='open_proxies_list'></a></td></tr>`
+	html += `<tr><td style='` + unknownTdStyle + `' data-i18n='proxy.unknown'></td><td style='` + unknownTdStyle + `'>` + formatInt(unknown) + `</td></tr>`
+	html += `<tr><td style='` + offlineTdStyle + `' data-i18n='proxy.offline'></td><td style='` + offlineTdStyle + `'>` + formatInt(offline) + `</td></tr>`
+	html += `<tr><td style='` + activeTdStyle + `' data-i18n='proxy.active'></td><td style='` + activeTdStyle + `'>` + formatInt(active) + `</td></tr>`
+	html += `<tr><td style='` + passiveTdStyle + `' data-i18n='proxy.passive'></td><td style='` + passiveTdStyle + `'>` + formatInt(passive) + `</td></tr>`
+	html += `<tr><td data-i18n='proxy.total'></td><td>` + formatInt(total) + ` &nbsp; <a href='` + ambienteUrl + `/zabbix.php?action=proxy.list&filter_rst=1' target='_blank' data-i18n='open_proxies_list'></a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// Proxys details table (list)
@@ -2042,7 +2115,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 				}
 
 				// Build row HTML; include compatibility column only for Zabbix 7+
-				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(totalItemsVal) + `</td><td style='text-align:center;'>` + itemsUnsupportedVal + `</td><td style='text-align:center;'>` + htmlpkg.EscapeString(queueVal) + `</td>`
+				totalDisp := formatMaybeNumber(totalItemsVal)
+				unsupportedDisp := formatMaybeNumber(itemsUnsupportedVal)
+				queueDisp := formatMaybeNumber(queueVal)
+				rowHTML := `<tr data-proxyid='` + htmlpkg.EscapeString(proxyid) + `'><td>` + htmlpkg.EscapeString(name) + `</td><td>` + htmlpkg.EscapeString(tipo) + `</td><td style='text-align:center;'>` + totalDisp + `</td><td style='text-align:center;'>` + unsupportedDisp + `</td><td style='text-align:center;'>` + queueDisp + `</td>`
 				if majorV >= 7 {
 					rowHTML += compCell
 				}
@@ -2563,7 +2639,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += titleWithInfo("h3", "i18n:section.items_no_template", "i18n:tip.items_no_template")
 	if itemsNoTplCount > 0 {
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
-		html += `<tr><td data-i18n='items.no_template'>Items sem Template</td><td>` + fmt.Sprintf("%d", itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank' data-i18n='open'></a></td></tr>`
+			html += `<tr><td data-i18n='items.no_template'>Items sem Template</td><td>` + formatInt(itemsNoTplCount) + `</td><td><a href='` + itemsNoTplLink + `' target='_blank' data-i18n='open'></a></td></tr>`
 		html += `</tbody></table></div>`
 	} else {
 		html += ``
@@ -2688,7 +2764,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if r.Unsup == 0 {
 			continue
 		}
-		html += `<tr><td>` + r.Label + `</td><td>` + fmt.Sprintf("%d", r.Total) + `</td><td>` + fmt.Sprintf("%d", r.Unsup) + `</td><td>` + r.Link + `</td></tr>`
+			html += `<tr><td>` + r.Label + `</td><td>` + formatInt(r.Total) + `</td><td>` + formatInt(r.Unsup) + `</td><td>` + r.Link + `</td></tr>`
 	}
 
 	// final total row: use existing total items query result for total items, and unsupportedVal for not supported total
@@ -2696,7 +2772,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	if nItemsTotal != "-" {
 		if v, err := strconv.Atoi(strings.TrimSpace(nItemsTotal)); err == nil { totalItemsInt = v }
 	}
-	html += `<tr><td><strong data-i18n='strong.total'>Total</strong></td><td><strong>` + fmt.Sprintf("%d", totalItemsInt) + `</strong></td><td><strong>` + fmt.Sprintf("%d", unsupportedVal) + `</strong></td><td><a href='` + unsupportedLink + `' target='_blank' data-i18n='open_full_listing'></a></td></tr>`
+	html += `<tr><td><strong data-i18n='strong.total'>Total</strong></td><td><strong>` + formatInt(totalItemsInt) + `</strong></td><td><strong>` + formatInt(unsupportedVal) + `</strong></td><td><a href='` + unsupportedLink + `' target='_blank' data-i18n='open_full_listing'></a></td></tr>`
 	html += `</tbody></table></div>`
 
 	// --- Intervalo de Coleta ---
@@ -2743,7 +2819,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if r.Count == 0 {
 			continue
 		}
-		html += `<tr><td>` + fmt.Sprintf("%d", r.Interval) + `</td><td>` + fmt.Sprintf("%d", r.Count) + `</td><td>` + r.Link + `</td></tr>`
+			html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Count) + `</td><td>` + r.Link + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -2801,7 +2877,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if r.Count == 0 {
 			continue
 		}
-		html += `<tr><td>` + fmt.Sprintf("%d", r.Interval) + `</td><td>` + fmt.Sprintf("%d", r.Count) + `</td><td>` + r.Link + `</td></tr>`
+			html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Count) + `</td><td>` + r.Link + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -2840,7 +2916,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		html += titleWithInfo("h3", "i18n:section.lld_not_supported", "i18n:tip.lld_not_supported")
 		// legend moved into tooltip via titleWithInfo
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.description'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
-		html += `<tr><td data-i18n='lld.error_rules'>Regras de descoberta com status de erro</td><td>` + fmt.Sprintf("%d", lldNotSupCnt) + `</td><td><a href='` + lldPerLink + `' target='_blank' data-i18n='open'></a></td></tr>`
+			html += `<tr><td data-i18n='lld.error_rules'>Regras de descoberta com status de erro</td><td>` + formatInt(lldNotSupCnt) + `</td><td><a href='` + lldPerLink + `' target='_blank' data-i18n='open'></a></td></tr>`
 		html += `</tbody></table></div>`
 	}
 
@@ -3011,7 +3087,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	for _, tpl := range topTemplates {
 		tplName := templateNames[tpl.Key]
 		if tplName == "" { tplName = tpl.Key }
-		html += `<tr><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", tpl.Value) + `</td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + formatInt(tpl.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -3031,7 +3107,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 		mainTplName := templateNames[mainTplId]
 		if mainTplName == "" { mainTplName = mainTplId }
-		html += `<tr><td>` + htmlpkg.EscapeString(host.Key) + `</td><td>` + htmlpkg.EscapeString(mainTplName) + `</td><td>` + fmt.Sprintf("%d", host.Value) + `</td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(host.Key) + `</td><td>` + htmlpkg.EscapeString(mainTplName) + `</td><td>` + formatInt(host.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -3045,7 +3121,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if len(parts) > 1 { tplId = parts[1] }
 		tplName := templateNames[tplId]
 		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + htmlpkg.EscapeString(itemName) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", item.Value) + `</td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(itemName) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + formatInt(item.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -3059,7 +3135,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if len(parts) > 1 { tplId = parts[1] }
 		tplName := templateNames[tplId]
 		if tplName == "" { tplName = tplId }
-		html += `<tr><td>` + htmlpkg.EscapeString(errMsg) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + fmt.Sprintf("%d", errRow.Value) + `</td></tr>`
+			html += `<tr><td>` + htmlpkg.EscapeString(errMsg) + `</td><td>` + htmlpkg.EscapeString(tplName) + `</td><td>` + formatInt(errRow.Value) + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 	html += `</div>` // end tab-top
@@ -3261,15 +3337,15 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
 	html += `<div class='rec-kpis'>`
 	serverAttnClass := "kpi-ok"; if attentionCount > 0 { serverAttnClass = "kpi-warn" }
-	html += `<div class='kpi ` + serverAttnClass + `' data-target='#card-server' data-i18n-title='kpi.server_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", attentionCount) + `</div><div class='kpi-label' data-i18n='kpi.server_attention'></div></div>`
+	html += `<div class='kpi ` + serverAttnClass + `' data-target='#card-server' data-i18n-title='kpi.server_attention' title=''><div class='kpi-num'>` + formatInt(attentionCount) + `</div><div class='kpi-label' data-i18n='kpi.server_attention'></div></div>`
 	proxyOfflineClass := "kpi-ok"; if proxyOfflineCount > 0 { proxyOfflineClass = "kpi-crit" }
-	html += `<div class='kpi ` + proxyOfflineClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_offline' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyOfflineCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_offline'></div></div>`
+	html += `<div class='kpi ` + proxyOfflineClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_offline' title=''><div class='kpi-num'>` + formatInt(proxyOfflineCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_offline'></div></div>`
 	proxyUnknownClass := "kpi-ok"; if proxyUnknownCount > 0 { proxyUnknownClass = "kpi-warn" }
-	html += `<div class='kpi ` + proxyUnknownClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_unknown' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", proxyUnknownCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_unknown'></div></div>`
+	html += `<div class='kpi ` + proxyUnknownClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxies_unknown' title=''><div class='kpi-num'>` + formatInt(proxyUnknownCount) + `</div><div class='kpi-label' data-i18n='kpi.proxies_unknown'></div></div>`
 	// KPI: processos dos proxys com AVG alto (≥ 60%)
 	proxyAttnClass := "kpi-ok"
 	if len(proxyProcAttnList) > 0 { proxyAttnClass = "kpi-warn" }
-	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxy_process_attention' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(proxyProcAttnList)) + `</div><div class='kpi-label' data-i18n='kpi.proxy_process_attention'></div></div>`
+	html += `<div class='kpi ` + proxyAttnClass + `' data-target='#card-proxys' data-i18n-title='kpi.proxy_process_attention' title=''><div class='kpi-num'>` + formatInt(len(proxyProcAttnList)) + `</div><div class='kpi-label' data-i18n='kpi.proxy_process_attention'></div></div>`
 	// KPI Items não suportados... (verde < 4%, amarelo 4–10%, vermelho > 10%)
 	unsupportedPct := 0.0
 	if totalItemsVal > 0 { unsupportedPct = (float64(unsupportedCount) * 100.0) / float64(totalItemsVal) }
@@ -3282,14 +3358,14 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 		// KPI: Templates SNMP que ainda precisam migrar para o poller assíncrono (get[]/walk[])
 		migClass := "kpi-ok"
 		if len(snmpMigrationTpls) > 0 { migClass = "kpi-warn" }
-		html += `<div class='kpi ` + migClass + `' data-target='#card-templates' data-i18n-title='kpi.snmp_templates_migration' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", len(snmpMigrationTpls)) + `</div><div class='kpi-label' data-i18n='kpi.snmp_templates_migration'></div></div>`
+		html += `<div class='kpi ` + migClass + `' data-target='#card-templates' data-i18n-title='kpi.snmp_templates_migration' title=''><div class='kpi-num'>` + formatInt(len(snmpMigrationTpls)) + `</div><div class='kpi-label' data-i18n='kpi.snmp_templates_migration'></div></div>`
 		// KPI: Percentual de items SNMP em templates já usando get[]/walk[]
 		kclass := "kpi-crit"
 		if snmpPct >= 80.0 { kclass = "kpi-ok" }
 		html += `<div class='kpi ` + kclass + `' data-target='#card-items' data-i18n-title='kpi.snmp_items_label' title=''><div class='kpi-num'>` + fmt.Sprintf("%.2f%%", snmpPct) + `</div><div class='kpi-label' data-i18n='kpi.snmp_items_label'></div></div>`
 	}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
-	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + fmt.Sprintf("%d", textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
+	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	html += `</div>`	
 
 	html += `<script>
@@ -3356,21 +3432,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			serverParams = make([]string, 0)
 			for _, a := range attention {
-				lname := strings.ToLower(strings.TrimSpace(a.Name))
-				param := ""
-				if strings.Contains(lname, "http") && strings.Contains(lname, "agent") {
-					param = "StartHTTPAgentPollers"
-				} else if strings.Contains(lname, "http") {
-					param = "StartHTTPPollers"
-				} else if strings.Contains(lname, "snmp") {
-					param = "StartSNMPPollers"
-				} else if strings.Contains(lname, "unreachable") {
-					param = "StartPollersUnreachable"
-				} else if strings.Contains(lname, "trapper") {
-					param = "StartTrappers"
-				} else if strings.Contains(lname, "poller") {
-					param = "StartPollers"
-				}
+				param := procToParam(a.Name)
 				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — avg: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 				if param != "" {
 					found := false
@@ -3400,21 +3462,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				lname := strings.ToLower(strings.TrimSpace(a.Name))
 				tipKey := "procdesc.process"
 				if v, ok := procDesc[lname]; ok { tipKey = v }
-				// heuristic to suggest the most likely config parameter
-				param := ""
-				if strings.Contains(lname, "http") && strings.Contains(lname, "agent") {
-					param = "StartHTTPAgentPollers"
-				} else if strings.Contains(lname, "http") {
-					param = "StartHTTPPollers"
-				} else if strings.Contains(lname, "snmp") {
-					param = "StartSNMPPollers"
-				} else if strings.Contains(lname, "unreachable") {
-					param = "StartPollersUnreachable"
-				} else if strings.Contains(lname, "trapper") {
-					param = "StartTrappers"
-				} else if strings.Contains(lname, "poller") {
-					param = "StartPollers"
-				}
+				param := procToParam(a.Name)
 				html += `<li>` + titleWithInfo("span", a.Name, "i18n:"+tipKey)
 				if param != "" {
 					html += ` — <code>` + param + `</code> <span style='color:#6b7280;font-size:0.9em;margin-left:6px;' data-i18n='fix.server_intro'></span>`
@@ -3434,7 +3482,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			}
 		} else {
 			html += `<p style='margin:0 0 6px;'><span data-i18n='fix.server_intro'></span></p>`
-			html += "<pre># /etc/zabbix/zabbix_server.conf\nStartPollers=   # increase until avg drops below %\n"
+			html += "<pre># /etc/zabbix/zabbix_server.conf\n"
 			if majorV >= 7 {
 				html += "# Zabbix 7 — async pollers (recommended)\nStartAgentPollers=\nStartHTTPAgentPollers=\nStartSNMPPollers=\n"
 			}
@@ -3499,7 +3547,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if unknown > 0 {
 			tipUnknown := "i18n:tip.proxy_unknown|" + htmlpkg.EscapeString(ambienteUrl)
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.proxies_status_unknown"))
-			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + fmt.Sprintf("%d", unknown) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_unknown", tipUnknown) + `</p>`
+			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + formatInt(unknown) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_unknown", tipUnknown) + `</p>`
 			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range unknownNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
@@ -3507,7 +3555,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if offline > 0 {
 			tipOffline := "i18n:tip.proxy_offline|" + htmlpkg.EscapeString(ambienteUrl)
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.proxies_offline"))
-			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + fmt.Sprintf("%d", offline) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_offline", tipOffline) + `</p>`
+			html += `<p style='font-size:0.88em;'><span data-i18n='proxy.detected_with_status' data-i18n-args='` + formatInt(offline) + `'></span> ` + titleWithInfo("span", "i18n:proxy.status_offline", tipOffline) + `</p>`
 			html += `<ul style='font-size:0.88em;'>`
 			for _, n := range offlineNames { html += `<li>` + htmlpkg.EscapeString(n) + `</li>` }
 			html += `</ul>`
@@ -3543,21 +3591,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			proxyOrder := []string{}
 			procParamMap := map[string]string{} // p.ProxyName+"|"+p.ProcFriendly -> param
 			for _, p := range proxyProcAttnList {
-				lname := strings.ToLower(strings.TrimSpace(p.ProcFriendly))
-				param := ""
-				if strings.Contains(lname, "http") && strings.Contains(lname, "agent") {
-					param = "StartHTTPAgentPollers"
-				} else if strings.Contains(lname, "http") {
-					param = "StartHTTPPollers"
-				} else if strings.Contains(lname, "snmp") {
-					param = "StartSNMPPollers"
-				} else if strings.Contains(lname, "unreachable") {
-					param = "StartPollersUnreachable"
-				} else if strings.Contains(lname, "trapper") {
-					param = "StartTrappers"
-				} else if strings.Contains(lname, "poller") {
-					param = "StartPollers"
-				}
+				param := procToParam(p.ProcFriendly)
 				procParamMap[p.ProxyName+"|"+p.ProcFriendly] = param
 				if _, seen := proxyParams[p.ProxyName]; !seen {
 					proxyOrder = append(proxyOrder, p.ProxyName)
@@ -3654,9 +3688,9 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		itemsBadgeIcon := "🟢"
 		if itemsBadge == "crit" { itemsBadgeIcon = "🔴" } else if itemsBadge == "warn" { itemsBadgeIcon = "🟡" }
 		itemsDescParts := []string{}
-		if unsupportedVal > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_unsupported' data-i18n-args='%d'></span>", unsupportedVal)) }
-		if itemsLe60 > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_short_interval' data-i18n-args='%d'></span>", itemsLe60)) }
-		if textCount > 0 { itemsDescParts = append(itemsDescParts, fmt.Sprintf("<span data-i18n='rec.desc.items_text_history' data-i18n-args='%d'></span>", textCount)) }
+		if unsupportedVal > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_unsupported' data-i18n-args='"+formatInt(unsupportedVal)+"'></span>") }
+		if itemsLe60 > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_short_interval' data-i18n-args='"+formatInt(itemsLe60)+"'></span>") }
+		if textCount > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_text_history' data-i18n-args='"+formatInt(textCount)+"'></span>") }
 		html += `<details class='rec-section' open id='card-items'>` +
 			`<summary><span class='rec-sec-icon'>📋</span>` +
 			`<div class='rec-sec-text'>` +
@@ -3666,26 +3700,26 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
-		if itemsNoTplCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
-		}
-		if unsupportedVal > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_unsupported") + `</strong> <span data-i18n='items.unsupported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", unsupportedVal) + `|` + pct(unsupportedVal, totalItemsVal) + `'></span> <a href='` + unsupportedLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
-		}
-		if disabledCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + fmt.Sprintf("%d", disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsDisabledLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
-		}
-		if itemsLe60 > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + fmt.Sprintf("%d", itemsLe60) + `'></span></p>`
-		}
-		if textCount > 0 {
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_text_with_history") + `</strong> <span data-i18n='items.text_with_history_paragraph' data-i18n-args='` + fmt.Sprintf("%d", textCount) + `'></span> <a href='#' data-i18n='open_full_listing'></a></p>`
-		}
+			if itemsNoTplCount > 0 {
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + formatInt(itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
+			}
+			if unsupportedVal > 0 {
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_unsupported") + `</strong> <span data-i18n='items.unsupported_paragraph' data-i18n-args='` + formatInt(unsupportedVal) + `|` + pct(unsupportedVal, totalItemsVal) + `'></span> <a href='` + unsupportedLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
+			}
+			if disabledCount > 0 {
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + formatInt(disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsDisabledLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
+			}
+			if itemsLe60 > 0 {
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + formatInt(itemsLe60) + `'></span></p>`
+			}
+			if textCount > 0 {
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_text_with_history") + `</strong> <span data-i18n='items.text_with_history_paragraph' data-i18n-args='` + formatInt(textCount) + `'></span> <a href='#' data-i18n='open_full_listing'></a></p>`
+			}
 		if majorV >= 7 && snmpTplCount > 0 {
 			snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
 				`<svg viewBox='0 0 16 16' width='14' height='14' aria-hidden='true'><circle cx='8' cy='8' r='7' stroke='#1976d2' stroke-width='1.6' fill='white'/><text x='8' y='11' text-anchor='middle' font-size='10' fill='#1976d2' font-family='Arial' font-weight='bold'>?</text></svg>` +
 				`<span class='info-tooltip' data-i18n='tip.snmp_migration'></span></span>`
-			html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_snmp_poller") + `</strong>` + snmpIcon + ` <span data-i18n='items.snmp_poller_paragraph' data-i18n-args='` + fmt.Sprintf("%d", snmpTplCount) + `|` + fmt.Sprintf("%d", snmpGetWalkCount) + `|` + pct(snmpGetWalkCount, totalItemsVal) + `'></span></p>`
+					html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_snmp_poller") + `</strong>` + snmpIcon + ` <span data-i18n='items.snmp_poller_paragraph' data-i18n-args='` + formatInt(snmpTplCount) + `|` + formatInt(snmpGetWalkCount) + `|` + pct(snmpGetWalkCount, totalItemsVal) + `'></span></p>`
 		}
 		html += `</div>`
 		// items fix-box: only show bullets for counts > 0
@@ -3729,10 +3763,10 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<div class='rec-sec-body'>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
-			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldLe300) + `'></span></p>`
+				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
 		}
 		if lldNotSupCnt > 0 {
-			html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + fmt.Sprintf("%d", lldNotSupCnt) + `'></span></p>`
+				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + formatInt(lldNotSupCnt) + `'></span></p>`
 		}
 		html += `</div>`
 		// LLD fix-box: show only relevant hints
