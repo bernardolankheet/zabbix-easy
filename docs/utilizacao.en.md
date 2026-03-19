@@ -134,3 +134,36 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 ```
 
 Report generation detects the Zabbix version via `apiinfo.version` and automatically adjusts API calls and process lists for Zabbix 6 and 7.
+
+---
+
+## Guide: Users (`tab-usuarios`)
+
+### What it is
+
+This tab shows whether the default Zabbix administrative account (`Admin`) exists and performs a best-effort authentication test using the default password `zabbix`.
+
+Notes:
+- The report DOES NOT fetch the full user list — it calls `user.get` with `filter: { username: "Admin" }`
+- If the `Admin` account is found and enabled, the report performs a `user.login` attempt with `user: "Admin", password: "zabbix"`. The returned token is discarded; it is used only to detect whether the default password is accepted.
+- If the `Admin` account is disabled, the default-admin recommendation is considered OK and the password test is skipped.
+
+### Table shown
+
+| Column | Description |
+|--------|-------------|
+| Username | The username (e.g., `Admin`) |
+| Full name | The user's full name |
+| Default Password | Indicates whether the account accepts the default password `zabbix` (Yes / No) |
+
+### Zabbix API calls
+
+| Call | Params | Notes |
+|------|--------|-------|
+| `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Fetches only the `Admin` account to avoid scanning all users |
+| `user.login` | `user: "Admin", password: "zabbix"` | Best-effort authentication test. The token (if any) is discarded immediately. |
+
+### Recommendation generated
+
+If the `Admin` account exists and accepts the default password, the report automatically injects a recommendation in the "Default Zabbix Admin account detected" section with guidance to change or disable the account.
+

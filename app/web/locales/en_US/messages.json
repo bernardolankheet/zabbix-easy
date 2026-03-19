@@ -378,12 +378,16 @@
   ,"tip.users": "List of users configured in Zabbix. Super Admin accounts have unrestricted access; review regularly to enforce the principle of least privilege."
   ,"table.username": "Username"
   ,"table.fullname": "Full Name"
+  ,"table.default_password": "Default Password"
   ,"table.user_type": "Type"
   ,"users.default_admin_alert_title": "⚠️ Default Admin account detected!"
   ,"users.default_admin_alert_desc": "The default Zabbix 'Admin' account was found. This account is publicly documented and poses a high security risk if the default password is still in use."
   ,"users.no_data": "No user information available."
   ,"users.badge_total": "users"
   ,"users.default_badge": "default"
+
+  ,"users.default_password_yes": "Yes"
+  ,"users.default_password_no": "No"
 
   ,"section.security": "Security"
   ,"kpi.default_admin": "Default Admin Account detected"
@@ -393,5 +397,6 @@
   ,"fix.default_admin_change_password": "If using the default password, immediately change the Admin account password to a strong, unique password"
   ,"fix.default_admin_rename": "Consider renaming the 'Admin' account to a non-obvious name, making brute-force attacks harder"
   ,"fix.default_admin_disable": "If unused, disable or delete the default Admin account and use a dedicated administrative account"
+  ,"fix.default_admin_password_in_use": "The 'Admin' account accepts the default password 'zabbix' — change the password immediately"
   ,"fix.open_users_list": "Open users list in Zabbix →"
 }

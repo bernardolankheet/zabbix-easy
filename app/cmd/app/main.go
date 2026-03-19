@@ -1184,6 +1184,22 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 	}
 
+			// Test whether the default Admin password 'zabbix' is accepted (best-effort).
+			// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
+			adminDefaultPasswordValid := false
+			if hasDefaultAdmin {
+				if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"user": "Admin", "password": "zabbix"}); loginErr == nil {
+					if r, ok := loginResp["result"]; ok {
+						if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
+							adminDefaultPasswordValid = true
+						}
+					}
+				} else {
+					// non-fatal: just log at debug level
+					log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+				}
+			}
+
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
 	nvps := "N/A"
@@ -3210,6 +3226,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
 			`<th data-i18n='table.username'></th>` +
 			`<th data-i18n='table.fullname'></th>` +
+			`<th data-i18n='table.default_password'></th>` +
 			`</tr></thead><tbody>`
 		for _, u := range usersList {
 			username := fmt.Sprintf("%v", u["username"])
@@ -3220,6 +3237,12 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			if username == "Admin" {
 				rowStyle = " style='background:#fff7ed;'"
 			}
+			// determine default-password badge for this user (only relevant for Admin)
+			defaultPwdCell := "<td><span style='background:#ecfdf5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_no'></span></span></td>"
+			if username == "Admin" && adminDefaultPasswordValid {
+				defaultPwdCell = "<td><span style='background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_yes'></span></span></td>"
+			}
+
 			html += `<tr` + rowStyle + `>` +
 				`<td><strong>` + htmlpkg.EscapeString(username) + `</strong>` +
 				func() string {
@@ -3228,6 +3251,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 				}() +
 				`</td>` +
 				`<td>` + htmlpkg.EscapeString(fullName) + `</td>` +
+				defaultPwdCell +
 				`</tr>`
 		}
 		html += `</tbody></table></div>`
@@ -3973,6 +3997,12 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<li><span data-i18n='fix.default_admin_rename'></span></li>` +
 			`<li><span data-i18n='fix.default_admin_disable'></span></li>` +
 			`</ul>` +
+			func() string {
+				if adminDefaultPasswordValid {
+					return "<ul><li><span data-i18n='fix.default_admin_password_in_use'></span></li></ul>"
+				}
+				return ""
+			}() +
 			`<a href='` + htmlpkg.EscapeString(ambienteUrl+"/zabbix.php?action=user.list") + `' target='_blank' rel='noopener' style='display:inline-block;margin-top:6px;font-size:0.85em;' data-i18n='fix.open_users_list'></a>` +
 			`</div>` +
 			`</div></details>`

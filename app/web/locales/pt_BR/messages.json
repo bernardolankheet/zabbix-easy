@@ -378,12 +378,16 @@
   ,"tip.users": "Lista de usuários configurados no Zabbix. Contas com tipo Super Admin possuem acesso irrestrito; revise regularmente para garantir o princípio do menor privilégio."
   ,"table.username": "Usuário"
   ,"table.fullname": "Nome Completo"
+  ,"table.default_password": "Senha Padrão"
   ,"table.user_type": "Tipo"
   ,"users.default_admin_alert_title": "⚠️ Conta Admin padrão detectada!"
   ,"users.default_admin_alert_desc": "A conta 'Admin' padrão do Zabbix foi encontrada. Esta conta é amplamente conhecida publicamente e representa alto risco de segurança se a senha padrão ainda estiver em uso."
   ,"users.no_data": "Nenhuma informação de usuários disponível."
   ,"users.badge_total": "usuários"
   ,"users.default_badge": "padrão"
+
+  ,"users.default_password_yes": "Sim"
+  ,"users.default_password_no": "Não"
 
   ,"section.security": "Segurança"
   ,"kpi.default_admin": "Conta Admin Padrão Detectada"
@@ -393,5 +397,6 @@
   ,"fix.default_admin_change_password": "Se estiver utilizando a senha padrão, altere imediatamente a senha da conta Admin para uma senha forte e única"
   ,"fix.default_admin_rename": "Considere renomear a conta 'Admin' para um nome não óbvio, dificultando ataques de força bruta"
   ,"fix.default_admin_disable": "Se não utilizada, desative ou remova a conta Admin padrão e utilize uma conta administrativa própria"
+  ,"fix.default_admin_password_in_use": "A conta 'Admin' aceita a senha padrão 'zabbix' — altere a senha imediatamente"
   ,"fix.open_users_list": "Abrir lista de usuários no Zabbix →"
 }
