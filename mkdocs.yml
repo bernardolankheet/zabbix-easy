@@ -16,7 +16,7 @@ plugins:
 markdown_extensions:
   - admonition
 extra_javascript:
-  - https://unpkg.com/mermaid@9/dist/mermaid.min.js
+  - js/mermaid.min.js
   - js/mermaid-init.js
   - js/lang-switch.js
 extra_css:
