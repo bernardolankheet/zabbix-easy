@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>API - Zabbix Easy Report</title>
+        <title>What's New / Updates - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#whats-new-updates" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              What's New / Updates
             
           </span>
         </div>
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -452,56 +366,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -518,21 +382,23 @@
   
 
 
-<h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
-<h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
-<p><strong>Body:</strong></p>
-<pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
-}
-</code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
-<h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
-<h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<h1 id="whats-new-updates">What's New / Updates</h1>
+<p>Date: 16/03/2026</p>
+<p>Summary of recent changes:</p>
+<ul>
+<li>UI: added a highlighted recommendations list (yellow boxes) for quick proxy actions. CSS classes: <code>.rec-highlight-list</code> and <code>.rec-highlight-item</code> in <code>app/web/static/style.css</code>.</li>
+<li>Per-proxy recommendations now generate dynamic code boxes (one block per proxy), using the automatically detected parameter (e.g. <code>StartPollers</code>, <code>StartHTTPPollers</code>, <code>StartPollersUnreachable</code>) instead of a hardcoded value. Implementation in <code>app/cmd/app/main.go</code>.</li>
+<li>Internationalization: new keys added in <code>app/web/locales/pt_BR/messages.json</code> and <code>app/web/locales/en_US/messages.json</code>:</li>
+<li><code>fix.proxy_increase_hint</code> — comment text inside snippets (<code>increase until the avg drops below 60%</code>).</li>
+<li><code>fix.proxy_highlight_process_title</code>, <code>fix.proxy_highlight_offline_title</code>, <code>fix.proxy_highlight_async_title</code> — titles for highlighted blocks.</li>
+<li>Backend: fixes to <code>hostid</code> resolution for process items — hostid is now captured only from items whose key starts with <code>process.</code>; removed debug logs.</li>
+</ul>
+<p>Main modified files:
+- <code>app/cmd/app/main.go</code> — HTML report generation logic and hostid/process capture.
+- <code>app/web/static/style.css</code> — new classes for the highlighted list.
+- <code>app/web/locales/pt_BR/messages.json</code> and <code>en_US/messages.json</code> — new i18n keys.</p>
+<p>Notes for operators and developers:
+- To test locally, rebuild the image and run the service (e.g. <code>docker compose up -d --build</code>) and generate a report to see the new per-proxy recommendations.</p>
 
 
 

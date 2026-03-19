@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>API - Zabbix Easy Report</title>
+        <title>Docker - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#docker" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              Docker
             
           </span>
         </div>
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -459,37 +373,46 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
+  <a href="#execution-modes" class="md-nav__link">
     <span class="md-ellipsis">
-      Endpoints principais
+      Execution Modes
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints principais">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mode-1-without-database-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 1 — Without database (default)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mode-2-with-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mode 2 — With PostgreSQL
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mode 2 — With PostgreSQL">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
+  <a href="#step-1-enable-database-variables-in-docker-composeyml" class="md-nav__link">
     <span class="md-ellipsis">
-      POST /api/start
+      Step 1 — Enable database variables in docker-compose.yml
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
+  <a href="#step-2-start-with-the-db-profile" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
+      Step 2 — Start with the db profile
     </span>
   </a>
   
@@ -497,6 +420,24 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment Variables Reference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#useful-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Useful Commands
+    </span>
+  </a>
   
 </li>
       
@@ -518,21 +459,98 @@
   
 
 
-<h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
-<h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
-<p><strong>Body:</strong></p>
-<pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
-}
+<h1 id="docker">Docker</h1>
+<h2 id="execution-modes">Execution Modes</h2>
+<p>Zabbix Easy supports two modes: <strong>without database</strong> (default) and <strong>with database</strong> for report persistence.
+The <code>DB_HOST</code> environment variable controls this: if empty, no database is needed; the "Saved Reports" card is hidden and reports are kept only for the current session (in-memory).</p>
+<pre><code>var dbEnabled = os.Getenv(&quot;DB_HOST&quot;) != &quot;&quot;
 </code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
-<h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
-<h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<hr />
+<h2 id="mode-1-without-database-default">Mode 1 — Without database (default)</h2>
+<p>Ideal for quick evaluation.</p>
+<pre><code class="language-bash">docker compose up --build -d
+</code></pre>
+<ul>
+<li>Only the <code>go-app</code> service starts.</li>
+<li>Reports are available <strong>only in the current session</strong> (in-memory).</li>
+<li>The <strong>Saved Reports</strong> card is <strong>automatically hidden</strong>.</li>
+<li>Restarting the container loses all reports.</li>
+</ul>
+<hr />
+<h2 id="mode-2-with-postgresql">Mode 2 — With PostgreSQL</h2>
+<p>Persists all reports. Allows reopening, comparing and deleting past reports.</p>
+<h3 id="step-1-enable-database-variables-in-docker-composeyml">Step 1 — Enable database variables in <code>docker-compose.yml</code></h3>
+<p>Uncomment the <code>DB_*</code> block under <code>go-app</code>:</p>
+<pre><code class="language-yaml">environment:
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - DB_USER=postgres
+  - DB_PASSWORD=postgres
+  - DB_NAME=zabbix_report
+</code></pre>
+<h3 id="step-2-start-with-the-db-profile">Step 2 — Start with the <code>db</code> profile</h3>
+<pre><code class="language-bash">docker compose --profile db up --build -d
+</code></pre>
+<hr />
+<h2 id="environment-variables-reference">Environment Variables Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td>10084</td>
+<td>Zabbix Server host ID for performance data collection.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Trend analysis window. Accepts <code>d</code>, <code>h</code>, <code>m</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>4</code></td>
+<td>Parallel goroutines for Zabbix API calls.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Per-request HTTP timeout in seconds.</td>
+</tr>
+<tr>
+<td><code>APP_DEBUG</code></td>
+<td><em>(empty)</em></td>
+<td><code>true</code> for verbose API request logs.</td>
+</tr>
+<tr>
+<td><code>DB_HOST</code></td>
+<td><em>(empty)</em></td>
+<td>PostgreSQL host. <strong>If empty, persistence is disabled.</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="useful-commands">Useful Commands</h2>
+<pre><code class="language-bash"># Start without database
+docker compose up -d
+
+# Start with database
+docker compose --profile db up --build -d
+
+# View app logs
+docker logs -f go-zabbix-app
+
+# Stop everything (preserves data volume)
+docker compose --profile db down
+
+# Stop and remove data volume
+docker compose --profile db down -v
+</code></pre>
 
 
 

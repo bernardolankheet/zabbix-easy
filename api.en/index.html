@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -459,13 +373,13 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
+  <a href="#main-endpoints" class="md-nav__link">
     <span class="md-ellipsis">
-      Endpoints principais
+      Main Endpoints
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints principais">
+    <nav class="md-nav" aria-label="Main Endpoints">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -519,20 +433,20 @@
 
 
 <h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
+<h2 id="main-endpoints">Main Endpoints</h2>
 <h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
+<p>Starts report collection.</p>
 <p><strong>Body:</strong></p>
 <pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
+  &quot;zabbix_url&quot;: &quot;Zabbix URL&quot;,
+  &quot;zabbix_token&quot;: &quot;Access token&quot;
 }
 </code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
+<p><strong>Validation:</strong> <code>zabbix_url</code> and <code>zabbix_token</code> are required — returns <code>400 Bad Request</code> if either is missing. The URL can be provided as <code>http://host/</code> or <code>http://host/api_jsonrpc.php</code>; both formats are accepted.</p>
 <h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
+<p>Checks collection progress.</p>
 <h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<p>Retrieves the generated report.</p>
 
 
 

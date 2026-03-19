@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>API - Zabbix Easy Report</title>
+        <title>Installation - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#installation" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              Installation
             
           </span>
         </div>
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -459,37 +373,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
+  <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
-      Endpoints principais
+      Requirements
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints principais">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-1-docker-run-quickest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 1 — Docker Run (quickest)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-2-docker-compose-no-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 2 — Docker Compose (no database)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#option-3-docker-compose-with-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      Option 3 — Docker Compose (with PostgreSQL)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Option 3 — Docker Compose (with PostgreSQL)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
+  <a href="#step-1-enable-database-variables-in-docker-composeyml" class="md-nav__link">
     <span class="md-ellipsis">
-      POST /api/start
+      Step 1 — Enable database variables in docker-compose.yml
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
+  <a href="#step-2-start-with-the-db-profile" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
+      Step 2 — Start with the db profile
     </span>
   </a>
   
@@ -497,6 +429,15 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#main-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Main environment variables
+    </span>
+  </a>
   
 </li>
       
@@ -518,21 +459,93 @@
   
 
 
-<h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
-<h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
-<p><strong>Body:</strong></p>
-<pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
-}
+<h1 id="installation">Installation</h1>
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Docker</li>
+</ul>
+<hr />
+<h2 id="option-1-docker-run-quickest">Option 1 — Docker Run (quickest)</h2>
+<p>Ideal for quick evaluation without cloning the repository.</p>
+<pre><code class="language-bash">docker run -d \
+  --name zabbix-easy \
+  -p 8080:8080 \
+  -e MAX_CCONCURRENT=10 \
+  -e ZABBIX_SERVER_HOSTID=10084 \
+  -e CHECKTRENDTIME=15d \
+  bernardolankheet/zabbix-easy:latest
 </code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
-<h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
-<h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<blockquote>
+<p><strong>How to find <code>ZABBIX_SERVER_HOSTID</code>:</strong> Go to Zabbix frontend → <strong>Data Collection</strong> → search for host "Zabbix Server" → open the host and check the ID in the URL. Default is <code>10084</code>.</p>
+</blockquote>
+<p>Access the UI at <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="option-2-docker-compose-no-database">Option 2 — Docker Compose (no database)</h2>
+<p>Reports are available only in the current session. Restarting the container loses all reports.</p>
+<pre><code class="language-bash">git clone https://github.com/bernardolankheet/zabbix-easy.git
+cd zabbix-easy
+docker compose up --build -d
+</code></pre>
+<p>Access the UI at <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="option-3-docker-compose-with-postgresql">Option 3 — Docker Compose (with PostgreSQL)</h2>
+<p>Persists all generated reports. Allows reopening, comparing and deleting past reports.</p>
+<h3 id="step-1-enable-database-variables-in-docker-composeyml">Step 1 — Enable database variables in <code>docker-compose.yml</code></h3>
+<p>Uncomment the <code>DB_*</code> block under the <code>go-app</code> service:</p>
+<pre><code class="language-yaml">environment:
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - DB_USER=postgres
+  - DB_PASSWORD=postgres
+  - DB_NAME=zabbix_report
+</code></pre>
+<h3 id="step-2-start-with-the-db-profile">Step 2 — Start with the <code>db</code> profile</h3>
+<pre><code class="language-bash">docker compose --profile db up --build -d
+</code></pre>
+<p>Access the UI at <code>http://localhost:8080</code>.</p>
+<hr />
+<h2 id="main-environment-variables">Main environment variables</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td><code>10084</code></td>
+<td>Zabbix Server host ID. Used for performance metric collection.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Time window for trend analysis. Accepts <code>d</code> (days), <code>h</code> (hours).</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>4</code></td>
+<td>Parallel goroutines for Zabbix API calls. Lower to <code>2</code>–<code>3</code> if Zabbix is slow.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Per-request timeout in seconds. Increase to <code>90</code>–<code>120</code> for slow environments.</td>
+</tr>
+<tr>
+<td><code>APP_DEBUG</code></td>
+<td><em>(empty)</em></td>
+<td><code>true</code> to enable verbose API request logs.</td>
+</tr>
+<tr>
+<td><code>DB_HOST</code></td>
+<td><em>(empty)</em></td>
+<td>PostgreSQL host. <strong>If empty, persistence is disabled.</strong></td>
+</tr>
+</tbody>
+</table>
 
 
 

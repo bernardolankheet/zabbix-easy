@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>API - Zabbix Easy Report</title>
+        <title>Contributing - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#contributing" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              Contributing
             
           </span>
         </div>
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -459,37 +373,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
+  <a href="#contributing-new-languages" class="md-nav__link">
     <span class="md-ellipsis">
-      Endpoints principais
+      Contributing new languages
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Endpoints principais">
+    <nav class="md-nav" aria-label="Contributing new languages">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
+  <a href="#1-copy-an-existing-locale" class="md-nav__link">
     <span class="md-ellipsis">
-      POST /api/start
+      1. Copy an existing locale
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
+  <a href="#2-translate-the-keys" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/progress/{task_id}
+      2. Translate the keys
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
+  <a href="#3-register-the-language-in-the-selector" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/report/{task_id}
+      3. Register the language in the selector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips
     </span>
   </a>
   
@@ -518,21 +450,48 @@
   
 
 
-<h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
-<h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
-<p><strong>Body:</strong></p>
-<pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
-}
+<h1 id="contributing">Contributing</h1>
+<p>Contributions are welcome!</p>
+<ol>
+<li>Fork the project</li>
+<li>Create a branch</li>
+<li>Submit your PR</li>
+</ol>
+<p>Suggestions, issues and improvements are appreciated.</p>
+<hr />
+<h2 id="contributing-new-languages">Contributing new languages</h2>
+<p>ZBX-Easy uses a JSON-based i18n system. Adding a new language requires only four steps:</p>
+<h3 id="1-copy-an-existing-locale">1. Copy an existing locale</h3>
+<p>Create a folder for the new language inside <code>app/web/locales/</code> using the standard locale code (<code>xx_YY</code>):</p>
+<pre><code class="language-bash">cp -r app/web/locales/pt_BR app/web/locales/es_ES
 </code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
-<h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
-<h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<h3 id="2-translate-the-keys">2. Translate the keys</h3>
+<p>Open <code>app/web/locales/es_ES/messages.json</code> and translate <strong>only the values</strong> (right-hand side). Keys (left-hand side) must remain unchanged.</p>
+<div class="admonition warning">
+<p class="admonition-title">Important</p>
+<ul>
+<li>Keep <code>%s</code> and <code>%d</code> placeholders in translations that contain them.</li>
+<li>Do not change JSON keys.</li>
+<li>The <code>pt_BR/messages.json</code> file (~290 keys) is the most complete reference.</li>
+</ul>
+</div>
+<h3 id="3-register-the-language-in-the-selector">3. Register the language in the selector</h3>
+<p>Edit <code>app/web/templates/index.html</code> and add an <code>&lt;option&gt;</code> to the <code>#lang-select</code> selector:</p>
+<pre><code class="language-html">&lt;select id=&quot;lang-select&quot;&gt;
+  &lt;option value=&quot;pt_BR&quot;&gt;🇧🇷 PT&lt;/option&gt;
+  &lt;option value=&quot;en_US&quot;&gt;🇺🇸 EN&lt;/option&gt;
+  &lt;option value=&quot;es_ES&quot;&gt;🇪🇸 ES&lt;/option&gt;  &lt;!-- new --&gt;
+&lt;/select&gt;
+</code></pre>
+<h3 id="4-test">4. Test</h3>
+<pre><code class="language-bash">docker compose up -d --build
+</code></pre>
+<h3 id="tips">Tips</h3>
+<ul>
+<li>Use the browser console to check untranslated keys — if a key doesn't exist in the dictionary, the original HTML text will be kept.</li>
+<li>Compare your <code>messages.json</code> with <code>pt_BR</code> to ensure no keys are missing.</li>
+<li>Contribute via Pull Request with the title <code>i18n: add &lt;language&gt;</code> (e.g. <code>i18n: add es_ES</code>).</li>
+</ul>
 
 
 

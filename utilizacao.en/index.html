@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="../instalacao/">
-      
-      
-        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>API - Zabbix Easy Report</title>
+        <title>Usage - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api" class="md-skip">
+        <a href="#usage" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API
+              Usage
             
           </span>
         </div>
@@ -274,30 +270,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    API
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -306,68 +282,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Índice">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
-    <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/progress/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
-    <span class="md-ellipsis">
-      GET /api/report/{task_id}
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -459,44 +373,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#endpoints-principais" class="md-nav__link">
+  <a href="#zabbix-api-calls-diagram" class="md-nav__link">
     <span class="md-ellipsis">
-      Endpoints principais
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints principais">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#post-apistart" class="md-nav__link">
-    <span class="md-ellipsis">
-      POST /api/start
+      Zabbix API Calls Diagram
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiprogresstask_id" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#global-environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/progress/{task_id}
+      Global Environment Variables
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apireporttask_id" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#general-flow" class="md-nav__link">
     <span class="md-ellipsis">
-      GET /api/report/{task_id}
+      General Flow
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -518,21 +417,158 @@
   
 
 
-<h1 id="api">API</h1>
-<h2 id="endpoints-principais">Endpoints principais</h2>
-<h3 id="post-apistart">POST /api/start</h3>
-<p>Inicia a coleta do relatório.</p>
-<p><strong>Body:</strong></p>
-<pre><code class="language-json">{
-  &quot;zabbix_url&quot;: &quot;URL do Zabbix&quot;,
-  &quot;zabbix_token&quot;: &quot;Token de acesso&quot;
-}
+<h1 id="usage">Usage</h1>
+<ol>
+<li>Access the web interface</li>
+<li>Enter the Zabbix URL and token</li>
+<li>Wait for the report to be generated</li>
+<li>Export or print the report as needed</li>
+</ol>
+<hr />
+<h2 id="zabbix-api-calls-diagram">Zabbix API Calls Diagram</h2>
+<pre><code class="language-mermaid">flowchart TD
+  App[&quot;zabbix-easy app\n(app/cmd/app/main.go)&quot;]
+
+  subgraph ZabbixAPI[&quot;Zabbix API (JSON-RPC)&quot;]
+    HostGet[&quot;host.get\nfields: hostid, host, name, status, templates[]&quot;]
+    ProxyGet[&quot;proxy.get\nfields: proxyid, host, status, state&quot;]
+    ItemGetProxy[&quot;item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status&quot;]
+    ItemGetHost[&quot;item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type&quot;]
+    ItemGetCount[&quot;item.get (countOutput:true)\nreturns count for KPIs&quot;]
+    TrendGet[&quot;trend.get\nitemid, clock, value_min, value_avg, value_max&quot;]
+    HistoryGet[&quot;history.get\nitemid, clock, value&quot;]
+    TemplateGet[&quot;template.get\ntemplateid, name, hosts&quot;]
+    UserGetCount[&quot;user.get (countOutput:true)\nreturns count&quot;]
+    DiscoveryGet[&quot;discoveryrule.get\ncount / details&quot;]
+  end
+
+  subgraph Helpers[&quot;App helpers (functions)&quot;]
+    getItemByKey[&quot;getItemByKey()\nuses item.get&quot;]
+    getProcessBulk[&quot;getProcessItemsBulk()\nuses item.get with search wildcards&quot;]
+    getProxyProc[&quot;getProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
+    getTrendsBulk[&quot;getTrendsBulkStats()\nuses trend.get&quot;]
+    getHistoryBulk[&quot;getHistoryStatsBulkByType()\nuses history.get&quot;]
+  end
+
+  subgraph Tabs[&quot;UI Tabs / Views&quot;]
+    Summary[&quot;Summary tab&quot;]
+    Server[&quot;Server tab&quot;]
+    Proxies[&quot;Proxies tab&quot;]
+    Items[&quot;Items tab&quot;]
+    Templates[&quot;Templates tab&quot;]
+    Top[&quot;Top tab&quot;]
+    Recs[&quot;Recommendations tab&quot;]
+  end
+
+  App --&gt; HostGet
+  App --&gt; ProxyGet
+  App --&gt; ItemGetProxy
+  App --&gt; ItemGetHost
+  App --&gt; ItemGetCount
+  App --&gt; TrendGet
+  App --&gt; HistoryGet
+  App --&gt; TemplateGet
+  App --&gt; UserGetCount
+  App --&gt; DiscoveryGet
+
+  getItemByKey --&gt; ItemGetHost
+  getProcessBulk --&gt; ItemGetHost
+  getProxyProc --&gt; ItemGetHost
+  getTrendsBulk --&gt; TrendGet
+  getHistoryBulk --&gt; HistoryGet
+
+  HostGet --&gt; Summary
+  UserGetCount --&gt; Summary
+  ItemGetCount --&gt; Summary
+  TemplateGet --&gt; Summary
+  ProxyGet --&gt; Summary
+
+  getProcessBulk --&gt; Server
+  getTrendsBulk --&gt; Server
+  getHistoryBulk --&gt; Server
+  ItemGetHost --&gt; Server
+
+  ProxyGet --&gt; Proxies
+  ItemGetProxy --&gt; Proxies
+  ItemGetCount --&gt; Proxies
+  getProxyProc --&gt; Proxies
+  HostGet --&gt; Proxies
+
+  ItemGetHost --&gt; Items
+  TemplateGet --&gt; Items
+  DiscoveryGet --&gt; Items
+  ItemGetCount --&gt; Items
+
+  TemplateGet --&gt; Templates
+  TemplateGet --&gt; Top
+  ItemGetCount --&gt; Top
+
+  getTrendsBulk --&gt; Recs
+  getHistoryBulk --&gt; Recs
+  ItemGetProxy --&gt; Recs
+  ItemGetHost --&gt; Recs
+  TemplateGet --&gt; Recs
+  DiscoveryGet --&gt; Recs
+  ProxyGet --&gt; Recs
+  ItemGetCount --&gt; Recs
+
+  classDef fix fill:#fff4a3,stroke:#e6c800
 </code></pre>
-<p><strong>Validação:</strong> <code>zabbix_url</code> e <code>zabbix_token</code> são obrigatórios e não podem ser vazios — a requisição retorna <code>400 Bad Request</code> se qualquer um estiver ausente. A URL pode ser fornecida como <code>http://host/</code> ou <code>http://host/api_jsonrpc.php</code>; ambos os formatos são aceitos.</p>
-<h3 id="get-apiprogresstask_id">GET /api/progress/{task_id}</h3>
-<p>Verifica o progresso da coleta.</p>
-<h3 id="get-apireporttask_id">GET /api/report/{task_id}</h3>
-<p>Obtém o relatório gerado.</p>
+<hr />
+<h2 id="global-environment-variables">Global Environment Variables</h2>
+<p>These variables affect the entire report generation:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td><em>(empty)</em></td>
+<td>Zabbix Server host ID. Used to filter item calls by host. If not set, search runs without host filter.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Time window for trend/history analysis. Accepts <code>d</code> (days), <code>h</code> (hours), <code>m</code> (minutes). E.g. <code>7d</code>, <code>24h</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>4</code></td>
+<td>Max parallel goroutines for Zabbix API calls. Reduce to <code>2</code>–<code>3</code> if Zabbix is slow or returns timeouts.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Timeout in seconds per HTTP request to the Zabbix API. Increase to <code>90</code>–<code>120</code> for large environments.</td>
+</tr>
+<tr>
+<td><code>APP_DEBUG</code></td>
+<td><em>(empty)</em></td>
+<td><code>1</code> or <code>true</code> to enable verbose API request/response logs.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="general-flow">General Flow</h2>
+<p>The main function is <code>generateZabbixReport(url, token string, progressCb func(string))</code> in <code>cmd/app/main.go</code>.</p>
+<pre><code>POST /api/start
+  → validates url and token (returns 400 if empty)
+  → creates Task in memory → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() updates progress message (parameter, not global)
+      → returns HTML fragment
+      → saves to PostgreSQL (if DB_HOST is configured)
+
+GET /api/progress/:id      → progress status + message polling
+GET /api/report/:id        → returns generated HTML fragment (current session)
+GET /api/reportdb/:id      → returns report saved in database
+GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
+</code></pre>
+<p>Report generation detects the Zabbix version via <code>apiinfo.version</code> and automatically adjusts API calls and process lists for Zabbix 6 and 7.</p>
 
 
 
