@@ -235,7 +235,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changes/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -440,6 +440,24 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#executando-a-documentacao-localmente-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Executando a documentação localmente (MkDocs)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucao-para-erro-tls-certificado-ex-could-not-find-a-suitable-tls-ca-certificate-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solução para erro TLS / certificado (ex: "Could not find a suitable TLS CA certificate bundle")
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -534,6 +552,24 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#executando-a-documentacao-localmente-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Executando a documentação localmente (MkDocs)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solucao-para-erro-tls-certificado-ex-could-not-find-a-suitable-tls-ca-certificate-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solução para erro TLS / certificado (ex: "Could not find a suitable TLS CA certificate bundle")
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -604,6 +640,62 @@
 <li>Compare seu <code>messages.json</code> com o de <code>pt_BR</code> para garantir que nenhuma chave foi omitida.</li>
 <li>Contribua via Pull Request com o título <code>i18n: add &lt;idioma&gt;</code> (ex.: <code>i18n: add es_ES</code>).</li>
 </ul>
+<hr />
+<h2 id="executando-a-documentacao-localmente-mkdocs">Executando a documentação localmente (MkDocs)</h2>
+<p>Para testar o site de documentação localmente usamos <code>mkdocs</code>. O projeto inclui um <code>requirements.txt</code> com as dependências necessárias.</p>
+<ol>
+<li>Crie e ative um ambiente virtual (recomendado):</li>
+</ol>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+</code></pre>
+<ol>
+<li>Instale as dependências:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+</code></pre>
+<ol>
+<li>Sirva a documentação localmente:</li>
+</ol>
+<pre><code class="language-bash">python -m mkdocs serve
+mkdocs serve
+</code></pre>
+<p>Abra <code>http://127.0.0.1:8000</code> no navegador.</p>
+<h2 id="solucao-para-erro-tls-certificado-ex-could-not-find-a-suitable-tls-ca-certificate-bundle">Solução para erro TLS / certificado (ex: "Could not find a suitable TLS CA certificate bundle")</h2>
+<p>Se ao instalar as dependências com <code>pip</code> você receber um erro semelhante a:</p>
+<pre><code>Could not find a suitable TLS CA certificate bundle, invalid path: /path/to/certifi/cacert.pem
+</code></pre>
+<p>provavelmente há uma variável de ambiente apontando para um bundle de CA inválido ou ausente. Siga estes passos para resolver:</p>
+<ol>
+<li>Verifique variáveis que afetam TLS:</li>
+</ol>
+<pre><code class="language-bash">echo $SSL_CERT_FILE
+echo $REQUESTS_CA_BUNDLE
+echo $PIP_CERT
+</code></pre>
+<ol>
+<li>Se alguma apontar para um caminho inválido (ex.: <code>/path/to/certifi/cacert.pem</code>), remova-a temporariamente:</li>
+</ol>
+<pre><code class="language-bash">unset SSL_CERT_FILE REQUESTS_CA_BUNDLE PIP_CERT
+</code></pre>
+<ol>
+<li>Reinstale/atualize <code>certifi</code> e recupere o caminho do bundle confiável:</li>
+</ol>
+<pre><code class="language-bash">pip install --upgrade certifi
+python -c &quot;import certifi; print(certifi.where())&quot;
+</code></pre>
+<ol>
+<li>Opcional: exporte esse caminho se seu ambiente requerer uma variável explícita:</li>
+</ol>
+<pre><code class="language-bash">export SSL_CERT_FILE=&quot;$(python -c 'import certifi; print(certifi.where())')&quot;
+</code></pre>
+<ol>
+<li>Tente novamente:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+mkdocs serve
+</code></pre>
+<p>Se você estiver em uma rede corporativa com CA interna, aponte <code>SSL_CERT_FILE</code> para o bundle CA da sua organização.</p>
 
 
 

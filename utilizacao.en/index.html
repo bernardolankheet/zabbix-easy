@@ -233,7 +233,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changes/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -396,6 +396,57 @@
       General Flow
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-users-tab-usuarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Users (tab-usuarios)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Users (tab-usuarios)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-shown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table shown
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommendation-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendation generated
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -569,6 +620,61 @@ GET /api/reportdb/:id      → returns report saved in database
 GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 </code></pre>
 <p>Report generation detects the Zabbix version via <code>apiinfo.version</code> and automatically adjusts API calls and process lists for Zabbix 6 and 7.</p>
+<hr />
+<h2 id="guide-users-tab-usuarios">Guide: Users (<code>tab-usuarios</code>)</h2>
+<h3 id="what-it-is">What it is</h3>
+<p>This tab shows whether the default Zabbix administrative account (<code>Admin</code>) exists and performs a best-effort authentication test using the default password <code>zabbix</code>.</p>
+<p>Notes:
+- The report DOES NOT fetch the full user list — it calls <code>user.get</code> with <code>filter: { username: "Admin" }</code>
+- If the <code>Admin</code> account is found and enabled, the report performs a <code>user.login</code> attempt with <code>user: "Admin", password: "zabbix"</code>. The returned token is discarded; it is used only to detect whether the default password is accepted.
+- If the <code>Admin</code> account is disabled, the default-admin recommendation is considered OK and the password test is skipped.</p>
+<h3 id="table-shown">Table shown</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Username</td>
+<td>The username (e.g., <code>Admin</code>)</td>
+</tr>
+<tr>
+<td>Full name</td>
+<td>The user's full name</td>
+</tr>
+<tr>
+<td>Default Password</td>
+<td>Indicates whether the account accepts the default password <code>zabbix</code> (Yes / No)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls">Zabbix API calls</h3>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Params</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user.get</code></td>
+<td><code>filter: { username: "Admin" }, output: ["userid","username","name","surname"]</code></td>
+<td>Fetches only the <code>Admin</code> account to avoid scanning all users</td>
+</tr>
+<tr>
+<td><code>user.login</code></td>
+<td><code>user: "Admin", password: "zabbix"</code></td>
+<td>Best-effort authentication test. The token (if any) is discarded immediately.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommendation-generated">Recommendation generated</h3>
+<p>If the <code>Admin</code> account exists and accepts the default password, the report automatically injects a recommendation in the "Default Zabbix Admin account detected" section with guidance to change or disable the account.</p>
 
 
 

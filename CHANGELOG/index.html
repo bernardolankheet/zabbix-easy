@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="..">
-      
-      
-        <link rel="next" href="../instalacao/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>Novidades - Zabbix Easy Report</title>
+        <title>CHANGELOG - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#novidades-atualizacoes" class="md-skip">
+        <a href="#changelog" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -100,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Novidades
+              CHANGELOG
             
           </span>
         </div>
@@ -234,19 +230,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -255,7 +242,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -380,6 +366,59 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#002-21032026" class="md-nav__link">
+    <span class="md-ellipsis">
+      [0.0.2] - 21/03/2026
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#new-features-and-improvements" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Features and Improvements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#affected-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Affected files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#001-15032026" class="md-nav__link">
+    <span class="md-ellipsis">
+      [0.0.1] - 15/03/2026
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -396,23 +435,53 @@
   
 
 
-<h1 id="novidades-atualizacoes">Novidades / Atualizações</h1>
-<p>Data: 16/03/2026</p>
-<p>Resumo das mudanças recentes introduzidas nesta versão:</p>
+<h1 id="changelog">CHANGELOG</h1>
+<h2 id="002-21032026">[0.0.2] - 21/03/2026</h2>
+<h2 id="new-features-and-improvements">New Features and Improvements</h2>
 <ul>
-<li>UI: adicionada uma lista de recomendações destacada (blocos amarelos) para ações rápidas nos proxys. Classes CSS: <code>.rec-highlight-list</code> e <code>.rec-highlight-item</code> em <code>app/web/static/style.css</code>.</li>
-<li>Recomendações por proxy agora geram caixas de código dinâmicas (um bloco por proxy quando aplicável), usando o parâmetro detectado (por exemplo <code>StartPollers</code>, <code>StartHTTPPollers</code>, <code>StartPollersUnreachable</code>) em vez de um valor fixo. Implementação em <code>app/cmd/app/main.go</code>.</li>
-<li>Internacionalização: novas chaves adicionadas em <code>app/web/locales/pt_BR/messages.json</code> e <code>app/web/locales/en_US/messages.json</code>:</li>
-<li><code>fix.proxy_increase_hint</code> — texto usado no comentário dentro dos snippets (<code>aumente até o avg cair abaixo de 60%</code> / <code>increase until the avg drops below 60%</code>).</li>
-<li><code>fix.proxy_highlight_process_title</code>, <code>fix.proxy_highlight_offline_title</code>, <code>fix.proxy_highlight_async_title</code> — títulos para os blocos destacados.</li>
-<li>Backend: correções na resolução de <code>hostid</code> para process items — captura de <code>hostid</code> apenas a partir de items com chave começando por <code>process.</code> e proteção para não sobrescrever hostid válido; remoção de logs de debug usados no diagnóstico.</li>
+<li>User Guide (<code>tab-usuarios</code>):</li>
+<li>Search only for the <code>Admin</code> account via <code>user.get</code> with <code>filter: { username: "Admin" }</code>.</li>
+<li>Best-effort authentication test <code>user.login</code> with <code>Admin</code>/<code>zabbix</code> to detect default password; token discarded.</li>
+<li>When the default password is accepted, the report displays a critical recommendation in the security section and a critical KPI.</li>
+<li>Recommendations (accordion):</li>
+<li>Recommendations for recommendations (<code>details.rec-section</code>) now start collapsed by default; click to expand.</li>
+<li>Improved proxy recommendations:</li>
+<li>Proxy highlight box with dynamic snippets (e.g., <code>StartPollers</code>, <code>StartHTTPPollers</code>, <code>StartSNMPPollers</code>).</li>
+<li>Documentation and tools:</li>
+<li>Added <code>requirements.txt</code> with MkDocs dependencies (<code>mkdocs</code>, <code>mkdocs-material</code>, <code>mkdocs-static-i18n</code>, <code>pymdown-extensions</code>).</li>
+<li>Updated instructions in <code>docs/contribuicao.md</code> and <code>docs/contribuicao.en.md</code> to run the documentation locally and resolve a common TLS error.</li>
+<li>Included <code>.gitignore</code> to ignore <code>.venv</code> and temporary files.</li>
+<li><code>README.md</code> redesigned with Quick Start and development instructions.</li>
 </ul>
-<p>Arquivos modificados (principais):
-- <code>app/cmd/app/main.go</code> — lógica de geração do HTML do relatório e captura de hostid/processos.
-- <code>app/web/static/style.css</code> — novas classes para estilizar a lista destacada.
-- <code>app/web/locales/pt_BR/messages.json</code> e <code>app/web/locales/en_US/messages.json</code> — novas chaves i18n.</p>
-<p>Notas para operadores e desenvolvedores:
-- Para testes locais, reconstrua a imagem e rode o serviço (ex.: <code>docker compose up -d --build</code>) e gere um relatório para visualizar as novas recomendações por proxy.</p>
+<h2 id="affected-files">Affected files</h2>
+<ul>
+<li><code>app/cmd/app/main.go</code> — logic for generating the report's HTML (Users tab <code>tab-usuarios</code>, rec sections, proxy fixes).</li>
+<li><code>app/web/locales/*/messages.json</code> — new i18n keys for messages and recommendations.</li>
+<li><code>docs/*</code> — updated documentation and auxiliary files (<code>requirements.txt</code>, <code>.gitignore</code>, README`).</li>
+</ul>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Test <code>user.login</code> only in the staging environment before using it in production (account lockout policies may occur).</li>
+<li>To serve the documentation locally, use a <code>venv</code> and run <code>python -m mkdocs serve</code>.</li>
+</ul>
+<h2 id="001-15032026">[0.0.1] - 15/03/2026</h2>
+<h1 id="whats-new-updates">What's New / Updates</h1>
+<p>Date: 16/03/2026</p>
+<p>Summary of recent changes:</p>
+<ul>
+<li>UI: added a highlighted recommendations list (yellow boxes) for quick proxy actions. CSS classes: <code>.rec-highlight-list</code> and <code>.rec-highlight-item</code> in <code>app/web/static/style.css</code>.</li>
+<li>Per-proxy recommendations now generate dynamic code boxes (one block per proxy), using the automatically detected parameter (e.g. <code>StartPollers</code>, <code>StartHTTPPollers</code>, <code>StartPollersUnreachable</code>) instead of a hardcoded value. Implementation in <code>app/cmd/app/main.go</code>.</li>
+<li>Internationalization: new keys added in <code>app/web/locales/pt_BR/messages.json</code> and <code>app/web/locales/en_US/messages.json</code>:</li>
+<li><code>fix.proxy_increase_hint</code> — comment text inside snippets (<code>increase until the avg drops below 60%</code>).</li>
+<li><code>fix.proxy_highlight_process_title</code>, <code>fix.proxy_highlight_offline_title</code>, <code>fix.proxy_highlight_async_title</code> — titles for highlighted blocks.</li>
+<li>Backend: fixes to <code>hostid</code> resolution for process items — hostid is now captured only from items whose key starts with <code>process.</code>; removed debug logs.</li>
+</ul>
+<p>Main modified files:
+- <code>app/cmd/app/main.go</code> — HTML report generation logic and hostid/process capture.
+- <code>app/web/static/style.css</code> — new classes for the highlighted list.
+- <code>app/web/locales/pt_BR/messages.json</code> and <code>en_US/messages.json</code> — new i18n keys.</p>
+<p>Notes for operators and developers:
+- To test locally, rebuild the image and run the service (e.g. <code>docker compose up -d --build</code>) and generate a report to see the new per-proxy recommendations.</p>
 
 
 

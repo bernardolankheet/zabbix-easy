@@ -233,7 +233,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changes/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -432,6 +432,24 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#running-the-docs-locally-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the docs locally (MkDocs)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -492,6 +510,61 @@
 <li>Compare your <code>messages.json</code> with <code>pt_BR</code> to ensure no keys are missing.</li>
 <li>Contribute via Pull Request with the title <code>i18n: add &lt;language&gt;</code> (e.g. <code>i18n: add es_ES</code>).</li>
 </ul>
+<hr />
+<h2 id="running-the-docs-locally-mkdocs">Running the docs locally (MkDocs)</h2>
+<p>To preview the documentation locally we use <code>mkdocs</code>. The repository includes a <code>requirements.txt</code> with the needed packages.</p>
+<ol>
+<li>Create and activate a virtual environment (recommended):</li>
+</ol>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+</code></pre>
+<ol>
+<li>Install dependencies:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+</code></pre>
+<ol>
+<li>Serve the site locally:</li>
+</ol>
+<pre><code class="language-bash">mkdocs serve
+</code></pre>
+<p>Open <code>http://127.0.0.1:8000</code> in your browser.</p>
+<h2 id="tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle">TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")</h2>
+<p>If <code>pip install -r requirements.txt</code> fails with an error like:</p>
+<pre><code>Could not find a suitable TLS CA certificate bundle, invalid path: /path/to/certifi/cacert.pem
+</code></pre>
+<p>it's likely an environment variable points to a missing or invalid CA bundle. Fix it as follows:</p>
+<ol>
+<li>Check TLS-related environment variables:</li>
+</ol>
+<pre><code class="language-bash">echo $SSL_CERT_FILE
+echo $REQUESTS_CA_BUNDLE
+echo $PIP_CERT
+</code></pre>
+<ol>
+<li>If any point to an invalid path (e.g. <code>/path/to/certifi/cacert.pem</code>), unset them temporarily:</li>
+</ol>
+<pre><code class="language-bash">unset SSL_CERT_FILE REQUESTS_CA_BUNDLE PIP_CERT
+</code></pre>
+<ol>
+<li>Reinstall/upgrade <code>certifi</code> and get its bundle path:</li>
+</ol>
+<pre><code class="language-bash">pip install --upgrade certifi
+python -c &quot;import certifi; print(certifi.where())&quot;
+</code></pre>
+<ol>
+<li>Optionally export that path if your environment requires an explicit variable:</li>
+</ol>
+<pre><code class="language-bash">export SSL_CERT_FILE=&quot;$(python -c 'import certifi; print(certifi.where())')&quot;
+</code></pre>
+<ol>
+<li>Retry installation and serving:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+mkdocs serve
+</code></pre>
+<p>If you're behind a corporate proxy using a custom CA, set <code>SSL_CERT_FILE</code> to your organization's CA bundle instead of the <code>certifi</code> bundle.</p>
 
 
 
