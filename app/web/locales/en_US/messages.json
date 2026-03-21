@@ -375,7 +375,7 @@
 
   ,"tabs.users": "Users"
   ,"section.users": "Zabbix Users"
-  ,"tip.users": "List of users configured in Zabbix. Super Admin accounts have unrestricted access; review regularly to enforce the principle of least privilege."
+  ,"tip.users": "Summary of the default 'Admin' account in Zabbix. Checks whether the account exists and if the default password is still in use; use the full Zabbix UI to review all users and permissions."
   ,"table.username": "Username"
   ,"table.fullname": "Full Name"
   ,"table.default_password": "Default Password"
