@@ -72,7 +72,7 @@ Sem `--profile db`, o postgres não sobe — mesmo com as variáveis `DB_*` desc
 
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
-| `ZABBIX_SERVER_HOSTID` | 10048 - Default | HostID do Zabbix Server para coleta de dados de performance. |
+| `ZABBIX_SERVER_HOSTID` | 10084 - Default | HostID do Zabbix Server para coleta de dados de performance. |
 | `CHECKTRENDTIME` | `30d` | Janela de análise de trends. Aceita `d`, `h`, `m`. Ex: `15d`, `24h`. |
 | `MAX_CCONCURRENT` | `4` | Goroutines paralelas para chamadas à API do Zabbix. Reduzir para `2`–`3` se o Zabbix ficar lento ou retornar timeouts. |
 | `API_TIMEOUT_SECONDS` | `60` | Timeout em segundos de cada requisição HTTP à API do Zabbix. Aumentar para `90`–`120` em ambientes com muitos hosts/itens ou latência alta. |
