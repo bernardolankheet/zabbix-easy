@@ -1186,21 +1186,21 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 	}
 
-			// Test whether the default Admin password 'zabbix' is accepted (best-effort).
-			// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
-			adminDefaultPasswordValid := false
-			if hasDefaultAdmin {
-				if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
-					if r, ok := loginResp["result"]; ok {
-						if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
-							adminDefaultPasswordValid = true
-						}
-					}
-				} else {
-					// non-fatal: just log at debug level
-					log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+	// Test whether the default Admin password 'zabbix' is accepted (best-effort).
+	// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
+	adminDefaultPasswordValid := false
+	if hasDefaultAdmin {
+		if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
+			if r, ok := loginResp["result"]; ok {
+				if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
+					adminDefaultPasswordValid = true
 				}
 			}
+		} else {
+			// non-fatal: just log at debug level
+			log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+		}
+	}
 
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
@@ -4048,7 +4048,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>` +
-			`<h5>1) <span data-i18n='sub.default_admin_account'></span></h5>` +
+			`<h5>` + nextSub() + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
 			`<p data-i18n='tip.default_admin'></p>` +
 			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
 			`<ul>` +

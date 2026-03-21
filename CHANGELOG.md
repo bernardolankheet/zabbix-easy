@@ -4,23 +4,23 @@
 
 ## New Features and Improvements
 
-- User Guide (`tab-users`):
-- Search only for the `Admin` account via `user.get` with `filter: { username: "Admin" }`.
-- Best-effort authentication test `user.login` with `Admin`/`zabbix` to detect default password; token discarded.
-- When the default password is blocked, the report displays a critical recommendation in the security section and a critical KPI.
+- User Guide (`tab-usuarios`):
+  - Search only for the `Admin` account via `user.get` with `filter: { username: "Admin" }`.
+  - Best-effort authentication test `user.login` with `Admin`/`zabbix` to detect default password; token discarded.
+  - When the default password is accepted, the report displays a critical recommendation in the security section and a critical KPI.
 - Recommendations (accordion):
-- Recommendations for recommendations (`details.rec-section`) now start collapsed by default; click to expand.
+  - Recommendations for recommendations (`details.rec-section`) now start collapsed by default; click to expand.
 - Improved proxy recommendations:
-- Proxy highlight box with dynamic snippets (e.g., `StartPollers`, `StartHTTPPollers`, `StartSNMPPollers`).
+  - Proxy highlight box with dynamic snippets (e.g., `StartPollers`, `StartHTTPPollers`, `StartSNMPPollers`).
 - Documentation and tools:
-- Added `requirements.txt` with MkDocs dependencies (`mkdocs`, `mkdocs-material`, `mkdocs-static-i18n`, `pymdown-extensions`).
-- Updated instructions in `docs/contribuicao.md` and `docs/contribuicao.en.md` to run the documentation locally and resolve a common TLS error.
-- Included `.gitignore` to ignore `.venv` and temporary files.
-- `README.md` redesigned with Quick Start and development instructions.
+  - Added `requirements.txt` with MkDocs dependencies (`mkdocs`, `mkdocs-material`, `mkdocs-static-i18n`, `pymdown-extensions`).
+  - Updated instructions in `docs/contribuicao.md` and `docs/contribuicao.en.md` to run the documentation locally and resolve a common TLS error.
+  - Included `.gitignore` to ignore `.venv` and temporary files.
+  - `README.md` redesigned with Quick Start and development instructions.
 
 ## Affected files
 
-- `app/cmd/app/main.go` — logic for generating the report's HTML (Users tab, rec sections, proxy fixes).
+- `app/cmd/app/main.go` — logic for generating the report's HTML (Users tab `tab-usuarios`, rec sections, proxy fixes).
 - `app/web/locales/*/messages.json` — new i18n keys for messages and recommendations.
 - `docs/*` — updated documentation and auxiliary files (`requirements.txt`, `.gitignore`, README`).
 

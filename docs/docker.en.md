@@ -55,7 +55,7 @@ docker compose --profile db up --build -d
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZABBIX_SERVER_HOSTID` | 10048 | Zabbix Server host ID for performance data collection. |
+| `ZABBIX_SERVER_HOSTID` | 10084 | Zabbix Server host ID for performance data collection. |
 | `CHECKTRENDTIME` | `30d` | Trend analysis window. Accepts `d`, `h`, `m`. |
 | `MAX_CCONCURRENT` | `4` | Parallel goroutines for Zabbix API calls. |
 | `API_TIMEOUT_SECONDS` | `60` | Per-request HTTP timeout in seconds. |

@@ -13,22 +13,10 @@ theme:
   language: pt
 plugins:
   - search
-  - i18n:
-      languages:
-        - locale: pt
-          name: "Português (Brasil)"
-          default: true
-        - locale: en
-          name: "English"
 markdown_extensions:
   - admonition
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
 extra_javascript:
-  - https://unpkg.com/mermaid@9/dist/mermaid.min.js
+  - js/mermaid.min.js
   - js/mermaid-init.js
   - js/lang-switch.js
 extra_css:

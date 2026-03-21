@@ -12,4 +12,4 @@ Projeto moderno para geração de relatórios HealthCheck do Zabbix usando Go e 
 3. Relatório gerado e exibido na interface
 
 ## Novidades
-Consulte as mudanças e notas de atualização em [Novidades](https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md).
+Consulte as mudanças e notas de atualização em [Novidades](../changelog/).
