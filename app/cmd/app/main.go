@@ -1188,7 +1188,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
 			adminDefaultPasswordValid := false
 			if hasDefaultAdmin {
-				if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"user": "Admin", "password": "zabbix"}); loginErr == nil {
+				if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
 					if r, ok := loginResp["result"]; ok {
 						if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
 							adminDefaultPasswordValid = true
@@ -3210,13 +3210,20 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<h2 class='tab-print-title' data-i18n='tabs.users'></h2>`
 	html += titleWithInfo("h3", "i18n:section.users", "i18n:tip.users")
 
-	// Security alert: default Admin found
+	// Security alert: default Admin found. Highlight as CRITICAL when default password 'zabbix' is accepted.
 	if hasDefaultAdmin {
-		html += `<div style='background:#fff1f0;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
-			// `<span style='font-size:1.4rem;line-height:1;'>🔴</span>` + # Removi, não gostei
-			`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
-			`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p></div>` +
-			`</div>`
+		if adminDefaultPasswordValid {
+			html += `<div style='background:#fee2e2;border:1px solid #f43f5e;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
+				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p>` +
+				`<p style='margin:8px 0 0;font-size:0.95em;color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></p></div>` +
+				`</div>`
+		} else {
+			html += `<div style='background:#fff1f0;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
+				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p></div>` +
+				`</div>`
+		}
 	}
 
 	if len(usersList) == 0 {
@@ -3485,8 +3492,16 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
 	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	// KPI: default Admin account
-	adminKpiClass := "kpi-ok"; if hasDefaultAdmin { adminKpiClass = "kpi-crit" }
-	adminKpiIcon := "✅"; if hasDefaultAdmin { adminKpiIcon = "🔴" }
+	adminKpiClass := "kpi-ok"
+	if hasDefaultAdmin {
+		adminKpiClass = "kpi-warn"
+		if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
+	}
+	adminKpiIcon := "✅"
+	if hasDefaultAdmin {
+		adminKpiIcon = "🟡"
+		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
+	}
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.default_admin'></div></div>`
@@ -3542,7 +3557,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		serverDescParts := []string{}
 		if len(attention) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_attention' data-i18n-args='%d'></span>", len(attention))) }
 		if len(missingAsync) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_async' data-i18n-args='%d'></span>", len(missingAsync))) }
-		html += `<details class='rec-section' open id='card-server'>` +
+		html += `<details class='rec-section' id='card-server'>` +
 			`<summary><span class='rec-sec-icon'>⚙️</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.server'></span></div>` +
@@ -3628,7 +3643,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if offline > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_offline' data-i18n-args='%d'></span>", offline)) }
 		if unknown > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_unknown' data-i18n-args='%d'></span>", unknown)) }
 		if len(proxyProcAttnList) > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_process_attn' data-i18n-args='%d'></span>", len(proxyProcAttnList))) }
-		html += `<details class='rec-section' open id='card-proxys'>` +
+		html += `<details class='rec-section' id='card-proxys'>` +
 			`<summary><span class='rec-sec-icon'>📡</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.proxies'></span></div>` +
@@ -3815,7 +3830,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if unsupportedVal > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_unsupported' data-i18n-args='"+formatInt(unsupportedVal)+"'></span>") }
 		if itemsLe60 > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_short_interval' data-i18n-args='"+formatInt(itemsLe60)+"'></span>") }
 		if textCount > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_text_history' data-i18n-args='"+formatInt(textCount)+"'></span>") }
-		html += `<details class='rec-section' open id='card-items'>` +
+		html += `<details class='rec-section' id='card-items'>` +
 			`<summary><span class='rec-sec-icon'>📋</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.items'></span></div>` +
@@ -3877,7 +3892,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		lldDescParts := []string{}
 		if lldLe300 > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_short_interval' data-i18n-args='%d'></span>", lldLe300)) }
 		if lldNotSupCnt > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_unsupported' data-i18n-args='%d'></span>", lldNotSupCnt)) }
-		html += `<details class='rec-section' open id='card-lld'>` +
+		html += `<details class='rec-section' id='card-lld'>` +
 			`<summary><span class='rec-sec-icon'>🔍</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.lld'></span></div>` +
@@ -3917,7 +3932,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if len(topTemplates) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_review' data-i18n-args='%d'></span>", templatesShown)) }
 		if len(topErrors) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_error_types' data-i18n-args='%d'></span>", func() int { if len(topErrors) > topN { return topN }; return len(topErrors) }())) }
 		if majorV >= 7 && len(snmpMigrationTpls) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_snmp_migrate' data-i18n-args='%d'></span>", len(snmpMigrationTpls))) }
-		html += `<details class='rec-section' open id='card-templates'>` +
+		html += `<details class='rec-section' id='card-templates'>` +
 			`<summary><span class='rec-sec-icon'>📑</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.templates'></span></div>` +
@@ -3981,12 +3996,24 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 	// --- Seção: Segurança (conta Admin padrão) ---
 	if hasDefaultAdmin {
 		secNum++
-		html += `<details class='rec-section' open id='card-security'>` +
+		// badge: warn by default, escalate to crit when default password is accepted
+		badgeClass := "warn"
+		badgeIcon := "🟡"
+		if adminDefaultPasswordValid { badgeClass = "crit"; badgeIcon = "🔴" }
+
+		html += `<details class='rec-section' id='card-security'>` +
 			`<summary><span class='rec-sec-icon'>🔐</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.security'></span></div>` +
-			`<div class='rec-sec-desc'><span data-i18n='rec.desc.default_admin'></span></div>` +
-			`</div><span class='status-badge crit'>🔴</span>` +
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.default_admin'></span>` +
+			func() string {
+				if adminDefaultPasswordValid {
+					return ` <br/><span style='color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></span>`
+				}
+				return ""
+			}() +
+			`</div>` +
+			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>` +
 			`<h5>1) <span data-i18n='sub.default_admin_account'></span></h5>` +

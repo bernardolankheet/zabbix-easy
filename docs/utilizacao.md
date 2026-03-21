@@ -604,7 +604,7 @@ if majorV >= 7 {
 Esta guia exibe se a conta administrativa padrão do Zabbix (`Admin`) existe e realiza um teste simples para verificar se ainda aceita a senha padrão `zabbix`.
 
 Observações importantes:
-- O relatório NÃO busca a lista completa de usuários — ele faz uma chamada `user.get` filtrando apenas pelo `username = Admin` para evitar consultas pesadas.
+- O relatório NÃO busca a lista completa de usuários — ele faz uma chamada `user.get` filtrando apenas pelo `username = Admin`.
 - Quando a conta `Admin` é encontrada e aparece habilitada, o relatório realiza uma tentativa de autenticação `user.login` com as credenciais `Admin`/`zabbix` (teste *best-effort*). O token retornado pela API não é armazenado; serve apenas para detectar se a senha padrão ainda funciona.
 - Se a conta `Admin` estiver desabilitada, o KPI/recomendação de conta padrão é considerado OK e o teste de senha não é exibido.
 
