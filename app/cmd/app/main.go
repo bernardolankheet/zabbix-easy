@@ -1044,7 +1044,6 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		nItemsNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
 	}
 	// ── Parallel summary collection ──────────────────────────────────────────────
-	// All 9 calls below are independent; run them concurrently to reduce latency.
 	if progressCb != nil { progressCb("progress.collecting_users") }
 	var (
 		nUsers          int
@@ -1687,7 +1686,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		"vmware collector",
 		"ha manager",
 	}
-	// Para Zabbix < 7, remover processos que não existem nessa versão — em vez de exibi-los como desabilitados.
+	// Para Zabbix < 7, removemos a lista de processos que não existem nessa versão — em vez de exibi-los como desabilitados.
 	if majorV < 7 {
 		v6skip := map[string]bool{
 			"configuration syncer worker": true,
@@ -3495,15 +3494,15 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
 	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	// KPI: default Admin account
+	// Behavior: Verde se a Admin está presente mas NÃO aceita a senha padrão;
+	// vermelho apenas quando a conta Admin aceita a senha padrão 'zabbix'.	
 	adminKpiClass := "kpi-ok"
-	if hasDefaultAdmin {
-		adminKpiClass = "kpi-warn"
-		if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
+	if adminDefaultPasswordValid {
+		adminKpiClass = "kpi-crit"
 	}
 	adminKpiIcon := "✅"
-	if hasDefaultAdmin {
-		adminKpiIcon = "🟡"
-		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
+	if adminDefaultPasswordValid {
+		adminKpiIcon = "🔴"
 	}
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
@@ -3696,7 +3695,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 					if tipKey == "" { tipKey = pollerName }
 					html += ` ` + titleWithInfo("span", pollerName, tipKey) + ` —`
 				}
-				// remove trailing " —"
+				// removemos trailing " —"
 				html = html[:len(html)-len(" —")]
 				html += `</li>`
 			}
@@ -3746,11 +3745,20 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if len(proxyProcAttnList) > 0 {
 			// Pass 1: pre-build all suggested params per proxy (deduped, order preserved)
 			proxyParams := map[string][]string{}
+			// also collect the process friendly names per proxy for display in the fix header
+			proxyProcNames := map[string][]string{}
 			proxyOrder := []string{}
 			procParamMap := map[string]string{} // p.ProxyName+"|"+p.ProcFriendly -> param
 			for _, p := range proxyProcAttnList {
 				param := procToParam(p.ProcFriendly)
 				procParamMap[p.ProxyName+"|"+p.ProcFriendly] = param
+				// collect process friendly names (dedupe)
+				if _, seen := proxyProcNames[p.ProxyName]; !seen {
+					proxyProcNames[p.ProxyName] = []string{}
+				}
+				foundProc := false
+				for _, ex := range proxyProcNames[p.ProxyName] { if ex == p.ProcFriendly { foundProc = true; break } }
+				if !foundProc { proxyProcNames[p.ProxyName] = append(proxyProcNames[p.ProxyName], p.ProcFriendly) }
 				if _, seen := proxyParams[p.ProxyName]; !seen {
 					proxyOrder = append(proxyOrder, p.ProxyName)
 					proxyParams[p.ProxyName] = []string{}
@@ -3780,6 +3788,11 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				if !emittedCodeBox[p.ProxyName] {
 					emittedCodeBox[p.ProxyName] = true
 					if params := proxyParams[p.ProxyName]; len(params) > 0 {
+						// Show proxy and process name(s) header so user sees which host the snippet targets
+						if names, ok := proxyProcNames[p.ProxyName]; ok && len(names) > 0 {
+							// header intentionally suppressed here (rendered earlier in the list)
+							_ = names
+						}
 						html += "<pre># /etc/zabbix/zabbix_proxy.conf\n"
 						for _, pr := range params {
 							html += pr + "=   # <span data-i18n='fix.proxy_increase_hint'></span>\n"
@@ -4049,7 +4062,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				}
 				return ""
 			}() +
-			`<a href='` + htmlpkg.EscapeString(ambienteUrl+"/zabbix.php?action=user.list") + `' target='_blank' rel='noopener' style='display:inline-block;margin-top:6px;font-size:0.85em;' data-i18n='fix.open_users_list'></a>` +
+			`<a href='` + htmlpkg.EscapeString(ambienteUrl+"/zabbix.php?action=user.list&filter_username=Admin&filter_name=&filter_surname=&filter_set=1") + `' target='_blank' rel='noopener' style='display:inline-block;margin-top:6px;font-size:0.85em;' data-i18n='fix.open_users_list'></a>` +
 			`</div>` +
 			`</div></details>`
 	}

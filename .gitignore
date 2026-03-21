@@ -24,3 +24,5 @@ node_modules/
 venv/
 ENV/
 .env.d/
+
+.github/skills/
