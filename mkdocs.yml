@@ -11,6 +11,8 @@ nav:
 theme:
   name: material
   language: pt
+  favicon: img/favicon.svg
+  logo: img/favicon.svg
 plugins:
   - search
 markdown_extensions:
