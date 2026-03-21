@@ -375,7 +375,7 @@
 
   ,"tabs.users": "Usuários"
   ,"section.users": "Usuários do Zabbix"
-  ,"tip.users": "Lista de usuários configurados no Zabbix. Contas com tipo Super Admin possuem acesso irrestrito; revise regularmente para garantir o princípio do menor privilégio."
+  ,"tip.users": "Verificação da conta padrão 'Admin' do Zabbix e do status da senha padrão. Esta aba não lista todos os usuários; use a interface do Zabbix para revisar e gerenciar as demais contas (incluindo Super Admins)."
   ,"table.username": "Usuário"
   ,"table.fullname": "Nome Completo"
   ,"table.default_password": "Senha Padrão"
