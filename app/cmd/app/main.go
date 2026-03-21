@@ -1184,21 +1184,21 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 	}
 
-			// Test whether the default Admin password 'zabbix' is accepted (best-effort).
-			// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
-			adminDefaultPasswordValid := false
-			if hasDefaultAdmin {
-				if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
-					if r, ok := loginResp["result"]; ok {
-						if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
-							adminDefaultPasswordValid = true
-						}
-					}
-				} else {
-					// non-fatal: just log at debug level
-					log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+	// Test whether the default Admin password 'zabbix' is accepted (best-effort).
+	// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
+	adminDefaultPasswordValid := false
+	if hasDefaultAdmin {
+		if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
+			if r, ok := loginResp["result"]; ok {
+				if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
+					adminDefaultPasswordValid = true
 				}
 			}
+		} else {
+			// non-fatal: just log at debug level
+			log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+		}
+	}
 
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
