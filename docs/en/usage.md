@@ -1,0 +1,1548 @@
+﻿title: "Usage"
+lang: en_US
+---
+
+# Usage
+
+1. Access the web interface
+2. Enter the Zabbix URL and token
+3. Wait for the report to be generated
+4. Export or print the report as needed
+
+---
+
+## Global environment variables
+
+These variables affect the behavior of the entire report generation:
+
+| Variable              | Default  | Description |
+|-----------------------|---------|-------------|
+| `ZABBIX_SERVER_HOSTID`| _(empty)_ | ID of the Zabbix Server host. Used to filter item calls by host. If not set, searches run without a host filter. |
+| `CHECKTRENDTIME`      | `30d`   | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
+| `MAX_CCONCURRENT`     | `4`     | Maximum parallel goroutines for Zabbix API calls. Reduce to `2`–`3` if Zabbix is slow or times out. |
+| `API_TIMEOUT_SECONDS` | `60`    | Per-request timeout in seconds for Zabbix API HTTP calls. Increase to `90`–`120` for slow environments. |
+| `APP_DEBUG`           | _(empty)_ | `1` or `true` to enable verbose API request/response logs. |
+
+---
+
+## General flow
+
+The main function is `generateZabbixReport(url, token string, progressCb func(string))` in `cmd/app/main.go`.
+
+- `url` and `token` must be non-empty — the function returns an error immediately if either is missing.
+- `url` may be provided as `http://host/` or `http://host/api_jsonrpc.php` — both are accepted; `/api_jsonrpc.php` is appended only when necessary.
+- `progressCb` is passed as a parameter (not global), keeping concurrent calls isolated.
+
+```
+POST /api/start
+  → validates url and token (returns 400 if empty)
+  → creates an in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() updates the progress message (parameter, not global)
+      → returns an HTML fragment
+      → saves to PostgreSQL (if DB_HOST is configured)
+
+GET /api/progress/:id      → polling for status + progress message
+GET /api/report/:id        → returns the generated HTML fragment (current session)
+GET /api/reportdb/:id      → returns the report saved in the database
+GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
+```
+
+Report generation detects the Zabbix version via `apiinfo.version` and automatically adjusts API calls and process lists for Zabbix 6 and 7.
+
+---
+
+Proxy process detection uses an `item.get` call that searches for *internal items* and *dependent items* (types `5` and `18`). This ensures the tool finds keys in both "dot-style" format (e.g. `process.*.avg.busy`) and the Zabbix function format (`zabbix[process,*,avg,busy]`), since the match is performed against both the `key_` and `name` fields.
+
+Key points:
+
+- The filter now includes `type: [5, 18]` — Internal (5) and Dependent (18). Previously only `type=5` (internal) items were queried, which caused dependent-item keys to be missed.
+- Matching uses wildcards, so patterns like `*availability*manager*` cover both notations.
+- If the report shows "No process items found", check:
+  - Whether the template (e.g. `Zabbix Proxy Health` or `Remote Zabbix Proxy Health`) is linked to the host/proxy.
+  - Whether the template uses dependent items — in Zabbix, dependent items depend on a master item; confirm the master item exists and is active.
+  - For debugging, query the API directly to list the host's items with `filter: {"type": [5,18]}` and `searchWildcardsEnabled:true`, for example:
+
+```json
+{"jsonrpc":"2.0","method":"item.get","params":{
+  "output":"extend",
+  "hostids":"<HOSTID>",
+  "search":{"key_":["*availability*manager*","*poller*","*trapper*"]},
+  "searchByAny":true,
+  "searchWildcardsEnabled":true,
+  "filter":{"type":[5,18]},
+  "monitored":true
+},"auth":"<TOKEN>","id":1}
+```
+
+This returns both dot-style `key_` items and dependent items that use `zabbix[...]` in their `name`/`key_`.
+
+This change fixes cases where keys such as `process.availability_manager.avg.busy` were not found because they were returned as dependent items.
+
+### Version logic
+
+#### Proxy type (Active / Passive)
+
+| Field | Zabbix ≥ 7 | Zabbix 6 |
+|-------|-----------|---------|
+| Type  | `operating_mode` (`0`=Active, `1`=Passive) | `status` (`5`=Active, `6`=Passive) |
+
+#### Connectivity state (Online / Offline / Unknown)
+
+Zabbix 7 returns the `state` field directly in `proxy.get`. Zabbix 6 **does not return `state`**, so the state is derived from the `lastaccess` field (Unix timestamp of the last communication with the server):
+
+| Condition | Inferred state | Zabbix 7 equivalent |
+|-----------|---------------|---------------------|
+| `state` present and `state == "2"` | **Online** | `state=2` |
+| `state` present and `state == "1"` | **Offline** | `state=1` |
+| `state` present and `state == "0"` | **Unknown** | `state=0` |
+| `state` absent and `lastaccess == 0` | **Unknown** — never connected | — |
+| `state` absent and `now - lastaccess > 300s` | **Offline** — connection lost | — |
+| `state` absent and `now - lastaccess ≤ 300s` | **Online** | — |
+
+> The 300 s (5 min) threshold is conservative: active proxies report to the server every few seconds by default.
+
+### How it works in code
+
+Rows per proxy are generated in parallel goroutines controlled by the semaphore `sem`. Results are re-ordered by their original index to preserve the display order.
+
+---
+
+### Proxy Processes and Threads
+
+#### What it is
+
+Displays the utilization of internal processes for each Zabbix Proxy in a per-proxy accordion. For each process, `min`, `avg` and `max` utilization (%) is shown, along with an **OK** or **Warning** badge in the accordion header.
+
+#### Table displayed (one per proxy)
+
+| Column | Description |
+|--------|-----------|
+| Process | Name with a `?` tooltip icon describing the `zabbix_proxy.conf` parameter |
+| value_min | Minimum utilization in the period (`CHECKTRENDTIME`) |
+| value_avg | Average utilization in the period |
+| value_max | Peak utilization in the period |
+| Status | Green OK / Red Warning / Gray not enabled / Gray no data |
+
+Each proxy accordion shows two badges in its header:
+
+- **Online / Offline·Unknown** — current communication state with Zabbix Server
+- **OK / Warning** — worst `value_avg` across all processes with data
+
+#### Zabbix API calls
+
+Each active proxy runs an independent goroutine (controlled by the semaphore `sem`) with the following flow:
+
+##### Step 1 — Proxy hostid discovery (3 attempts)
+
+The hostid of the proxy self-monitoring host may differ from the proxyid starting from Zabbix 7.
+
+| Attempt | Method | Parameters | When it works |
+|---------|--------|-----------|---------------|
+| A | `host.get` | `hostids: [proxyid]` | Zabbix 6 — proxyid == hostid |
+| B | `host.get` | `filter: {host: proxyName}` | Zabbix 7 — lookup by technical name |
+| C | `host.get` | `filter: {name: proxyName}` | Zabbix 7 — lookup by display name |
+| Fallback | — | uses `proxyid` directly | last resort |
+
+##### Step 2 — `item.get` bulk (1 call, all processes of the proxy)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid", "name", "key_", "value_type"],
+    "hostids": "<hostid resolved in Step 1>",
+    "filter": { "type": 5 }
+  }
+}
+```
+
+- Fetches **all** items of type `5` (Zabbix internal) for the host — no wildcard in the API call.
+- Matching is done **client-side**: for each returned item, `nameToWildcard` is tested against both the item's **`key_` and `name`** fields.
+- Checking the `name` field ensures compatibility between Zabbix 6 and 7, as the `name` (e.g. "Utilization of data sender processes, in %") is stable even when the `key_` format changes.
+
+##### Step 3 — `trend.get` bulk (1 call, all items of the proxy)
+
+```json
+{
+  "method": "trend.get",
+  "params": {
+    "output": ["itemid", "value_min", "value_avg", "value_max"],
+    "itemids": ["<iid1>", "<iid2>", "..."],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_to": "<now>"
+  }
+}
+```
+
+- Aggregates multiple trend records per item: `min(value_min)`, `mean(value_avg)`, `max(value_max)`.
+- Items with no data in the result trigger the fallback below.
+
+##### Step 4 — `history.get` fallback (1 call per `value_type`, only for items without trend data)
+
+```json
+{
+  "method": "history.get",
+  "params": {
+    "output": ["itemid", "value"],
+    "history": "<value_type>",
+    "itemids": ["<iids without trend>"],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_to": "<now>",
+    "sortfield": "clock",
+    "sortorder": "ASC",
+    "limit": 20000
+  }
+}
+```
+
+- Groups items by `value_type` and makes one call per type (up to 20,000 rows per call).
+- Calculates `min/avg/max` manually from raw values.
+
+#### Go functions
+
+| Function | Description |
+|--------|-----------|
+| `getProxies(apiUrl, token)` | Returns the full proxy list with all fields (`output:extend`) |
+| `getProxyProcessItems(apiUrl, token, names, hostid)` | Fetches all `type=5` items for the host; client-side match on `key_` **and** `name` using `nameToWildcard` |
+| `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** for all itemids; aggregates `min/avg/max` per item |
+| `getHistoryStatsBulkByType(apiUrl, token, items)` | Fallback: **1 `history.get` per `value_type`**; aggregates `min/avg/max` from raw history |
+| `nameToWildcard(name)` | Converts `"data*sender"` → `"*data*sender*"` for client-side matching |
+| `wildcardMatch(pattern, s)` | Simple `*` wildcard match; used by `getProxyProcessItems` to test `key_` and `name` |
+
+#### Version logic
+
+| Zabbix | Extra processes |
+|--------|----------------|
+| ≥ 7 | Includes `agent poller`, `browser poller`, `http agent poller`, `snmp poller` |
+| 6 | These four are excluded from the table |
+
+#### Status logic
+
+| Condition | Display |
+|----------|----------|
+| Proxy offline / unknown | Accordion without table; **Offline/Unknown** badge |
+| No `type=5` items found | Note with the hostid used; no table |
+| `trend.get` and `history.get` return no data | Gray — "No data" |
+| Item not found for the process | Gray — "Process not enabled" |
+| `value_avg < 60%` | Green — OK |
+| `value_avg ≥ 60%` | Red — Warning |
+
+#### How to add a new process to the proxy
+
+There are **2 places** in `cmd/app/main.go`:
+
+**1. `procDesc`** — tooltip `?` description (key in lowercase, with spaces instead of `*`):
+```go
+"new process": `"StartNewProcess" parameter: description and when to adjust.`,
+```
+
+**2. `proxyAllProcNames`** — proxy process list (use **spaces** as word separators, same as `pollerNames` on the server):
+```go
+proxyAllProcNames := []string{
+    "data sender",
+    ...
+    "new process",  // ← here
+}
+// or exclusive to Zabbix 7+:
+if majorV >= 7 {
+    proxyAllProcNames = append([]string{"new process"}, proxyAllProcNames...)
+}
+```
+
+**Why spaces?** `nameToWildcard` converts spaces to `*` automatically when building the search pattern (`"data sender"` → `"*data*sender*"`). Using spaces allows `strings.Fields` to count words correctly, ensuring the **"most specific wins"** sort works — without this, `"http*agent*poller"` and `"http*poller"` would have the same word-count of 1 and the sort would be unstable, causing `"http*poller"` to steal the item from `"http*agent*poller"`.
+
+> **Note:** the lookup key in `itemsMap` and in `procDesc` uses the name in **lowercase with spaces** (e.g. `"http agent poller"`). Make sure the entry in `procDesc` also uses spaces.
+
+---
+
+## Guide: Users (`tab-usuarios`)
+
+### What it is
+
+This tab shows whether the default Zabbix administrative account (`Admin`) exists and performs a simple test to check whether it still accepts the default password `zabbix`.
+
+Important notes:
+- The report does **not** retrieve the full user list — it makes a `user.get` call filtering only by `username = Admin`.
+- When the `Admin` account is found and appears enabled, the report attempts a `user.login` authentication with credentials `Admin`/`zabbix` (best-effort test). The token returned by the API is not stored; it only serves to detect whether the default password still works.
+- If the `Admin` account is disabled, the default-account KPI/recommendation is considered OK and the password test is not displayed.
+
+### Table displayed
+
+| Column | Description |
+|--------|-----------|
+| User | Username (e.g. `Admin`) |
+| Full Name | User's full name |
+| Default Password | Whether the account accepts the default password `zabbix` (Yes/No) |
+
+### Zabbix API calls
+
+| Call | Relevant parameters | Note |
+|------|--------------------|------|
+| `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Fetches only the `Admin` account, avoiding a full user scan |
+| `user.login` | `username: "Admin", password: "zabbix"` | Authentication attempt to check whether the default password is valid (best-effort). Returns a token on success, which is immediately discarded |
+
+### Recommendations generated
+
+If the `Admin` account exists and accepts the default password, the report automatically adds a recommendation in the "Default Zabbix Admin account detected" section with guidance on how to change or disable the account.
+
+---
+
+## Guide 4: Items and LLDs (`tab-items`)
+
+### What it is
+
+Detailed analysis of monitored items and discovery rules (LLD). Divided into five sections:
+
+1. **Items without Template** — items created directly on a host, outside any template
+2. **Unsupported items** — breakdown by item type (Zabbix Agent, SNMP, HTTP, etc.)
+3. **Collection Interval** — items with a delay of 1s, 10s, 30s, 60s
+4. **LLD Rules — Collection Interval** — discovery rules with a delay of 1s, 10s, 30s, 60s, 300s
+5. **Text Items with History** — items of type Text that retain history and have delay ≤ 300s
+
+### Tables displayed
+
+**Items without Template:**
+
+| Description | Count | Link |
+|-----------|-----------|------|
+| Items without Template | count | filtered link |
+
+**Unsupported items (by type):**
+
+| Item Type | Total | Unsupported | Link |
+|----------|-------|-------------|------|
+| Zabbix Agent | n | n | link |
+| SNMP | n | n | link |
+| … | … | … | … |
+
+**Collection Interval / LLD:**
+
+| Interval (s) | Count | Link |
+|-------------|-----------|------|
+| 1 | n | link |
+| 10 | n | link |
+
+**Text Items with History:**
+
+| Template | Item Name | ItemID | Interval (s) | Link |
+|----------|----------|--------|-------------|------|
+
+### Zabbix API calls
+
+| Call | Relevant parameters | Data extracted |
+|------|---------------------|---------------|
+| `item.get` | `filter:{flags:0}, inherited:false, templated:false, countOutput:true` | Items without template |
+| `item.get` | `filter:{type:<code>}, countOutput:true, monitored:true` | Total per item type |
+| `item.get` | `filter:{type:<code>,state:1}, countOutput:true, monitored:true` | Unsupported per type |
+| `item.get` | `filter:{delay:<1\|10\|30\|60>}, countOutput:true` | Items by collection interval |
+| `discoveryrule.get` | `filter:{delay:<1\|10\|30\|60\|300>}, countOutput:true, templated:true` | LLD rules by interval |
+| `discoveryrule.get` | `filter:{state:1}, countOutput:true, templated:false` | Unsupported LLD rules |
+| `item.get` | `templated:true, filter:{value_type:4, delay:[30,60,120,300], history:["1h","1d","7d","31d"]}, selectHosts:["hostid"]` | Text items with history and short delay |
+| `template.get` | `filter:{hostid:<ids>}, selectHosts:["hostid"]` | Resolves template names for text items |
+
+### Version logic
+
+- **Browser (type=22):** included in the unsupported table only for Zabbix ≥ 7
+- **Frontend links:** `zabbix.php?action=item.list` (Zabbix 7) or `items.php` (Zabbix 6)
+- **LLD links:** `host_discovery.php` with version-adapted parameters; delay formatted as `Xs` or `Xm`
+
+### Parallelism
+
+The `item.get` calls per type (total + unsupported) are executed in parallel goroutines controlled by the semaphore `sem`. Rows are re-ordered by `Unsup desc` to place the most problematic types first.
+
+---
+
+## Guide 5: Templates (`tab-templates`)
+
+### What it is
+
+Details of the **Top N templates** with the most unsupported items. For each template it lists the problematic items with a direct edit link to the Zabbix frontend.
+
+### Table displayed (one per template)
+
+| Item | Error | Host | Link |
+|------|-------|------|------|
+| item name | error message | hostname | [Edit] |
+
+### Zabbix API calls
+
+**No new calls.** All data for this tab is computed from the `item.get` result with `state:1, inherited:true` collected in the initial phase (same data used by the Top Hosts/Templates/Items tab).
+
+The template ranking is built as follows:
+1. For each unsupported item, get `tplId = item["templateid"]` — this is the **ID of the item inside the template**, not the template ID itself.
+2. Convert to the template ID: `realTplId = cacheTemplateHostID[tplId]`. The `cacheTemplateHostID` cache was populated earlier via `item.get` with `selectHosts`, mapping the item's `templateid` to the template's `hostid` (which is the canonical template ID in Zabbix).
+3. Increment `templateCounter[realTplId]` — ensures all items from the same template are grouped correctly, even if they have different `templateid` values.
+4. `topTemplates = sort(templateCounter) desc`
+5. Template names resolved via `template.get` with `templateids: [...]` (single batch call)
+
+> **Why is `cacheTemplateHostID` needed?** The Zabbix API returns in `item["templateid"]` the ID of the **inherited item inside the template**, not the parent template ID. Multiple items from the same template have different `templateid` values — without the conversion, the same template would appear multiple times in the ranking. The correct mapping is: `cacheTemplateHostID[item_templateid] → template_hostid`.
+
+### Building edit links
+
+| Version | Link format |
+|---------|-------------|
+| Zabbix ≥ 7 | `zabbix.php?action=item.list&context=host&filter_hostids[]=<hostid>&filter_name=<item>` |
+| Zabbix 6 | `items.php?form=update&hostid=<hostid>&itemid=<itemid>&context=host` |
+
+---
+
+## Guide 6: Top Hosts/Templates/Items (`tab-top`)
+
+### What it is
+
+Displays four rankings based on the unsupported items collected:
+
+1. **Top Offending Templates** — templates with the most problematic items
+2. **Top Offending Hosts** — hosts with the most problematic items (shows the most recurring template per host)
+3. **Top Problematic Items** — item keys with the highest error count
+4. **Most Common Error Types** — most frequent error messages
+
+### Tables displayed
+
+**Top Offending Templates:**
+
+| Template | Error Count |
+|----------|-------------|
+
+**Top Offending Hosts:**
+
+| Host | Top Offending Template | Error Count |
+|------|------------------------|-------------|
+
+**Top Problematic Items:**
+
+| Item | Template | Error Count |
+|------|----------|-------------|
+
+**Most Common Error Types:**
+
+| Error Message | Template | Occurrences |
+|---------------|----------|-------------|
+
+### Zabbix API calls
+
+**No new calls.** All data comes from groupings performed during the initial phase on the `item.get` with `state:1`. The counters are:
+
+- `templateCounter[realTplId]` — errors per template (using the canonical template ID via `cacheTemplateHostID`)
+- `hostCounter[hostname]` — errors per host
+- `itemCounter[itemname|realTplId]` — errors per item within the template
+- `errorCounter[errormsg|realTplId]` — errors per message within the template
+
+The `realTplId` is derived from `cacheTemplateHostID[item["templateid"]]`, ensuring all items from the same template are grouped under a single key. Without this conversion, the same template could appear multiple times in the rankings with separate counts.
+
+The Top N is 10 by default (constant `topN = 10`).
+
+---
+
+## Guide 7: Recommendations (`tab-recomendacoes`)
+
+### What it is
+
+Automatic suggestions generated based on all collected data. All sections and sub-items are **displayed only when there is a recommendation** — if the value is 0, neither the section nor its sub-item appears. KPI cards at the top provide a quick overview.
+
+1. **Zabbix Server** — processes in Warning + async poller suggestion (Zabbix 7) — only shown if there are processes with avg ≥ 60% or async pollers disabled
+2. **Zabbix Proxies** — processes in Warning + async pollers disabled (Zabbix 7) + Unknown/Offline proxies + proxies without template — only shown when there is an issue
+3. **Items** — each sub-item (without template, unsupported, disabled, short interval, text with history, SNMP) only appears individually if its counter is > 0; the whole section disappears if all are 0
+4. **LLD Rules** — each sub-item (short interval, unsupported) only appears individually if > 0; section disappears if both are 0
+5. **Templates** — only shown if there are templates to review, identified errors, or SNMP templates to migrate (Zabbix 7)
+
+### KPI cards
+
+KPIs are displayed in a horizontal strip at the top of the Recommendations tab. Each card is **clickable** and scrolls the page to the corresponding section. The display order is always:
+
+| # | Label | Color | Go variable | Click leads to | Display condition |
+|---|-------|-------|-------------|----------------|-------------------|
+| 1 | Zabbix Server - Process/Pollers with high AVG | 🟡 Yellow / 🟢 Green (`kpi-warn` / `kpi-ok`) | `attentionCount` = `len(attention)` | Zabbix Server section | Always (green if 0) |
+| 2 | Offline Proxies | 🔴 Red (`kpi-crit`) | `proxyOfflineCount` | Zabbix Proxies section | Always |
+| 3 | Unknown Proxies | ⚪ Neutral | `proxyUnknownCount` | Zabbix Proxies section | Always |
+| 4 | Proxies - Process/Pollers with high AVG | 🟢 Green / 🟡 Yellow | `len(proxyProcAttnList)` | Zabbix Proxies section | Always |
+| 5 | Unsupported Items | 🔴 Red (`kpi-crit`) | `unsupportedCount` | Items section | Always |
+| 6 | SNMP Templates for Async Poller | 🟢 Green / 🟡 Yellow | `len(snmpMigrationTpls)` | Templates section | **Zabbix ≥ 7 only** |
+| 7 | Items - SNMP-POLLER | 🟢 Green / 🔴 Red | `snmpPct` (%) | Items section | **Zabbix ≥ 7 only** |
+| 8 | Text Items with History | 🟡 Yellow (`kpi-warn`) | `textItemsCount` | Items section | Always |
+
+### KPI color logic
+
+| KPI | Condition | CSS class | Border |
+|-----|-----------|-----------|--------|
+| Zabbix Server - Process/Pollers | `attentionCount == 0` → green; `> 0` → yellow | `kpi-ok` / `kpi-warn` | green / yellow |
+| Offline Proxies | always red | `kpi-crit` | red `#ff6666` |
+| Unknown Proxies | always neutral | _(no class)_ | gray |
+| Proxies - Process/Pollers | `len(proxyProcAttnList) == 0` → green; `> 0` → yellow | `kpi-ok` / `kpi-warn` | green / yellow |
+| Unsupported Items | always red | `kpi-crit` | red `#ff6666` |
+| SNMP Templates for Async Poller | `len(snmpMigrationTpls) == 0` → green; `> 0` → yellow | `kpi-ok` / `kpi-warn` | green / yellow |
+| Items - SNMP-POLLER (%) | `snmpPct >= 80%` → green; `< 80%` → red | `kpi-ok` / `kpi-crit` | green / red |
+| Text Items with History | always yellow | `kpi-warn` | yellow `#ffcc00` |
+
+> **Threshold reference:** **Zabbix Server** and **Proxy** processes in Warning use avg ≥ 60% (variables `attention` and `proxyProcAttnList`).
+
+### Zabbix API calls (exclusive to this tab)
+
+Only for Zabbix ≥ 7, two `item.get` calls for the SNMP KPIs (shared with the "3.x) Items SNMP-POLLER" entry in the Items Section and the "Templates suitable for migration to SNMP-POLLER" sub-section):
+
+| Call | Relevant parameters | Go variable filled |
+|------|---------------------|--------------------|
+| `item.get` | `filter:{type:20}, templated:true, countOutput:true` | `snmpTplCount` |
+| `item.get` | `filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true` | `snmpGetWalkCount` |
+| `item.get` ×2 + `template.get` | _(see "Templates suitable for migration" sub-section)_ | `snmpMigrationTpls` |
+
+### Helper functions used
+
+| Function | Description |
+|--------|-----------|
+| `pct(part, total int) string` | Formats percentage `"0.00%"`; returns `"0%"` if total=0 |
+| `titleWithInfo(tag, title, tip string) string` | Generates HTML heading with `?` icon and tooltip |
+
+### How to add a new KPI
+
+1. **Calculate the data** before the `html += "<div class='rec-kpis'>"` block in `cmd/app/main.go`.
+2. **Define the CSS class** (`kpi-ok`, `kpi-warn`, `kpi-crit` or empty for neutral) based on the value.
+3. **Insert the `<div>`** at the desired position inside the `rec-kpis` block, following the pattern:
+```go
+html += `<div class='kpi ` + classe + `' data-target='#card-<section>' title='<tooltip>'>`+
+    `<div class='kpi-num'>` + value + `</div>`+
+    `<div class='kpi-label'>KPI Label</div></div>`
+```
+4. Click-to-scroll to the section is managed automatically by the inline JavaScript right after the `rec-kpis` block — **no JS changes are needed**.
+
+---
+
+### Section 1 — Zabbix Server
+
+#### Display condition
+
+The section **does not appear** when there is nothing to recommend. The entire block is omitted if:
+
+```
+len(attention) == 0  AND  len(missingAsync) == 0
+```
+
+The section is only generated when at least one of these conditions is true:
+- There are processes/pollers with `value_avg ≥ 60%` (list `attention`)
+- There are async pollers (`Agent Poller`, `HTTP Agent Poller`, `SNMP Poller`) disabled on Zabbix 7+ (list `missingAsync`)
+
+#### Generated HTML hierarchy
+
+```
+1) Zabbix Server
+  1.1) zabbix_server.conf suggestions:      ← only shown if len(attention) > 0
+       Customize Processes and Threads: ⓘ  ← bold text with tooltip, no own numbering
+         1. <Process name> — avg: X%
+         2. <Process name> — avg: X%
+  1.2) Use Async Pollers: ⓘ                ← only shown if len(missingAsync) > 0
+       • Agent Poller
+       • SNMP Poller
+```
+
+> When both exist, the sub-numbers are `1.1)` and `1.2)`. When only one exists, only `1.1)` appears.
+
+#### Sub-item "zabbix_server.conf suggestions"
+
+- Numbered as `1.1)` via `nextSub(&serverSub, "zabbix_server.conf suggestions:")`
+- Shown only when `len(attention) > 0`
+- Directly below the numbered header appears the text **"Customize Processes and Threads:"** as `<strong>` with a `?` icon (tooltip with guidance on when to increase the process)
+- Followed by `<ol>` with one item per process in Warning: `Process name — avg: X%`
+- Processes ordered by `value_avg` descending (highest utilization first)
+
+#### Sub-item "Use Async Pollers"
+
+- Numbered as `1.1)` or `1.2)` depending on whether "Suggestions" also appears
+- Shown only when `len(missingAsync) > 0`
+- Only relevant for **Zabbix ≥ 7** (async pollers do not exist in Zabbix 6)
+- Lists the disabled pollers: `Agent Poller`, `HTTP Agent Poller`, `SNMP Poller`
+- Each item has a `?` icon with a usage description
+
+#### Go variables involved
+
+| Variable | Type | Origin |
+|----------|------|--------|
+| `attention` | `[]struct{Name string; Vavg float64}` | Built by iterating `pollRows` + `procRows` where `StatusText == "Warning"` |
+| `missingAsync` | `[]string` | Built by checking whether `Agent Poller`, `HTTP Agent Poller`, `SNMP Poller` are in `pollRows` with `Disabled == true` |
+| `pollMap` | `map[string]pollRow` | Auxiliary map `friendly_name_lowercase → pollRow` for `missingAsync` lookup |
+
+---
+
+### Section 2 — Zabbix Proxies
+
+#### Display condition
+
+The section **does not appear** when there is nothing to recommend. The entire block is omitted if:
+
+```
+unknown == 0  AND  offline == 0  AND
+len(proxyProcAttnList) == 0  AND  len(proxyNoTemplateList) == 0  AND
+len(proxyMissingAsyncMap) == 0
+```
+
+#### Generated HTML hierarchy
+
+```
+2) Zabbix Proxies
+  2.1) Customize Processes and Threads ⓘ   ← only shown if len(proxyProcAttnList) > 0
+       1. PROXY-NAME — Friendly Name — avg: X%
+       2. ...
+  2.2) Use Async Pollers: ⓘ                ← only shown if len(proxyMissingAsyncMap) > 0
+       • PROXY-NAME — Agent Poller — Snmp Poller
+       • ...
+  2.3) Unknown Proxy Status ⓘ              ← only shown if unknown > 0
+       N proxies with Unknown status detected
+       • proxy-name
+  2.4) Offline Proxies ⓘ                  ← only shown if offline > 0
+       N proxies with Offline status detected
+       • proxy-name
+  2.5) Zabbix Proxy without Monitoring ⓘ  ← only shown if len(proxyNoTemplateList) > 0
+       The proxies below do not have the Zabbix Proxy Health template linked...
+       1. proxy-name (link to the host in Zabbix)
+```
+
+> Sub-numbers are generated automatically by `nextSub(&proxySub, ...)` — if only some sub-items appear, numbering is sequential starting from `2.1)`.
+
+In addition to these sub-items, the report also displays a highlighted recommendations area (yellow blocks) for quick proxy-related actions. This area uses CSS classes `.rec-highlight-list` and `.rec-highlight-item` (in `app/web/static/style.css`) and contains, for example:
+
+- One block per proxy with `Start...=   # increase until avg drops below 60%` lines grouped and deduplicated (one line per `Start*` parameter), followed by `systemctl restart zabbix-proxy`.
+- A compact block with common actions and diagnostics: suggestion to enable async pollers (Zabbix ≥ 7) and verification commands (`systemctl status zabbix-proxy`, `tail -100 /var/log/zabbix/zabbix_proxy.log`, `nc -zv <server> 10051`).
+- Titles and the suggestion comment are localized via the i18n keys `fix.proxy_highlight_*` and `fix.proxy_increase_hint`.
+
+#### Sub-item "Customize Processes and Threads"
+
+- Shown only when `len(proxyProcAttnList) > 0`
+- Same behavior as the equivalent sub-item in Section 1 (Zabbix Server), but per proxy
+- Ordered `<ol>` with: `PROXY-NAME — Process Friendly Name — avg: X%`
+- Built with avg ≥ 60% per process, per proxy
+
+#### Sub-item "Use Async Pollers"
+
+- Shown only when `len(proxyMissingAsyncMap) > 0`
+- Only relevant for **Zabbix ≥ 7** and **only for online proxies** with collected items
+- Compact `<ul>` with one `<li>` per proxy: `**PROXY-NAME** — Agent Poller ⓘ — Snmp Poller ⓘ`
+- Each poller has a tooltip with a usage description
+- A proxy appears in the list when at least one of the three async pollers (`Agent Poller`, `Http Agent Poller`, `Snmp Poller`) **was not found** in the collected data or has `vavg < 0` (process not enabled)
+
+#### Sub-item "Unknown Proxy Status"
+
+- Shown only when `unknown > 0`
+- Text: _"N proxies with Unknown status detected"_
+- Followed by `<ul>` with proxy names (`unknownNames`)
+
+#### Sub-item "Offline Proxies"
+
+- Shown only when `offline > 0`
+- Text: _"N proxies with Offline status detected"_
+- Followed by `<ul>` with proxy names (`offlineNames`)
+
+#### Sub-item "Zabbix Proxy without Monitoring"
+
+- Shown only when `len(proxyNoTemplateList) > 0`
+- Reference template: **Zabbix Proxy Health** (Zabbix 7) / **Template App Zabbix Proxy** (Zabbix 6)
+- The template link uses the environment URL (`ambienteUrl`) with automatic filtering by name
+- Each proxy in the list is displayed as a clickable link to the Zabbix host screen filtered by the proxy name
+- A proxy enters this list if `res.noItemsNote != ""` — i.e. the collection loop found no process items for that proxy host
+
+#### Go variables involved
+
+| Variable | Type | Origin |
+|----------|------|--------|
+| `proxyProcAttnList` | `[]proxyProcAttnItem{ProxyName, ProcFriendly, Vavg}` | Built by iterating `ppResults` — rows with `vavg >= 59.9` |
+| `proxyMissingAsyncMap` | `map[string][]string` | `proxyName → []pollerNames` — pollers missing or disabled in the proxy (Zabbix 7+, online, with items) |
+| `asyncProcNames` | `[]string` | `{"agent poller", "http agent poller", "snmp poller"}` — async pollers checked |
+| `unknown` | `int` | Count of proxies with `availability == 0` (Unknown) |
+| `unknownNames` | `[]string` | Names of Unknown proxies |
+| `offline` | `int` | Count of proxies with `availability == 2` (Offline) |
+| `offlineNames` | `[]string` | Names of Offline proxies |
+| `proxyNoTemplateList` | `[]proxyNoTemplateItem{ProxyName, HostId}` | Online proxies whose `res.noItemsNote != ""` — no process items collected |
+
+#### Logic of `proxyMissingAsyncMap`
+
+For each proxy in `proxyMetaList` that is **online** (`pm.Online == true`), with **Zabbix ≥ 7** and with **collected items** (`res.noItemsNote == ""` and `len(res.rows) > 0`):
+
+```go
+for _, apn := range asyncProcNames {   // "agent poller", "http agent poller", "snmp poller"
+    found := false
+    hasData := false
+    for _, row := range res.rows {
+        if strings.ToLower(row.friendly) == apn {
+            found = true
+            if row.vavg >= 0 { hasData = true }
+            break
+        }
+    }
+    if !found || !hasData {
+        // capitalize and add to this proxy's "missing" list
+    }
+}
+if len(missing) > 0 {
+    proxyMissingAsyncMap[pm.Name] = missing
+}
+```
+
+A poller is considered missing when:
+- It was not found in `res.rows` (`!found`), **or**
+- It was found but `vavg < 0` — the item returned "Create item in template or Process not enabled" (`!hasData`)
+
+---
+
+### Section 3 — Items
+
+#### Section display condition
+
+The entire section is only generated when at least one sub-item has data:
+
+```go
+itemsHasData := itemsNoTplCount > 0 || unsupportedVal > 0 || disabledCount > 0 ||
+                itemsLe60 > 0 || textCount > 0 || (majorV >= 7 && snmpTplCount > 0)
+```
+
+#### Sub-items and their individual conditions
+
+| Sub-item | Condition to appear | Go variable |
+|---------|------------------------|-------------|
+| Items without Template | `itemsNoTplCount > 0` | `itemsNoTplCount` |
+| Unsupported items | `unsupportedVal > 0` | `unsupportedVal` |
+| Disabled items | `disabledCount > 0` | `disabledCount` |
+| Items with Interval ≤ 60s | `itemsLe60 > 0` | `itemsLe60` |
+| Text Items with History (≤ 300s) | `textCount > 0` | `textCount` |
+| Items SNMP-POLLER (Zabbix 7) | `majorV >= 7 && snmpTplCount > 0` | `snmpTplCount` |
+
+---
+
+### Section 4 — LLD Rules
+
+#### Section display condition
+
+The entire section is only generated when at least one sub-item has data:
+
+```go
+lldLe300 > 0 || lldNotSupCnt > 0
+```
+
+#### Sub-items and their individual conditions
+
+| Sub-item | Condition to appear | Go variable |
+|---------|------------------------|-------------|
+| LLD Rules with Interval ≤ 300s | `lldLe300 > 0` | `lldLe300` |
+| Unsupported LLD Rules | `lldNotSupCnt > 0` | `lldNotSupCnt` |
+
+---
+
+### Section 5 — Templates
+
+#### Section display condition
+
+The entire section is only generated when at least one sub-item has data:
+
+```go
+tplHasData := len(topTemplates) > 0 || len(topErrors) > 0 ||
+              (majorV >= 7 && len(snmpMigrationTpls) > 0)
+```
+
+#### Sub-items and their individual conditions
+
+| Sub-item | Condition to appear | Go variable |
+|---------|------------------------|-------------|
+| Templates for review | `len(topTemplates) > 0` | `topTemplates` |
+| Most Common Errors | `len(topErrors) > 0` | `topErrors` |
+| Templates suitable for SNMP-POLLER migration | `majorV >= 7 && len(snmpMigrationTpls) > 0` | `snmpMigrationTpls` |
+
+---
+
+### Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)
+
+#### What it is
+
+Appears in **Section 3 — Items** of the Recommendations (sub-item `3.x)`), **only** for Zabbix ≥ 7 and when there is at least 1 SNMP item in templates (`snmpTplCount > 0`). Displays:
+
+- Total SNMP items in templates (`snmpTplCount`)
+- Count already using `get[]`/`walk[]` OID — async poller format (`snmpGetWalkCount`)
+- Percentage migrated relative to the total items in the environment
+
+Points the operator to the **"Templates suitable for migration to SNMP-POLLER"** sub-section to see the specific templates that need attention.
+
+#### Display condition
+
+```
+majorV >= 7  AND  snmpTplCount > 0
+```
+
+#### API calls
+
+These 2 calls are **shared** with the "Items - SNMP-POLLER" KPI card at the top of Recommendations — values are collected once and reused:
+
+| Call | Relevant parameters | Go variable |
+|------|---------------------|-------------|
+| `item.get` | `filter:{type:20}, templated:true, countOutput:true` | `snmpTplCount` |
+| `item.get` | `filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true` | `snmpGetWalkCount` |
+
+> **`type:20`** corresponds to the SNMP type in Zabbix. The OIDs `get[*` and `walk[*` are the Zabbix 7 standard for the async poller; OIDs in the old format (e.g. `.1.3.6.1.2.1.1.1.0`) do **not** match this filter.
+
+#### HTML display logic
+
+```go
+if majorV >= 7 && snmpTplCount > 0 {
+    // displays item 3.x with snmpTplCount, snmpGetWalkCount and pct(snmpGetWalkCount, totalItemsVal)
+    // points to the "Templates suitable for migration to SNMP-POLLER" section
+}
+```
+
+---
+
+### Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)
+
+#### What it is
+
+Appears at the end of **Section 5 — Templates** of the Recommendations, **only** for Zabbix ≥ 7 and when there is at least 1 legacy template in use (`len(snmpMigrationTpls) > 0`). Lists alphabetically the names of templates that satisfy **all** of these conditions:
+
+1. Have at least one SNMP item (`type=20`) in templates
+2. **Have not yet** migrated OIDs to `get[]` or `walk[]` format (Zabbix 7 async poller)
+3. Are **linked to at least one host** (actually in use in the environment)
+
+Fully migrated templates (where **all** SNMP items already use `get[]`/`walk[]`) are automatically excluded.
+
+> **Note:** A template with a **mix** of old and new OIDs still appears in the list. Only when **100% of SNMP items** use the modern format is the template removed. This ensures incomplete migrations are also reviewed.
+
+#### Zabbix API calls (exclusive to this sub-section)
+
+**3 calls** made sequentially after the `countOutput` calls for the KPI, **only** when `majorV >= 7`:
+
+##### Call 1 — All SNMP items in templates (with template hostid)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid"],
+    "filter": { "type": 20 },
+    "templated": true,
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `selectHosts: ["hostid"]` returns, for each item, the `hosts` field with the parent template's `hostid`.
+- Used to build the set of **all hostids of SNMP templates** (`allSnmpHostids`).
+
+##### Call 2 — SNMP items already using get[]/walk[] (template hostid)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid"],
+    "filter": { "type": 20 },
+    "search": { "snmp_oid": ["get[*", "walk[*"] },
+    "searchWildcardsEnabled": true,
+    "searchByAny": true,
+    "templated": true,
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `search` + `searchWildcardsEnabled` filters only OIDs that **start with** `get[` or `walk[`.
+- Result → set `modernHostids` (hostids of templates that have at least 1 modern item).
+- The difference `allSnmpHostids − modernHostids` = `legacyHostSet` (templates with only legacy OIDs).
+
+##### Call 3 — Resolving legacy template names
+
+```json
+{
+  "method": "template.get",
+  "params": {
+    "output": ["templateid", "name"],
+    "templateids": ["<ids from legacyHostSet>"],
+    "selectHosts": ["hostid"]
+  }
+}
+```
+
+- `selectHosts: ["hostid"]` returns the `hosts` field per template.
+- Templates with `hosts == []` (not linked to any host) are **discarded** — they don't appear in the list.
+- Remaining template names are sorted alphabetically and stored in `snmpMigrationTpls`.
+
+#### Complete build flow
+
+```
+Call 1 → allSnmpHostids   (all hostids of templates with SNMP items)
+Call 2 → modernHostids    (hostids of templates with at least 1 get[]/walk[] OID)
+
+legacyHostSet = allSnmpHostids − modernHostids
+
+Call 3 → template.get(legacyHostSet)
+              → discard len(hosts) == 0   (not linked to any host)
+              → sort.Strings()
+              → snmpMigrationTpls
+```
+
+#### Resulting Go variable
+
+| Variable | Type | Content |
+|----------|------|---------|
+| `snmpMigrationTpls` | `[]string` | Alphabetically sorted list of legacy template names **in use** |
+
+#### HTML display condition
+
+```go
+if majorV >= 7 && len(snmpMigrationTpls) > 0 {
+    // renders h5 with titleWithInfo + <ul> with template names
+}
+```
+
+If `snmpMigrationTpls` is empty (all templates already migrated or no Zabbix 7 environment), the sub-section **does not appear** in the report.
+
+#### How to interpret the list
+
+| Situation | Meaning |
+|-----------|---------|
+| Sub-section not displayed | All SNMP templates in use already use `get[]`/`walk[]` — well done! |
+| Template appears in list | Has at least 1 SNMP item with a legacy OID **and** is linked to at least 1 host |
+| Green KPI (≥ 80%) + list present | Most migrated, but specific templates still have legacy OID remnants |
+| Red KPI (< 80%) + long list | Environment with most SNMP templates still using the synchronous poller |
+
+#### How to add/remove detection logic
+
+The complete block is in `cmd/app/main.go`, right after the two `item.get countOutput` calls for the SNMP KPI, inside the `if majorV >= 7 { ... }` block. To change the "legacy" criterion (e.g. include another type of old OID), adjust the `search.snmp_oid` of **Call 2**:
+
+```go
+// Call 2 — add a new modern OID pattern:
+"search": map[string]interface{}{
+    "snmp_oid": []string{"get[*", "walk[*", "new_format[*"},
+},
+```
+
+---
+
+## Saved Reports (Database Persistence)
+
+### Overview
+
+Every time a report is successfully generated, it is **automatically saved** to PostgreSQL — no extra action is required from the user. This allows accessing previous reports at any time, even after restarting the application.
+
+> **The database is optional.** The app works normally without PostgreSQL — reports are only available in the current session (in-memory) and are lost when the container restarts.
+>
+> To enable persistence, set `DB_HOST` (and optionally the other `DB_*` variables) and bring up the `postgres` service with the `db` profile (see details in [docker.md](docker.md)).
+
+When `DB_HOST` is **not** configured:
+- The **Saved Reports** card is **automatically hidden** in the web interface
+- The endpoints `/api/reports`, `/api/reportdb/:id` and `DELETE /api/reports` return `db_enabled: false` or `404`
+- No error is shown to the user — the app simply operates without a database
+
+---
+
+### How to use the Saved Reports interface
+
+On the home screen, below the **Generate Report** button, there is a **Saved Reports** card with the following controls:
+
+```
+┌─ SAVED REPORTS ──────────────────────── [↺ Load list] ─┐
+│                                                          │
+│  [── select a report ──────────────]  [Open] [Delete]   │
+│                                        [Delete All]      │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### Step by step
+
+| Step | Action | What happens |
+|------|--------|--------------|
+| 1 | Click **↺ Load list** | The list of the last 20 saved reports is loaded into the selector. Each entry shows the Zabbix URL and the generation date/time. |
+| 2 | Select a report from the dropdown | The report is highlighted — no action yet. |
+| 3 | Click **Open** | The selected report is loaded inline, with all tabs, Export HTML and Print PDF buttons working normally. |
+| 4 _(optional)_ | Click **Delete** | Removes **only the selected report** from the database after confirmation. The list is automatically updated. |
+| 5 _(optional)_ | Click **Delete All** | Removes **all reports** from the database after double confirmation. Returns the count of removed records. |
+
+> **Tip:** After opening a saved report, all **Export HTML** and **Generate PDF** buttons work normally — the report reopens with the same layout and functionality as the original generation.
+
+---
+
+### Report action bar
+
+Whenever a report is displayed (generated by the API or loaded from the database), an action bar appears in the report header with three buttons:
+
+```
+┌─ Zabbix Report ── Generated on: dd/mm/yyyy hh:mm:ss ──────────────────────────────────┐
+│                                                                [NEW] [HTML] [PDF]      │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Button | Icon | Action | Available in exported HTML? |
+|--------|------|--------|-----------------------------|
+| **New Report** | Document with `+` | Closes the current report, clears the screen and returns to the generation form | ❌ No |
+| **Export HTML** | HTML file icon | Generates a static, self-contained `.html` file (embedded CSS, working charts) and triggers automatic download | ❌ No |
+| **Generate PDF** | Printer icon | Opens the browser print dialog — recommended to select "Save as PDF" | ❌ No |
+
+> The **New Report** button **does not exist** in exported HTML files. It is created dynamically only when the report is displayed inline in the web interface — either via API generation or via database loading.
+
+---
+
+### When reports are saved
+
+Saving happens automatically at the end of the `generateZabbixReportWithProgress` function, in the following flow:
+
+```
+POST /api/start
+  → goroutine: generateZabbixReport()
+      → report HTML generated successfully
+      → INSERT INTO reports (name, format, content, zabbix_url) VALUES (...)
+         name     = "report-<unix timestamp>"
+         format   = "html"
+         content  = full HTML (BYTEA)
+         zabbix_url = URL entered in the form
+```
+
+If the database is not available, the report is still displayed on screen normally — the persistence error is only logged (`[WARN] Failed to save report to DB`).
+
+---
+
+### Environment variables for the database
+
+| Variable    | Default     | Description |
+|-------------|-------------|-------------|
+| `DB_HOST`   | _(empty)_   | PostgreSQL host. **If not set, persistence is disabled.** |
+| `DB_PORT`   | `5432`      | PostgreSQL port. |
+| `DB_USER`   | `postgres`  | Database user. |
+| `DB_PASSWORD` | `postgres` | Database password. |
+| `DB_NAME`   | `zabbix_report` | Database name. |
+
+Example in `docker-compose.yml` (variables are **commented out by default**; uncomment to enable):
+```yaml
+environment:
+  # Uncomment to enable report persistence in PostgreSQL:
+  #- DB_HOST=postgres
+  #- DB_PORT=5432
+  #- DB_USER=postgres
+  #- DB_PASSWORD=postgres
+  #- DB_NAME=zabbix_report
+```
+
+> **How to start with the database:** `docker compose --profile db up --build -d`
+> The `db` profile is required because the `postgres` service is only started when explicitly requested.
+> The `go-app` does **not** depend on postgres in `depends_on` — if the database is not available, the app starts normally without persistence.
+
+---
+
+### Database schema
+
+The table is created automatically on first run if it does not exist:
+
+```sql
+CREATE TABLE reports (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT,            -- "report-<timestamp>" auto-generated
+  format     TEXT,            -- always "html" for now
+  content    BYTEA,           -- full report HTML
+  zabbix_url TEXT,            -- Zabbix URL used during generation
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+> **Automatic migration:** If the table exists with missing columns (old schema), the application renames the old table to `reports_old_<timestamp>` and creates a new one with the correct schema.
+
+---
+
+### REST API — Report endpoints
+
+For external integrations or automation, the available endpoints are:
+
+| Endpoint | Method | Database required | Description |
+|----------|--------|-------------------|-------------|
+| `POST /api/start` | POST | No | Starts generation; body `{"zabbix_url":"...","zabbix_token":"..."}` → returns `{"task_id":"..."}` |
+| `GET /api/progress/:id` | GET | No | Polls task status → `{"status":"done\|running\|error","progress_msg":"..."}` |
+| `GET /api/report/:id` | GET | No | Returns the HTML of the report in the current session (in-memory, lost on restart) |
+| `GET /api/db-status` | GET | No | Informs the frontend whether the database is active → `{"db_enabled": true\|false}` |
+| `GET /api/reports` | GET | Optional | Without DB: `{"db_enabled":false,"reports":[]}`. With DB: `{"db_enabled":true,"reports":[...]}` |
+| `GET /api/reportdb/:id` | GET | **Yes** | Returns the saved report as a complete HTML document (to open directly in the browser) |
+| `GET /api/reportdb/:id?raw=1` | GET | **Yes** | Returns only the internal HTML fragment (used by JS to render inline with the standard layout) |
+| `DELETE /api/reportdb/:id` | DELETE | **Yes** | Removes a specific report by ID → `{"deleted":"<id>"}` or `404` if not found |
+| `DELETE /api/reports` | DELETE | **Yes** | Removes **all** reports → `{"deleted":<count>}` |
+
+#### Example: list and open a report via curl
+
+```bash
+# 1. List saved reports
+curl http://localhost:8080/api/reports
+
+# 2. Open report with ID 3 in the browser
+curl http://localhost:8080/api/reportdb/3 > report.html
+
+# 3. Delete the report with ID 3
+curl -X DELETE http://localhost:8080/api/reportdb/3
+
+# 4. Delete all reports
+curl -X DELETE http://localhost:8080/api/reports
+```
+
+The report is divided into tabs. This section documents each one: what it displays, which Zabbix API calls are made, which Go function generates the HTML, and how the data is processed.
+
+---
+
+## Guide: Zabbix Server (`tab-processos`)
+
+### What it is
+
+Displays the utilization level of internal Zabbix Server processes, divided into two groups:
+
+- **Pollers (Data Collectors):** processes responsible for actively collecting metrics from agents (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)
+- **Internal Processes:** server infrastructure processes (history syncer, housekeeper, escalator, trapper, lld manager, etc.)
+
+For each process, the **minimum**, **average** and **maximum** utilization (%) is shown, along with a visual status of **OK** (< 50%) or **Warning** (≥ 50%).
+
+### Table displayed
+
+| Column | Description |
+|--------|------------|
+| Poller / Process | Process name with a `?` tooltip icon |
+| value_min | Minimum utilization in the analyzed period |
+| value_avg | Average utilization in the analyzed period |
+| value_max | Peak utilization in the analyzed period |
+| Status | `OK` (green, avg < 50%) or `Warning` (red, avg ≥ 50%) or gray when not enabled |
+
+### Environment variables that affect this tab
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZABBIX_SERVER_HOSTID` | _(empty)_ | Host ID of the Zabbix Server in Zabbix. If not set, the search ignores the host filter and may return any host that has the key. Recommended to set for accuracy. |
+| `CHECKTRENDTIME` | `30d` | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
+| `MAX_CCONCURRENT` | `6` | Number of processes that can run concurrently in parallel Zabbix API calls. |
+
+### Zabbix API calls
+
+Each process in the list queries the **pre-loaded map** by `getProcessItemsBulk` (1 call made before the goroutines) and then makes **two parallel calls** to get trend/history data:
+
+#### 1. `item.get` bulk — locate all process items (1 single call)
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid", "name", "key_", "value_type"],
+    "search": { "key_": ["*agent*poller*", "*poller*", "*history*syncer*", "..."] },
+    "searchByAny": true,
+    "searchWildcardsEnabled": true,
+    "hostids": "<ZABBIX_SERVER_HOSTID>"
+  }
+}
+```
+
+- The key is **no longer** `zabbix[process,<name>,avg,busy]` — it is searched by wildcard and matches any key format (space or underscore).
+- If `ZABBIX_SERVER_HOSTID` is not set, the `hostids` parameter is omitted.
+- Empty result for a process → marked as **"Process not enabled"** (gray).
+
+#### 2a. `trend.get` — fetch trend statistics (primary)
+
+```json
+{
+  "method": "trend.get",
+  "params": {
+    "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
+    "itemids": ["<itemid>"],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_to": "<now>",
+    "limit": 1
+  }
+}
+```
+
+- Returns the last trend record in the configured period.
+- Result `[]` → triggers the fallback below.
+
+#### 2b. `history.get` — fallback when trend is not available
+
+```json
+{
+  "method": "history.get",
+  "params": {
+    "output": ["value"],
+    "history": 0,
+    "itemids": ["<itemid>"],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_to": "<now>",
+    "sortfield": "clock",
+    "sortorder": "ASC",
+    "limit": 2000
+  }
+}
+```
+
+- Used when the item has `trends=0` configured in Zabbix, or when the trend retention period has expired.
+- The code collects up to 2,000 data points and calculates `min`, `avg` and `max` manually.
+- Result still `[]` → process marked as **"Process not enabled"** (gray).
+
+### Go function responsible
+
+**File:** `cmd/app/main.go`  
+**Function:** `generateZabbixReport(url, token string)` — the tab block starts around the line marked with `// --- Processos e Threads Zabbix Server ---`
+
+#### Helpers used
+
+| Function | Description |
+|--------|-----------|
+| `nameToWildcard(name)` | Converts `"agent poller"` → `"*agent*poller*"` for wildcard search |
+| `wildcardMatch(pattern, key)` | Simple client-side match (`*`) to map returned items back to each name |
+| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Makes **1 `item.get`** with all patterns. Resolves collisions by specificity (more words = higher priority). Returns `map[nameLowercase]item` |
+| `getLastTrend(apiUrl, token, itemid, days)` | Makes `trend.get` for the itemid in the configured period. Respects `CHECKTRENDTIME`. |
+| `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: makes `history.get`, collects up to 2,000 data points and returns calculated `{value_min, value_avg, value_max}`. |
+
+#### Version logic
+
+The poller list varies based on the detected Zabbix version via `apiinfo.version`:
+
+- **Zabbix ≥ 7:** includes `agent poller`, `browser poller`, `http agent poller`, `snmp poller`
+- **Zabbix 6:** these four are displayed as **"Does not exist in this Zabbix version"**
+
+#### Status logic
+
+| Condition | Display |
+|-----------|---------|
+| `item.get` returns empty | Gray — "Process not enabled" |
+| `trend.get` and `history.get` empty | Gray — "Process not enabled" |
+| `value_avg < 50%` | Green — "OK" |
+| `value_avg ≥ 50%` | Red — "Warning" |
+| Error in any API call | "Error fetching data" |
+
+#### Parallelism
+
+Both pollers and internal processes are collected in **parallel goroutines**, controlled by a semaphore with capacity `MAX_CCONCURRENT`. Results are re-ordered by their original index to preserve display order, then re-ordered by `value_avg` descending (most utilized processes appear first).
+
+### How to add a new process to the list
+
+There are **3 places** in `cmd/app/main.go`:
+
+**1. `procDesc`** — description shown in the `?` tooltip (key in lowercase):
+```go
+"new process": `"StartNewProcess" parameter: description and when to adjust.`,
+```
+
+**2. Correct table:**
+
+- **Pollers (Data Collectors)** → `commonPollers` or `if majorV >= 7` block:
+```go
+commonPollers := []string{
+    ...
+    "new poller",
+}
+// or exclusive to Zabbix 7+:
+if majorV >= 7 {
+    pollerNames = append([]string{"new poller"}, pollerNames...)
+}
+```
+
+- **Internal Process** → `procNames` slice:
+```go
+procNames := []string{
+    ...
+    "new process",
+}
+```
+
+**3. Name rule:** use the name exactly as it appears in the Zabbix item key (with space or underscore). The `nameToWildcard` function converts automatically — `"agent poller"` → `"*agent*poller*"` — matching `agent poller`, `agent_poller` or any variant.
+
+--- 
+
+## Zabbix API calls used
+
+Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the `/api_jsonrpc.php` endpoint of Zabbix.
+
+### 1. apiinfo.version
+- **Description:** Gets the Zabbix API version.
+- **Parameters:** `[]` (empty)
+- **Use:** Detect Zabbix version to adjust queries and links.
+
+### 2. user.get
+- **Description:** Fetches all registered users.
+- **Parameters:** `{ "output": "userid" }`
+- **Use:** Count the number of users.
+
+### 3. item.get
+- **Description:** Used in various contexts:
+  - **Bulk fetch of all process items** (pollers + internal) in 1 call with wildcard
+  - Fetch items by key (`key_`) and hostid
+  - Count total, enabled, disabled, unsupported items
+  - List unsupported items and their details
+  - Fetch items without template
+  - Fetch items by type (`type`), state (`state`), interval (`delay`)
+- **Parameter examples:**
+  - Bulk server process fetch (new approach):
+    ```json
+    {
+      "output": ["itemid", "hostid", "name", "key_", "value_type"],
+      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
+      "searchByAny": true,
+      "searchWildcardsEnabled": true,
+      "hostids": "<ZABBIX_SERVER_HOSTID>"
+    }
+    ```
+  - Fetch item by exact key:
+    ```json
+    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "<hostid>", "limit": 1 }
+    ```
+  - Count unsupported items:
+    ```json
+    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }
+    ```
+  - Count items by type:
+    ```json
+    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }
+    ```
+  - Fetch items without template:
+    ```json
+    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }
+    ```
+
+### 4. history.get
+- **Description:** Fetches the last history value of an item.
+- **Parameters:**
+  ```json
+  { "output": "extend", "history": <value_type>, "itemids": "<itemid>", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }
+  ```
+- **Use:** Get the most recent value of an item (e.g. NVPS).
+
+### 5. trend.get
+- **Description:** Fetches trend statistics (minimum, maximum, average) of an item over a time interval.
+- **Parameters:**
+  ```json
+  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["<itemid>"], "limit": 1, "time_from": <unix>, "time_to": <unix> }
+  ```
+- **Use:** Usage statistics for processes/pollers.
+
+### 6. host.get
+- **Description:** Fetches registered hosts, enabled or disabled.
+- **Parameters:**
+  - All hosts: `{ "output": "hostid" }`
+  - Enabled: `{ "output": "hostid", "filter": { "status": 0 } }`
+  - Disabled: `{ "output": "hostid", "filter": { "status": 1 } }`
+
+### 7. template.get
+- **Description:** Fetches registered templates, by id or for counting.
+- **Parameters:**
+  - Count: `{ "countOutput": true }`
+  - Fetch by id: `{ "output": ["templateid", "name"], "templateids": [<ids>] }`
+
+### 8. discoveryrule.get
+- **Description:** Fetches LLD (discovery) rules, by interval, state, etc.
+- **Parameters:**
+  - By interval:
+    ```json
+    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }
+    ```
+  - Unsupported:
+    ```json
+    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }
+    ```
+
+### 9. proxy.get
+- **Description:** Fetches registered proxies, by state (active/passive), status (online/offline), etc.
+- **Parameters:**
+  - All proxies: `{ "output": "proxyid" }`
+  - Active: `{ "output": "proxyid", "filter": { "state": 2 } }`
+  - Passive: `{ "output": "proxyid", "filter": { "state": 1 } }`
+  - Online: `{ "output": "proxyid", "filter": { "status": 0 } }`
+  - Offline: `{ "output": "proxyid", "filter": { "status": 1 } }`
+
+## Top Errors
+  Checks the top item, trigger and LLD rule errors, ordered by number of failures.
+
+  API call used to collect items with error (unsupported items):
+
+  Parameters: item.get with
+  output: ["itemid","name","templateid","error","key_"]
+  filter: { "state": 1 }
+  webitems: 1
+  selectHosts: ["name","hostid"]
+  inherited: true
+  How errorCounter is filled:
+
+  The code iterates each returned item, extracts templateid, name, error and host.
+  Increments the errorCounter map with the key formed by itemError + "|" + tplId, where itemError is the error text and tplId is the template ID (or "no_template" if there is none).
+  topErrors is iterated to generate the "Most Common Error Types" table.
+
+---
+
+These calls are made dynamically according to the Zabbix version and the environment data. Consult the code for details on optional parameters and fallback logic.
+
+---
+
+## Internationalization (i18n)
+
+The interface and report support multiple languages. Currently available: **Portuguese (pt_BR)** — default language — and **English (en_US)**.
+
+### Language selector
+
+The selector is in the **header** of the page, to the right of the "ZBX-Easy" title. Switching the language translates the interface instantly (without reloading).
+
+The preference is saved in the browser's `localStorage` under the key `zbx-lang` and automatically restored on future visits.
+
+### How it works
+
+| Component | File | Responsibility |
+|---|---|---|
+| Dictionaries | `app/web/locales/pt_BR/messages.json` and `app/web/locales/en_US/messages.json` | Contain all translations in the format `"key": "translated text"` |
+| Runtime JS | `app/web/static/script.js` | Functions `t()`, `applyI18n()`, `setLang()` and `initI18n()` that load and apply translations |
+| HTML template | `app/web/templates/index.html` | Uses attributes `data-i18n`, `data-i18n-placeholder`, `data-i18n-title` and `data-i18n-aria` |
+| Backend Go | `app/cmd/app/main.go` | Emits HTML with `data-i18n` and `data-i18n-args` attributes for dynamic report texts |
+
+### Translation attributes
+
+The i18n system uses HTML attributes processed by JavaScript on the client side:
+
+| Attribute | Target | Example |
+|---|---|---|
+| `data-i18n="key"` | Element `textContent` | `<span data-i18n="tabs.summary"></span>` |
+| `data-i18n-args="val1\|val2"` | `%s` / `%d` arguments in the translation | `<span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"></span>` |
+| `data-i18n-placeholder="key"` | Input `placeholder` | `<input data-i18n-placeholder="placeholder_url">` |
+| `data-i18n-title="key"` | `title` (native tooltip) | `<div data-i18n-title="kpi.server_attention"></div>` |
+| `data-i18n-aria="key"` | `aria-label` | `<button data-i18n-aria="aria_new_report"></button>` |
+
+### Locale file structure
+
+```
+app/web/locales/
+├── pt_BR/
+│   └── messages.json      # ~290 keys — Portuguese (Brazil)
+└── en_US/
+    └── messages.json      # ~290 keys — English (US)
+```
+
+Each file is a flat JSON (`"key": "value"`). Keys with `%s` or `%d` accept positional arguments passed via `data-i18n-args`.
+
+### Key categories
+
+| Prefix | Content |
+|---|---|
+| `label_*`, `btn_*`, `placeholder_*`, `aria_*`, `tooltip_*` | Interface (form, buttons, fields) |
+| `progress.*` | Progress messages during generation |
+| `tabs.*` | Report tab names |
+| `section.*` | Section titles (h3) in the report |
+| `tip.*` | Explanatory tooltip texts (? icon) |
+| `table.*` | Table headers |
+| `summary.*` | Summary table rows |
+| `gauge.*` | Doughnut chart captions |
+| `proxy.*` | Proxy labels (summary, status) |
+| `items.*`, `lld.*` | Item/LLD explanatory paragraphs |
+| `types.*` | Item types (Zabbix Agent, SNMP, etc.) |
+| `kpi.*` | KPIs in the Recommendations tab |
+| `sub.*` | Subtitles of Recommendations sections |
+| `rec.*` | Auxiliary Recommendations phrases |
+| `procdesc.*` | Internal process descriptions (tooltips) |
+| `badge.*` | Badges in recommendation cards |
+| `error.*`, `stats.*`, `process.*` | Error and status messages |
+
+### Loading flow
+
+1. On page load, `initI18n()` reads `localStorage.zbx-lang` (fallback: `pt_BR`).
+2. Makes `fetch('/locales/{lang}/messages.json?cb=<timestamp>')` — the `cb` parameter avoids caching.
+3. Stores the dictionary in `_i18n` and calls `applyI18n()`.
+4. `applyI18n()` iterates all elements with `data-i18n*` and replaces the content/attribute with the translation.
+5. When the report is dynamically inserted (via AJAX), `applyI18n()` is called again to translate the HTML injected by the server.
+
+### Server-side translation (Go)
+
+The backend **does not** translate texts — it emits HTML with `data-i18n` markers that JavaScript translates on the client. Examples:
+
+```go
+// Section title with tooltip
+html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|15d")
+
+// Numbered sub-section
+html += nextSub(&sub, "i18n:sub.items_unsupported")
+
+// Table with translatable headers
+html += `<th data-i18n='table.description'></th>`
+
+// Cell with arguments
+html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'></span>`
+```
+
+The helpers `titleWithInfo()` and `nextSub()` detect the `i18n:` prefix and automatically generate `data-i18n` and `data-i18n-args` attributes.
+
+---
+
+## Diagram: Zabbix API Calls
+
+```mermaid
+flowchart TD
+  App["zabbix-easy app\n(app/cmd/app/main.go)"]
+
+  subgraph ZabbixAPI["Zabbix API (JSON-RPC)"]
+    HostGet["host.get\nfields: hostid, host, name, status, templates[]"]
+    ProxyGet["proxy.get\nfields: proxyid, host, status, state"]
+    ItemGetProxy["item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status"]
+    ItemGetHost["item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type"]
+    ItemGetCount["item.get (countOutput:true)\nreturns count for KPIs"]
+    TrendGet["trend.get\nitemid, clock, value_min, value_avg, value_max"]
+    HistoryGet["history.get\nitemid, clock, value"]
+    TemplateGet["template.get\ntemplateid, name, hosts"]
+    UserGetCount["user.get (countOutput:true)\nreturns count"]
+    DiscoveryGet["discoveryrule.get\ncount / details"]
+  end
+
+  subgraph Helpers["App helpers (functions)"]
+    getItemByKey["getItemByKey()\nuses item.get"]
+    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
+    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
+    getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
+  end
+
+  subgraph Tabs["UI Tabs / Views"]
+    Summary["Summary tab"]
+    Server["Server / Processes tab"]
+    Proxies["Proxies tab"]
+    Items["Items tab"]
+    Templates["Templates tab"]
+    Top["Top tab"]
+    Recs["Recommendations tab"]
+  end
+
+  App --> HostGet
+  App --> ProxyGet
+  App --> ItemGetProxy
+  App --> ItemGetHost
+  App --> ItemGetCount
+  App --> TrendGet
+  App --> HistoryGet
+  App --> TemplateGet
+  App --> UserGetCount
+  App --> DiscoveryGet
+
+  getItemByKey --> ItemGetHost
+  getProcessBulk --> ItemGetHost
+  getProxyProc --> ItemGetHost
+  getTrendsBulk --> TrendGet
+  getHistoryBulk --> HistoryGet
+
+  HostGet --> Summary
+  UserGetCount --> Summary
+  ItemGetCount --> Summary
+  TemplateGet --> Summary
+  ProxyGet --> Summary
+
+  getProcessBulk --> Server
+  getTrendsBulk --> Server
+  getHistoryBulk --> Server
+  ItemGetHost --> Server
+
+  ProxyGet --> Proxies
+  ItemGetProxy --> Proxies
+  ItemGetCount --> Proxies
+  getProxyProc --> Proxies
+  HostGet --> Proxies
+
+  ItemGetHost --> Items
+  TemplateGet --> Items
+  DiscoveryGet --> Items
+  ItemGetCount --> Items
+
+  TemplateGet --> Templates
+  TemplateGet --> Top
+  ItemGetCount --> Top
+
+  getTrendsBulk --> Recs
+  getHistoryBulk --> Recs
+  ItemGetProxy --> Recs
+  ItemGetHost --> Recs
+  TemplateGet --> Recs
+  DiscoveryGet --> Recs
+  ProxyGet --> Recs
+  ItemGetCount --> Recs
+
+  classDef fix fill:#fff4a3,stroke:#e6c800
+```

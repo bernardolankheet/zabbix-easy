@@ -1,3 +1,8 @@
+﻿---
+title: "Docker"
+lang: pt_BR
+---
+
 # Docker
 
 ## Modos de execução
@@ -67,9 +72,79 @@ Sem `--profile db`, o postgres não sobe — mesmo com as variáveis `DB_*` desc
 
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
-| `ZABBIX_SERVER_HOSTID` | 10084 - Default | HostID do Zabbix Server para coleta de dados de performance. |
+| `ZABBIX_SERVER_HOSTID` | 10048 - Default | HostID do Zabbix Server para coleta de dados de performance. |
 | `CHECKTRENDTIME` | `30d` | Janela de análise de trends. Aceita `d`, `h`, `m`. Ex: `15d`, `24h`. |
-| `MAX_CCONCURRENT` | `4` | Goroutines paralelas para chamadas à API do Zabbix. Reduzir para `2`–`3` se o Zabbix ficar lento. |
-| `API_TIMEOUT_SECONDS` | `60` | Timeout em segundos por requisição. Aumentar para `90`–`120` em ambientes lentos. |
-| `APP_DEBUG` | _(vazio)_ | `true` para logs detalhados de cada requisição à API. |
-| `DB_HOST` | _(vazio)_ | Host do PostgreSQL. **Se vazio, persistência desativada.** |
+| `MAX_CCONCURRENT` | `4` | Goroutines paralelas para chamadas à API do Zabbix. Reduzir para `2`–`3` se o Zabbix ficar lento ou retornar timeouts. |
+| `API_TIMEOUT_SECONDS` | `60` | Timeout em segundos de cada requisição HTTP à API do Zabbix. Aumentar para `90`–`120` em ambientes com muitos hosts/itens ou latência alta. |
+| `APP_DEBUG` | _(vazio)_ | `1` para logs detalhados de cada requisição à API. |
+| `DB_HOST` | _(vazio)_ | Host do PostgreSQL. **Se vazio, persistência desativada e card DB oculto.** |
+| `DB_PORT` | `5432` | Porta do PostgreSQL. |
+| `DB_USER` | `postgres` | Usuário do banco. |
+| `DB_PASSWORD` | `postgres` | Senha do banco. |
+| `DB_NAME` | `zabbix_report` | Nome do banco de dados. |
+
+### Variáveis do `postgres`
+
+| Variável | Valor padrão |
+|----------|--------------|
+| `POSTGRES_DB` | `zabbix_report` |
+| `POSTGRES_USER` | `postgres` |
+| `POSTGRES_PASSWORD` | `postgres` |
+
+---
+
+## Profiles do Docker Compose
+
+| Profile | Serviços iniciados | Quando usar |
+|---------|--------------------|-------------|
+| _(nenhum)_ | `go-app` | Uso sem banco — avaliação rápida |
+| `db` | `go-app` + `postgres` | Uso com persistência de relatórios |
+
+> **Nota:** o serviço `go-app` também possui `profiles: ["app"]` no `docker-compose.yml`.
+> Para subir apenas o `go-app` pelo profile: `docker compose --profile app up -d`.
+> Para subir tudo junto: `docker compose --profile app --profile db up --build -d`.
+
+---
+
+## Comandos úteis
+
+```bash
+# Subir sem banco (padrão)
+docker compose up -d
+
+# Subir com banco
+docker compose --profile db up --build -d
+
+# Ver logs do app
+docker logs -f go-zabbix-app
+
+# Ver logs do postgres
+docker logs -f go-zabbix-postgres
+
+# Parar tudo (preserva volume de dados)
+docker compose --profile db down
+
+# Parar e remover volume de dados
+docker compose --profile db down -v
+
+# Acessar o banco diretamente
+docker exec -it go-zabbix-postgres psql -U postgres -d zabbix_report
+```
+
+---
+
+## Porta exposta
+
+| Serviço | Porta host | Porta container |
+|---------|------------|-----------------|
+| `go-app` | `8080` | `8080` |
+| `postgres` | `5433` | `5432` |
+
+> O postgres expõe a porta `5433` no host (evita conflito com um postgres local na `5432`).
+
+---
+
+## Persistência de dados
+
+O volume `go_zabbix_postgres_data` é nomeado explicitamente para sobreviver a `docker compose down`.
+Só é removido com `docker compose down -v` ou `docker volume rm go_zabbix_postgres_data`.

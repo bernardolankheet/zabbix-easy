@@ -1,3 +1,8 @@
+﻿---
+title: "Installation"
+lang: en_US
+---
+
 # Installation
 
 ## Requirements
@@ -20,7 +25,7 @@ docker run -d \
   bernardolankheet/zabbix-easy:latest
 ```
 
-> **How to find `ZABBIX_SERVER_HOSTID`:** Go to Zabbix frontend → **Data Collection** → search for host "Zabbix Server" → open the host and check the ID in the URL. Default is `10084`.
+> **How to find `ZABBIX_SERVER_HOSTID`:** In the Zabbix frontend go to **Data Collection**, search for the host "Zabbix Server", open its page and check the ID in the URL. The default is `10084`.
 
 Access the UI at `http://localhost:8080`.
 
@@ -67,6 +72,68 @@ Access the UI at `http://localhost:8080`.
 
 ---
 
+## Option 4 — Helm (Kubernetes)
+
+Use the chart included in `helm/zabbix-easy`. Examples below install the chart from the local checkout into the current cluster.
+
+Basic install (local chart):
+
+```bash
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  --namespace zabbix-easy --create-namespace
+```
+
+Set image and application env via `--set`:
+
+```bash
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  -n zabbix-easy --create-namespace \
+  --set image.tag=latest \
+  --set env.ZABBIX_SERVER_HOSTID=10084 \
+  --set env.CHECKTRENDTIME=15d
+```
+
+Use a custom `values.yaml` (recommended for production):
+
+```bash
+# create my-values.yaml with overrides (ex: ingress host, postgres.enabled: false, etc.)
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  -n zabbix-easy --create-namespace -f my-values.yaml
+```
+
+Useful examples:
+
+- Disable internal PostgreSQL and use external DB:
+
+```yaml
+postgres:
+  enabled: false
+
+  DB_HOST: my-postgres-host
+  DB_USER: myuser
+  DB_PASSWORD: mypass
+```
+
+- Adjust Ingress (edit `my-values.yaml` to configure `ingress.rules`/`host`):
+
+```yaml
+
+  enabled: true
+  rules:
+    - host: zabbix-easy.exemple.local
+      path: /
+  tlsenabled: true
+```
+
+After install, reach the service via Ingress/LoadBalancer or use port-forward:
+
+```bash
+kubectl port-forward svc/zabbix-easy -n zabbix-easy 8080:8080
+# visit http://localhost:8080
+```
+
+---
+
 ## Main environment variables
 
 | Variable | Default | Description |
@@ -77,3 +144,4 @@ Access the UI at `http://localhost:8080`.
 | `API_TIMEOUT_SECONDS` | `60` | Per-request timeout in seconds. Increase to `90`–`120` for slow environments. |
 | `APP_DEBUG` | _(empty)_ | `true` to enable verbose API request logs. |
 | `DB_HOST` | _(empty)_ | PostgreSQL host. **If empty, persistence is disabled.** |
+

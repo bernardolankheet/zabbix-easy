@@ -1,3 +1,8 @@
+﻿---
+title: "Zabbix Easy HealthCheck Report"
+lang: pt_BR
+---
+
 # Zabbix Easy HealthCheck Report
 
 Projeto moderno para geração de relatórios HealthCheck do Zabbix usando Go e Postgres.
@@ -12,4 +17,5 @@ Projeto moderno para geração de relatórios HealthCheck do Zabbix usando Go e 
 3. Relatório gerado e exibido na interface
 
 ## Novidades
-Consulte as mudanças e notas de atualização em [Novidades](../changelog/).
+Consulte as mudanças e notas de atualização em [Novidades](https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md).
+
