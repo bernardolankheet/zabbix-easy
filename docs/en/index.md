@@ -17,5 +17,5 @@ Modern project to generate Zabbix HealthCheck reports using Go and PostgreSQL.
 3. Report is generated and displayed in the UI
 
 ## Changelog
-See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md
+See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md
 
