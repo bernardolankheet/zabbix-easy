@@ -17,6 +17,7 @@
   - Updated instructions in `docs/contribuicao.md` and `docs/contribuicao.en.md` to run the documentation locally and resolve a common TLS error.
   - Included `.gitignore` to ignore `.venv` and temporary files.
   - `README.md` redesigned with Quick Start and development instructions.
+  - Update Docs with new format and support multiple languages (Portuguese and English) using `mkdocs-static-i18n`. Contribute via Pull Request with the title `i18n: add <language>` (e.g. `i18n: add es_ES`).
 
 ## Affected files
 
