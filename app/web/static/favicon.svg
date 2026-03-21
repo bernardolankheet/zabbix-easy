@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background: dark NOC-style rounded square -->
+  <rect width="32" height="32" rx="5" fill="#1A1A2E"/>
+  <!--
+    EKG pulse line where the spike IS the letter Z:
+      flat → rise → Z top-bar → Z diagonal → Z bottom-bar → return to baseline → flat
+    Baseline y=18, Z top y=8, Z bottom y=25
+  -->
+  <polyline
+    points="1,18 7,18 9,8 13,8 19,25 23,25 25,18 31,18"
+    fill="none"
+    stroke="#E8541A"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+  <!-- easter egg: author initials just above the pulse peak, barely visible -->
+  <text x="11" y="6" font-family="monospace" font-size="4" text-anchor="middle" fill="#262640" letter-spacing="0.5">BAL</text>
+</svg>
