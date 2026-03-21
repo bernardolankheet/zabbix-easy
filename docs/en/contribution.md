@@ -1,3 +1,8 @@
+﻿---
+title: "Contributing"
+lang: en_US
+---
+
 # Contributing
 
 Contributions are welcome!
@@ -127,3 +132,4 @@ mkdocs serve
 ```
 
 If you're behind a corporate proxy using a custom CA, set `SSL_CERT_FILE` to your organization's CA bundle instead of the `certifi` bundle.
+

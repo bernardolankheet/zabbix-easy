@@ -1,3 +1,8 @@
+﻿---
+title: "Instalação"
+lang: pt_BR
+---
+
 # Instalação
 
 ## Requisitos
@@ -69,6 +74,68 @@ Acesse a interface em `http://localhost:8080`.
 
 ---
 
+## Opção 4 — Helm (Kubernetes)
+
+Use o chart incluído em `helm/zabbix-easy`. Exemplos abaixo instalam o chart localmente no cluster atual.
+
+Instalação básica (chart local):
+
+```bash
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  --namespace zabbix-easy --create-namespace
+```
+
+Definir imagem e variáveis de aplicação via `--set`:
+
+```bash
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  -n zabbix-easy --create-namespace \
+  --set image.tag=latest \
+  --set env.ZABBIX_SERVER_HOSTID=10084 \
+  --set env.CHECKTRENDTIME=15d
+```
+
+Usar `values.yaml` customizado (recomendado para produção):
+
+```bash
+# criar my-values.yaml com overrides (ex: ingress host, postgres.enabled: false, etc.)
+helm upgrade --install zabbix-easy ./helm/zabbix-easy \
+  -n zabbix-easy --create-namespace -f my-values.yaml
+```
+
+Exemplos úteis:
+
+- Desabilitar PostgreSQL interno e usar um banco externo:
+
+```yaml
+postgres:
+  enabled: false
+
+  DB_HOST: my-postgres-host
+  DB_USER: myuser
+  DB_PASSWORD: mypass
+```
+
+- Ajustar Ingress (edite `my-values.yaml` para configurar `ingress.rules`/`host`):
+
+```yaml
+
+  enabled: true
+  rules:
+    - host: zabbix-easy.exemple.local
+      path: /
+  tlsenabled: true
+```
+
+Após a instalação, acesse o serviço via Ingress/LoadBalancer ou execute um port-forward:
+
+```bash
+kubectl port-forward svc/zabbix-easy -n zabbix-easy 8080:8080
+# acessar http://localhost:8080
+```
+
+---
+
 ## Variáveis de ambiente principais
 
 | Variável | Padrão | Descrição |
@@ -79,4 +146,5 @@ Acesse a interface em `http://localhost:8080`.
 | `API_TIMEOUT_SECONDS` | `60` | Timeout em segundos por requisição. Aumentar para `90`–`120` em ambientes lentos. |
 | `APP_DEBUG` | _(vazio)_ | `true` para logs detalhados de cada requisição à API. |
 | `DB_HOST` | _(vazio)_ | Host do PostgreSQL. **Se vazio, persistência desativada.** |
+
 

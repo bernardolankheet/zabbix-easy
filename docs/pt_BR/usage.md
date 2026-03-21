@@ -1,103 +1,14 @@
+﻿---
+title: "Utilização"
+lang: pt_BR
+---
+
 # Utilização
 
 1. Acesse a interface web
 2. Informe a URL e o token do Zabbix
 3. Aguarde a geração do relatório
 4. Exporte ou imprima o relatório conforme necessário
-
----
-
-## Diagrama: Chamadas à API do Zabbix
-
-```mermaid
-flowchart TD
-  App["zabbix-easy app\n(app/cmd/app/main.go)"]
-
-  subgraph ZabbixAPI["Zabbix API (JSON-RPC)"]
-    HostGet["host.get\nfields: hostid, host, name, status, templates[]"]
-    ProxyGet["proxy.get\nfields: proxyid, host, status, state"]
-    ItemGetProxy["item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status"]
-    ItemGetHost["item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type"]
-    ItemGetCount["item.get (countOutput:true)\nreturns count for KPIs"]
-    TrendGet["trend.get\nitemid, clock, value_min, value_avg, value_max"]
-    HistoryGet["history.get\nitemid, clock, value"]
-    TemplateGet["template.get\ntemplateid, name, hosts"]
-    UserGetCount["user.get (countOutput:true)\nreturns count"]
-    DiscoveryGet["discoveryrule.get\ncount / details"]
-  end
-
-  subgraph Helpers["App helpers (functions)"]
-    getItemByKey["getItemByKey()\nuses item.get"]
-    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
-    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
-    getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
-    getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
-  end
-
-  subgraph Tabs["UI Tabs / Views"]
-    Summary["Resumo / Summary tab"]
-    Server["Processos / Server tab"]
-    Proxies["Proxys tab"]
-    Items["Items tab"]
-    Templates["Templates tab"]
-    Top["Top tab"]
-    Recs["Recomendações / Recommendations tab"]
-  end
-
-  App --> HostGet
-  App --> ProxyGet
-  App --> ItemGetProxy
-  App --> ItemGetHost
-  App --> ItemGetCount
-  App --> TrendGet
-  App --> HistoryGet
-  App --> TemplateGet
-  App --> UserGetCount
-  App --> DiscoveryGet
-
-  getItemByKey --> ItemGetHost
-  getProcessBulk --> ItemGetHost
-  getProxyProc --> ItemGetHost
-  getTrendsBulk --> TrendGet
-  getHistoryBulk --> HistoryGet
-
-  HostGet --> Summary
-  UserGetCount --> Summary
-  ItemGetCount --> Summary
-  TemplateGet --> Summary
-  ProxyGet --> Summary
-
-  getProcessBulk --> Server
-  getTrendsBulk --> Server
-  getHistoryBulk --> Server
-  ItemGetHost --> Server
-
-  ProxyGet --> Proxies
-  ItemGetProxy --> Proxies
-  ItemGetCount --> Proxies
-  getProxyProc --> Proxies
-  HostGet --> Proxies
-
-  ItemGetHost --> Items
-  TemplateGet --> Items
-  DiscoveryGet --> Items
-  ItemGetCount --> Items
-
-  TemplateGet --> Templates
-  TemplateGet --> Top
-  ItemGetCount --> Top
-
-  getTrendsBulk --> Recs
-  getHistoryBulk --> Recs
-  ItemGetProxy --> Recs
-  ItemGetHost --> Recs
-  TemplateGet --> Recs
-  DiscoveryGet --> Recs
-  ProxyGet --> Recs
-  ItemGetCount --> Recs
-
-  classDef fix fill:#fff4a3,stroke:#e6c800
-```
 
 ---
 
@@ -1794,4 +1705,99 @@ html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'>
 ```
 
 Os helpers `titleWithInfo()` e `nextSub()` detectam o prefixo `i18n:` e geram automaticamente os atributos `data-i18n` e `data-i18n-args`.
+
+---
+
+## Diagrama: Chamadas à API do Zabbix
+
+```mermaid
+flowchart TD
+  App["zabbix-easy app\n(app/cmd/app/main.go)"]
+
+  subgraph ZabbixAPI["Zabbix API (JSON-RPC)"]
+    HostGet["host.get\nfields: hostid, host, name, status, templates[]"]
+    ProxyGet["proxy.get\nfields: proxyid, host, status, state"]
+    ItemGetProxy["item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status"]
+    ItemGetHost["item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type"]
+    ItemGetCount["item.get (countOutput:true)\nreturns count for KPIs"]
+    TrendGet["trend.get\nitemid, clock, value_min, value_avg, value_max"]
+    HistoryGet["history.get\nitemid, clock, value"]
+    TemplateGet["template.get\ntemplateid, name, hosts"]
+    UserGetCount["user.get (countOutput:true)\nreturns count"]
+    DiscoveryGet["discoveryrule.get\ncount / details"]
+  end
+
+  subgraph Helpers["App helpers (functions)"]
+    getItemByKey["getItemByKey()\nuses item.get"]
+    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
+    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
+    getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
+  end
+
+  subgraph Tabs["UI Tabs / Views"]
+    Summary["Resumo / Summary tab"]
+    Server["Processos / Server tab"]
+    Proxies["Proxys tab"]
+    Items["Items tab"]
+    Templates["Templates tab"]
+    Top["Top tab"]
+    Recs["Recomendações / Recommendations tab"]
+  end
+
+  App --> HostGet
+  App --> ProxyGet
+  App --> ItemGetProxy
+  App --> ItemGetHost
+  App --> ItemGetCount
+  App --> TrendGet
+  App --> HistoryGet
+  App --> TemplateGet
+  App --> UserGetCount
+  App --> DiscoveryGet
+
+  getItemByKey --> ItemGetHost
+  getProcessBulk --> ItemGetHost
+  getProxyProc --> ItemGetHost
+  getTrendsBulk --> TrendGet
+  getHistoryBulk --> HistoryGet
+
+  HostGet --> Summary
+  UserGetCount --> Summary
+  ItemGetCount --> Summary
+  TemplateGet --> Summary
+  ProxyGet --> Summary
+
+  getProcessBulk --> Server
+  getTrendsBulk --> Server
+  getHistoryBulk --> Server
+  ItemGetHost --> Server
+
+  ProxyGet --> Proxies
+  ItemGetProxy --> Proxies
+  ItemGetCount --> Proxies
+  getProxyProc --> Proxies
+  HostGet --> Proxies
+
+  ItemGetHost --> Items
+  TemplateGet --> Items
+  DiscoveryGet --> Items
+  ItemGetCount --> Items
+
+  TemplateGet --> Templates
+  TemplateGet --> Top
+  ItemGetCount --> Top
+
+  getTrendsBulk --> Recs
+  getHistoryBulk --> Recs
+  ItemGetProxy --> Recs
+  ItemGetHost --> Recs
+  TemplateGet --> Recs
+  DiscoveryGet --> Recs
+  ProxyGet --> Recs
+  ItemGetCount --> Recs
+
+  classDef fix fill:#fff4a3,stroke:#e6c800
+```
+
 

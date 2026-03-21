@@ -1,3 +1,8 @@
+﻿---
+title: "API"
+lang: pt_BR
+---
+
 # API
 
 ## Endpoints principais
@@ -20,3 +25,4 @@ Verifica o progresso da coleta.
 
 ### GET /api/report/{task_id}
 Obtém o relatório gerado.
+
