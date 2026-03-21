@@ -621,7 +621,7 @@ Observações importantes:
 | Chamada | Parâmetros relevantes | Observação |
 |---------|-----------------------|-----------|
 | `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Busca apenas a conta `Admin`, evitando varredura de todos os usuários |
-| `user.login` | `user: "Admin", password: "zabbix"` | Tentativa de autenticação para verificar se a senha padrão é válida (best-effort). Retorna token em caso de sucesso, que é descartado imediatamente |
+| `user.login` | `username: "Admin", password: "zabbix"` | Tentativa de autenticação para verificar se a senha padrão é válida (best-effort). Retorna token em caso de sucesso, que é descartado imediatamente |
 
 ### Recomendações geradas
 
