@@ -4,8 +4,9 @@
     // Convert them to <pre class="mermaid"> which mermaid.js v10 recognises.
     document.querySelectorAll('pre > code.language-mermaid').forEach(function (code) {
       var pre = code.parentElement;
-      pre.className = 'mermaid';
-      pre.textContent = code.textContent;
+      var diagramSource = code.textContent;
+      pre.classList.add('mermaid');
+      pre.replaceChild(document.createTextNode(diagramSource), code);
     });
     if (typeof mermaid === 'undefined') return;
     try {
