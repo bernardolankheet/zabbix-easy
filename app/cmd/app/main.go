@@ -1026,6 +1026,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			return "StartTrappers"
 		case strings.Contains(lname, "poller"):
 			return "StartPollers"
+		case strings.Contains(lname, "housekeep") || strings.Contains(lname, "housekeeper"):
+			// Housekeeper internal process: suggest housekeeping-related params
+			return "HousekeepingFrequency,MaxHousekeeperDelete"
 		default:
 			return ""
 		}
@@ -3574,9 +3577,14 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				param := procToParam(a.Name)
 				html += `<li>` + htmlpkg.EscapeString(a.Name) + ` — avg: ` + fmt.Sprintf("%.2f%%", a.Vavg) + `</li>`
 				if param != "" {
-					found := false
-					for _, p := range serverParams { if p == param { found = true; break } }
-					if !found { serverParams = append(serverParams, param) }
+					// support multiple params separated by comma (e.g. Housekeeper -> HousekeepingFrequency,MaxHousekeeperDelete)
+					for _, pp := range strings.Split(param, ",") {
+						pp = strings.TrimSpace(pp)
+						if pp == "" { continue }
+						found := false
+						for _, ex := range serverParams { if ex == pp { found = true; break } }
+						if !found { serverParams = append(serverParams, pp) }
+					}
 				}
 			}
 			html += `</ol>`
@@ -3616,6 +3624,17 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 					html += p + "=   # <span data-i18n='fix.proxy_increase_hint'></span>\n"
 				}
 				html += "systemctl restart zabbix-server</pre>"
+				// If housekeeper params are present, suggest DB partitioning / TimescaleDB
+				hasHousekeeper := false
+				for _, p := range serverParams {
+					if strings.EqualFold(p, "HousekeepingFrequency") || strings.EqualFold(p, "MaxHousekeeperDelete") {
+						hasHousekeeper = true
+						break
+					}
+				}
+				if hasHousekeeper {
+					html += `<div style='margin-top:8px;font-size:0.9em;color:#374151;'><span data-i18n='fix.db_maintenance_advice'></span></div>`
+				}
 			} else {
 				html += "<pre style='margin-top:8px;'>systemctl restart zabbix-server</pre>"
 			}

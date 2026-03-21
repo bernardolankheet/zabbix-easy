@@ -372,6 +372,7 @@
   ,"fix.proxy_compatibility_title": "Proxy Compatibility — Outdated/Unsupported Versions"
   ,"fix.proxy_compatibility_action": "Upgrade the Zabbix Proxy to a version compatible with the Zabbix Server"
   ,"fix.proxy_increase_hint": "increase until the avg drops below 60%"
+  ,"fix.db_maintenance_advice": "Verify table partitioning (MySQL) or TimescaleDB hypertables (Postgres) to reduce Housekeeper load and improve cleanup performance."
 
   ,"tabs.users": "Users"
   ,"section.users": "Zabbix Users"

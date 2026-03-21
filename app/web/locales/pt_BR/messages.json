@@ -373,6 +373,8 @@
   ,"fix.proxy_compatibility_action": "Atualize o Zabbix Proxy para uma versão compatível com o Zabbix Server"
   ,"fix.proxy_increase_hint": "aumente até o avg cair abaixo de 60%"
 
+  ,"fix.db_maintenance_advice": "Verifique particionamento de tabelas (MySQL) ou uso de TimescaleDB hypertables (Postgres) para reduzir a carga do Housekeeper e melhorar a performance das operações de limpeza."
+
   ,"tabs.users": "Usuários"
   ,"section.users": "Usuários do Zabbix"
   ,"tip.users": "Lista de usuários configurados no Zabbix. Contas com tipo Super Admin possuem acesso irrestrito; revise regularmente para garantir o princípio do menor privilégio."
