@@ -2,7 +2,7 @@ site_name: Zabbix Easy Report
 repo_url: https://github.com/bernardolankheet/zabbix-easy
 nav:
   - Home: index.md
-  - Novidades: https://github.com/bernardolankheet/zabbix-easy/blob/main/docs/CHANGELOG.md
+  - Novidades: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md
   - Instalação: instalacao.md
   - API: api.md
   - Docker: docker.md

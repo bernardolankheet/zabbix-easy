@@ -373,6 +373,8 @@
   ,"fix.proxy_compatibility_action": "Atualize o Zabbix Proxy para uma versão compatível com o Zabbix Server"
   ,"fix.proxy_increase_hint": "aumente até o avg cair abaixo de 60%"
 
+  ,"fix.db_maintenance_advice": "Verifique particionamento de tabelas (MySQL) ou uso de TimescaleDB hypertables (Postgres) para reduzir a carga do Housekeeper e melhorar a performance das operações de limpeza."
+
   ,"tabs.users": "Usuários"
   ,"section.users": "Usuários do Zabbix"
   ,"tip.users": "Verificação da conta padrão 'Admin' do Zabbix e do status da senha padrão. Esta aba não lista todos os usuários; use a interface do Zabbix para revisar e gerenciar as demais contas (incluindo Super Admins)."
