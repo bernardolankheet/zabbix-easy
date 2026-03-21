@@ -3494,15 +3494,15 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
 	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
 	// KPI: default Admin account
-	// Behavior: Verde se a Admin está presente mas NÃO aceita a senha padrão;
-	// vermelho apenas quando a conta Admin aceita a senha padrão 'zabbix'.	
 	adminKpiClass := "kpi-ok"
-	if adminDefaultPasswordValid {
-		adminKpiClass = "kpi-crit"
+	if hasDefaultAdmin {
+		adminKpiClass = "kpi-warn"
+		if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
 	}
-	adminKpiIcon := "✅"
-	if adminDefaultPasswordValid {
-		adminKpiIcon = "🔴"
+	adminKpiIcon := "🟢"
+	if hasDefaultAdmin {
+		adminKpiIcon = "🟡"
+		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	}
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
