@@ -16,7 +16,7 @@
     
     
       
-        <title>Usage - Zabbix Easy Report</title>
+        <title>Contributing - Zabbix Easy Report</title>
       
     
     
@@ -60,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#usage" class="md-skip">
+        <a href="#contributing" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -96,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Usage
+              Contributing
             
           </span>
         </div>
@@ -213,7 +213,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../pt_BR/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -237,7 +237,7 @@
         
   
   <span class="md-ellipsis">
-    Novidades
+    Changelog
   </span>
   
 
@@ -253,11 +253,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../instalacao/" class="md-nav__link">
+      <a href="../../pt_BR/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Instalação
+    Installation
   </span>
   
 
@@ -273,7 +273,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/" class="md-nav__link">
+      <a href="../../pt_BR/api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -293,7 +293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../docker/" class="md-nav__link">
+      <a href="../../pt_BR/docker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -313,11 +313,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../utilizacao/" class="md-nav__link">
+      <a href="../../pt_BR/usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Utilização
+    Usage
   </span>
   
 
@@ -333,11 +333,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contribuicao/" class="md-nav__link">
+      <a href="../../pt_BR/contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Contribuição
+    Contribution
   </span>
   
 
@@ -373,9 +373,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#diagram-zabbix-api-calls" class="md-nav__link">
+  <a href="#contributing-new-languages" class="md-nav__link">
     <span class="md-ellipsis">
-      Diagram: Zabbix API Calls
+      Contributing new languages
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Contributing new languages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-copy-an-existing-locale" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Copy an existing locale
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-translate-the-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Translate the keys
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-register-the-language-in-the-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Register the language in the selector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Test
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-docs-locally-mkdocs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the docs locally (MkDocs)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")
     </span>
   </a>
   
@@ -399,64 +468,112 @@
   
 
 
-<h1 id="usage">Usage</h1>
-<p>This page documents how the report generation works and the main API calls used.</p>
-<h2 id="diagram-zabbix-api-calls">Diagram: Zabbix API Calls</h2>
-<pre><code class="language-mermaid">flowchart TD
-  App[&quot;zabbix-easy app\n(app/cmd/app/main.go)&quot;]
-
-  subgraph ZabbixAPI[&quot;Zabbix API (JSON-RPC)&quot;]
-    HostGet[&quot;host.get\nfields: hostid, host, name, status, templates[]&quot;]
-    ProxyGet[&quot;proxy.get\nfields: proxyid, host, status, state&quot;]
-    ItemGetProxy[&quot;item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status&quot;]
-    ItemGetHost[&quot;item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type&quot;]
-    ItemGetCount[&quot;item.get (countOutput:true)\nreturns count for KPIs&quot;]
-    TrendGet[&quot;trend.get\nitemid, clock, value_min, value_avg, value_max&quot;]
-    HistoryGet[&quot;history.get\nitemid, clock, value&quot;]
-    TemplateGet[&quot;template.get\ntemplateid, name, hosts&quot;]
-    UserGetCount[&quot;user.get (countOutput:true)\nreturns count&quot;]
-    DiscoveryGet[&quot;discoveryrule.get\ncount / details&quot;]
-  end
-
-  subgraph Helpers[&quot;App helpers (functions)&quot;]
-    getItemByKey[&quot;getItemByKey()\nuses item.get&quot;]
-    getProcessBulk[&quot;getProcessItemsBulk()\nuses item.get with search wildcards&quot;]
-    getProxyProc[&quot;getProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
-    getTrendsBulk[&quot;getTrendsBulkStats()\nuses trend.get&quot;]
-    getHistoryBulk[&quot;getHistoryStatsBulkByType()\nuses history.get&quot;]
-  end
-
-  App --&gt; HostGet
-  App --&gt; ProxyGet
-  App --&gt; ItemGetProxy
-  App --&gt; ItemGetHost
-  App --&gt; ItemGetCount
-  App --&gt; TrendGet
-  App --&gt; HistoryGet
-  App --&gt; TemplateGet
-  App --&gt; UserGetCount
-  App --&gt; DiscoveryGet
-
-  getItemByKey --&gt; ItemGetHost
-  getProcessBulk --&gt; ItemGetHost
-  getProxyProc --&gt; ItemGetHost
-  getTrendsBulk --&gt; TrendGet
-  getHistoryBulk --&gt; HistoryGet
-
-  HostGet --&gt; Summary
-  UserGetCount --&gt; Summary
-  ItemGetCount --&gt; Summary
-  TemplateGet --&gt; Summary
-  ProxyGet --&gt; Summary
-
-  classDef fix fill:#fff4a3,stroke:#e6c800
+<h1 id="contributing">Contributing</h1>
+<p>Contributions are welcome!</p>
+<ol>
+<li>Fork the project</li>
+<li>Create a branch</li>
+<li>Submit your PR</li>
+</ol>
+<p>Suggestions, issues and improvements are appreciated.</p>
+<hr />
+<h2 id="contributing-new-languages">Contributing new languages</h2>
+<p>ZBX-Easy uses a JSON-based i18n system. Adding a new language requires only four steps:</p>
+<h3 id="1-copy-an-existing-locale">1. Copy an existing locale</h3>
+<p>Create a folder for the new language inside <code>app/web/locales/</code> using the standard locale code (<code>xx_YY</code>):</p>
+<pre><code class="language-bash">cp -r app/web/locales/pt_BR app/web/locales/es_ES
 </code></pre>
+<h3 id="2-translate-the-keys">2. Translate the keys</h3>
+<p>Open <code>app/web/locales/es_ES/messages.json</code> and translate <strong>only the values</strong> (right-hand side). Keys (left-hand side) must remain unchanged.</p>
+<div class="admonition warning">
+<p class="admonition-title">Important</p>
+<ul>
+<li>Keep <code>%s</code> and <code>%d</code> placeholders in translations that contain them.</li>
+<li>Do not change JSON keys.</li>
+<li>The <code>pt_BR/messages.json</code> file (~290 keys) is the most complete reference.</li>
+</ul>
+</div>
+<h3 id="3-register-the-language-in-the-selector">3. Register the language in the selector</h3>
+<p>Edit <code>app/web/templates/index.html</code> and add an <code>&lt;option&gt;</code> to the <code>#lang-select</code> selector:</p>
+<pre><code class="language-html">&lt;select id=&quot;lang-select&quot;&gt;
+  &lt;option value=&quot;pt_BR&quot;&gt;🇧🇷 PT&lt;/option&gt;
+  &lt;option value=&quot;en_US&quot;&gt;🇺🇸 EN&lt;/option&gt;
+  &lt;option value=&quot;es_ES&quot;&gt;🇪🇸 ES&lt;/option&gt;  &lt;!-- new --&gt;
+&lt;/select&gt;
+</code></pre>
+<h3 id="4-test">4. Test</h3>
+<pre><code class="language-bash">docker compose up -d --build
+</code></pre>
+<h3 id="tips">Tips</h3>
+<ul>
+<li>Use the browser console to check untranslated keys — if a key doesn't exist in the dictionary, the original HTML text will be kept.</li>
+<li>Compare your <code>messages.json</code> with <code>pt_BR</code> to ensure no keys are missing.</li>
+<li>Contribute via Pull Request with the title <code>i18n: add &lt;language&gt;</code> (e.g. <code>i18n: add es_ES</code>).</li>
+</ul>
+<hr />
+<h2 id="running-the-docs-locally-mkdocs">Running the docs locally (MkDocs)</h2>
+<p>To preview the documentation locally we use <code>mkdocs</code>. The repository includes a <code>requirements.txt</code> with the needed packages.</p>
+<ol>
+<li>Create and activate a virtual environment (recommended):</li>
+</ol>
+<pre><code class="language-bash">python3 -m venv .venv
+source .venv/bin/activate
+</code></pre>
+<ol>
+<li>Install dependencies:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+</code></pre>
+<ol>
+<li>Serve the site locally:</li>
+</ol>
+<pre><code class="language-bash">mkdocs serve
+</code></pre>
+<p>Open <code>http://127.0.0.1:8000</code> in your browser.</p>
+<h2 id="tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle">TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")</h2>
+<p>If <code>pip install -r requirements.txt</code> fails with an error like:</p>
+<pre><code>Could not find a suitable TLS CA certificate bundle, invalid path: /path/to/certifi/cacert.pem
+</code></pre>
+<p>it's likely an environment variable points to a missing or invalid CA bundle. Fix it as follows:</p>
+<ol>
+<li>Check TLS-related environment variables:</li>
+</ol>
+<pre><code class="language-bash">echo $SSL_CERT_FILE
+echo $REQUESTS_CA_BUNDLE
+echo $PIP_CERT
+</code></pre>
+<ol>
+<li>If any point to an invalid path (e.g. <code>/path/to/certifi/cacert.pem</code>), unset them temporarily:</li>
+</ol>
+<pre><code class="language-bash">unset SSL_CERT_FILE REQUESTS_CA_BUNDLE PIP_CERT
+</code></pre>
+<ol>
+<li>Reinstall/upgrade <code>certifi</code> and get its bundle path:</li>
+</ol>
+<pre><code class="language-bash">pip install --upgrade certifi
+python -c &quot;import certifi; print(certifi.where())&quot;
+</code></pre>
+<ol>
+<li>Optionally export that path if your environment requires an explicit variable:</li>
+</ol>
+<pre><code class="language-bash">export SSL_CERT_FILE=&quot;$(python -c 'import certifi; print(certifi.where())')&quot;
+</code></pre>
+<ol>
+<li>Retry installation and serving:</li>
+</ol>
+<pre><code class="language-bash">pip install -r requirements.txt
+mkdocs serve
+</code></pre>
+<p>If you're behind a corporate proxy using a custom CA, set <code>SSL_CERT_FILE</code> to your organization's CA bundle instead of the <code>certifi</code> bundle.</p>
 
 
 
 
 
 
+
+  
+  
 
 
 
@@ -502,7 +619,7 @@
     
       <script src="../../assets/javascripts/bundle.60a45f97.min.js"></script>
       
-        <script src="../../js/mermaid.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
         <script src="../../js/mermaid-init.js"></script>
       

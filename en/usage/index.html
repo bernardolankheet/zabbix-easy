@@ -1,0 +1,4116 @@
+
+<!doctype html>
+<html lang="pt" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.50">
+    
+    
+      
+        <title>Usage - Zabbix Easy Report</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.a40c8224.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/lang-switch.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#usage" class="md-skip">
+          Ir para o conteúdo
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
+    <a href="../.." title="Zabbix Easy Report" class="md-header__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Zabbix Easy Report
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Usage
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Buscar" placeholder="Buscar" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Pesquisar">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Limpar" aria-label="Limpar" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Inicializando a pesquisa
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/bernardolankheet/zabbix-easy" title="Ir ao repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navegação" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Zabbix Easy Report" class="md-nav__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Zabbix Easy Report
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/bernardolankheet/zabbix-easy" title="Ir ao repositório" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Changelog
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/docker/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Docker
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Usage
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pt_BR/contribution/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contribution
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Global environment variables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#general-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      General flow
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="General flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Version logic
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Version logic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#proxy-type-active-passive" class="md-nav__link">
+    <span class="md-ellipsis">
+      Proxy type (Active / Passive)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connectivity-state-online-offline-unknown" class="md-nav__link">
+    <span class="md-ellipsis">
+      Connectivity state (Online / Offline / Unknown)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works-in-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it works in code
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-processes-and-threads" class="md-nav__link">
+    <span class="md-ellipsis">
+      Proxy Processes and Threads
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Proxy Processes and Threads">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed-one-per-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed (one per proxy)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-proxy-hostid-discovery-3-attempts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1 — Proxy hostid discovery (3 attempts)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-itemget-bulk-1-call-all-processes-of-the-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2 — item.get bulk (1 call, all processes of the proxy)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-trendget-bulk-1-call-all-items-of-the-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3 — trend.get bulk (1 call, all items of the proxy)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-historyget-fallback-1-call-per-value_type-only-for-items-without-trend-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4 — history.get fallback (1 call per value_type, only for items without trend data)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go functions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-logic_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Version logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#status-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Status logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-add-a-new-process-to-the-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to add a new process to the proxy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-users-tab-usuarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Users (tab-usuarios)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Users (tab-usuarios)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommendations-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendations generated
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-4-items-and-llds-tab-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 4: Items and LLDs (tab-items)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 4: Items and LLDs (tab-items)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tables-displayed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tables displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-logic_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Version logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallelism" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parallelism
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-5-templates-tab-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 5: Templates (tab-templates)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 5: Templates (tab-templates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed-one-per-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed (one per template)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-edit-links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building edit links
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-6-top-hoststemplatesitems-tab-top" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 6: Top Hosts/Templates/Items (tab-top)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 6: Top Hosts/Templates/Items (tab-top)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tables-displayed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tables displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-7-recommendations-tab-recomendacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 7: Recommendations (tab-recomendacoes)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 7: Recommendations (tab-recomendacoes)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kpi-cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      KPI cards
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kpi-color-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      KPI color logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls-exclusive-to-this-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls (exclusive to this tab)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#helper-functions-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      Helper functions used
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-add-a-new-kpi" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to add a new KPI
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#section-1-zabbix-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section 1 — Zabbix Server
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section 1 — Zabbix Server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#display-condition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generated-html-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generated HTML hierarchy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-zabbix_serverconf-suggestions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "zabbix_server.conf suggestions"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-use-async-pollers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Use Async Pollers"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-variables-involved" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go variables involved
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#section-2-zabbix-proxies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section 2 — Zabbix Proxies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section 2 — Zabbix Proxies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#display-condition_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generated-html-hierarchy_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generated HTML hierarchy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-customize-processes-and-threads" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Customize Processes and Threads"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-use-async-pollers_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Use Async Pollers"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-unknown-proxy-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Unknown Proxy Status"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-offline-proxies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Offline Proxies"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-item-zabbix-proxy-without-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-item "Zabbix Proxy without Monitoring"
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-variables-involved_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go variables involved
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logic-of-proxymissingasyncmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logic of proxyMissingAsyncMap
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#section-3-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section 3 — Items
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section 3 — Items">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#section-display-condition" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-items-and-their-individual-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-items and their individual conditions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#section-4-lld-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section 4 — LLD Rules
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section 4 — LLD Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#section-display-condition_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-items-and-their-individual-conditions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-items and their individual conditions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#section-5-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section 5 — Templates
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Section 5 — Templates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#section-display-condition_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Section display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-items-and-their-individual-conditions_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-items and their individual conditions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#item-items-snmp-poller-zabbix-7-section-3-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#display-condition_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#html-display-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      HTML display logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-section-templates-suitable-for-migration-to-snmp-poller-section-5-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls-exclusive-to-this-sub-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls (exclusive to this sub-section)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls (exclusive to this sub-section)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#call-1-all-snmp-items-in-templates-with-template-hostid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Call 1 — All SNMP items in templates (with template hostid)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#call-2-snmp-items-already-using-getwalk-template-hostid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Call 2 — SNMP items already using get[]/walk[] (template hostid)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#call-3-resolving-legacy-template-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      Call 3 — Resolving legacy template names
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#complete-build-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Complete build flow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resulting-go-variable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resulting Go variable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#html-display-condition" class="md-nav__link">
+    <span class="md-ellipsis">
+      HTML display condition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-interpret-the-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to interpret the list
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-addremove-detection-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to add/remove detection logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#saved-reports-database-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      Saved Reports (Database Persistence)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Saved Reports (Database Persistence)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-use-the-saved-reports-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to use the Saved Reports interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How to use the Saved Reports interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-by-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step by step
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#report-action-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report action bar
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-reports-are-saved" class="md-nav__link">
+    <span class="md-ellipsis">
+      When reports are saved
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables-for-the-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variables for the database
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database schema
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rest-api-report-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      REST API — Report endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="REST API — Report endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-list-and-open-a-report-via-curl" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: list and open a report via curl
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-zabbix-server-tab-processos" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Zabbix Server (tab-processos)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Zabbix Server (tab-processos)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#environment-variables-that-affect-this-tab" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variables that affect this tab
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-itemget-bulk-locate-all-process-items-1-single-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. item.get bulk — locate all process items (1 single call)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2a-trendget-fetch-trend-statistics-primary" class="md-nav__link">
+    <span class="md-ellipsis">
+      2a. trend.get — fetch trend statistics (primary)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-historyget-fallback-when-trend-is-not-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      2b. history.get — fallback when trend is not available
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-function-responsible" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go function responsible
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Go function responsible">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#helpers-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      Helpers used
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-logic_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Version logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#status-logic_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Status logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallelism_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parallelism
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-add-a-new-process-to-the-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to add a new process to the list
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zabbix-api-calls-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls used
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls used">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-apiinfoversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. apiinfo.version
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-userget" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. user.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-itemget" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. item.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-historyget" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. history.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-trendget" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. trend.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-hostget" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. host.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-templateget" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. template.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-discoveryruleget" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. discoveryrule.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-proxyget" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. proxy.get
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#top-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Top Errors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#internationalization-i18n" class="md-nav__link">
+    <span class="md-ellipsis">
+      Internationalization (i18n)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Internationalization (i18n)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#language-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      Language selector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#translation-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Translation attributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#locale-file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Locale file structure
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key categories
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading flow
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-side-translation-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      Server-side translation (Go)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagram-zabbix-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      Diagram: Zabbix API Calls
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="usage">Usage</h1>
+<ol>
+<li>Access the web interface</li>
+<li>Enter the Zabbix URL and token</li>
+<li>Wait for the report to be generated</li>
+<li>Export or print the report as needed</li>
+</ol>
+<hr />
+<h2 id="global-environment-variables">Global environment variables</h2>
+<p>These variables affect the behavior of the entire report generation:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td><em>(empty)</em></td>
+<td>ID of the Zabbix Server host. Used to filter item calls by host. If not set, searches run without a host filter.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Time window for trend/history analysis. Accepts suffix <code>d</code> (days), <code>h</code> (hours), <code>m</code> (minutes). E.g. <code>7d</code>, <code>24h</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>4</code></td>
+<td>Maximum parallel goroutines for Zabbix API calls. Reduce to <code>2</code>–<code>3</code> if Zabbix is slow or times out.</td>
+</tr>
+<tr>
+<td><code>API_TIMEOUT_SECONDS</code></td>
+<td><code>60</code></td>
+<td>Per-request timeout in seconds for Zabbix API HTTP calls. Increase to <code>90</code>–<code>120</code> for slow environments.</td>
+</tr>
+<tr>
+<td><code>APP_DEBUG</code></td>
+<td><em>(empty)</em></td>
+<td><code>1</code> or <code>true</code> to enable verbose API request/response logs.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="general-flow">General flow</h2>
+<p>The main function is <code>generateZabbixReport(url, token string, progressCb func(string))</code> in <code>cmd/app/main.go</code>.</p>
+<ul>
+<li><code>url</code> and <code>token</code> must be non-empty — the function returns an error immediately if either is missing.</li>
+<li><code>url</code> may be provided as <code>http://host/</code> or <code>http://host/api_jsonrpc.php</code> — both are accepted; <code>/api_jsonrpc.php</code> is appended only when necessary.</li>
+<li><code>progressCb</code> is passed as a parameter (not global), keeping concurrent calls isolated.</li>
+</ul>
+<pre><code>POST /api/start
+  → validates url and token (returns 400 if empty)
+  → creates an in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() updates the progress message (parameter, not global)
+      → returns an HTML fragment
+      → saves to PostgreSQL (if DB_HOST is configured)
+
+GET /api/progress/:id      → polling for status + progress message
+GET /api/report/:id        → returns the generated HTML fragment (current session)
+GET /api/reportdb/:id      → returns the report saved in the database
+GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
+</code></pre>
+<p>Report generation detects the Zabbix version via <code>apiinfo.version</code> and automatically adjusts API calls and process lists for Zabbix 6 and 7.</p>
+<hr />
+<p>Proxy process detection uses an <code>item.get</code> call that searches for <em>internal items</em> and <em>dependent items</em> (types <code>5</code> and <code>18</code>). This ensures the tool finds keys in both "dot-style" format (e.g. <code>process.*.avg.busy</code>) and the Zabbix function format (<code>zabbix[process,*,avg,busy]</code>), since the match is performed against both the <code>key_</code> and <code>name</code> fields.</p>
+<p>Key points:</p>
+<ul>
+<li>The filter now includes <code>type: [5, 18]</code> — Internal (5) and Dependent (18). Previously only <code>type=5</code> (internal) items were queried, which caused dependent-item keys to be missed.</li>
+<li>Matching uses wildcards, so patterns like <code>*availability*manager*</code> cover both notations.</li>
+<li>If the report shows "No process items found", check:</li>
+<li>Whether the template (e.g. <code>Zabbix Proxy Health</code> or <code>Remote Zabbix Proxy Health</code>) is linked to the host/proxy.</li>
+<li>Whether the template uses dependent items — in Zabbix, dependent items depend on a master item; confirm the master item exists and is active.</li>
+<li>For debugging, query the API directly to list the host's items with <code>filter: {"type": [5,18]}</code> and <code>searchWildcardsEnabled:true</code>, for example:</li>
+</ul>
+<pre><code class="language-json">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;item.get&quot;,&quot;params&quot;:{
+  &quot;output&quot;:&quot;extend&quot;,
+  &quot;hostids&quot;:&quot;&lt;HOSTID&gt;&quot;,
+  &quot;search&quot;:{&quot;key_&quot;:[&quot;*availability*manager*&quot;,&quot;*poller*&quot;,&quot;*trapper*&quot;]},
+  &quot;searchByAny&quot;:true,
+  &quot;searchWildcardsEnabled&quot;:true,
+  &quot;filter&quot;:{&quot;type&quot;:[5,18]},
+  &quot;monitored&quot;:true
+},&quot;auth&quot;:&quot;&lt;TOKEN&gt;&quot;,&quot;id&quot;:1}
+</code></pre>
+<p>This returns both dot-style <code>key_</code> items and dependent items that use <code>zabbix[...]</code> in their <code>name</code>/<code>key_</code>.</p>
+<p>This change fixes cases where keys such as <code>process.availability_manager.avg.busy</code> were not found because they were returned as dependent items.</p>
+<h3 id="version-logic">Version logic</h3>
+<h4 id="proxy-type-active-passive">Proxy type (Active / Passive)</h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Zabbix ≥ 7</th>
+<th>Zabbix 6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Type</td>
+<td><code>operating_mode</code> (<code>0</code>=Active, <code>1</code>=Passive)</td>
+<td><code>status</code> (<code>5</code>=Active, <code>6</code>=Passive)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="connectivity-state-online-offline-unknown">Connectivity state (Online / Offline / Unknown)</h4>
+<p>Zabbix 7 returns the <code>state</code> field directly in <code>proxy.get</code>. Zabbix 6 <strong>does not return <code>state</code></strong>, so the state is derived from the <code>lastaccess</code> field (Unix timestamp of the last communication with the server):</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Inferred state</th>
+<th>Zabbix 7 equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state</code> present and <code>state == "2"</code></td>
+<td><strong>Online</strong></td>
+<td><code>state=2</code></td>
+</tr>
+<tr>
+<td><code>state</code> present and <code>state == "1"</code></td>
+<td><strong>Offline</strong></td>
+<td><code>state=1</code></td>
+</tr>
+<tr>
+<td><code>state</code> present and <code>state == "0"</code></td>
+<td><strong>Unknown</strong></td>
+<td><code>state=0</code></td>
+</tr>
+<tr>
+<td><code>state</code> absent and <code>lastaccess == 0</code></td>
+<td><strong>Unknown</strong> — never connected</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>state</code> absent and <code>now - lastaccess &gt; 300s</code></td>
+<td><strong>Offline</strong> — connection lost</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>state</code> absent and <code>now - lastaccess ≤ 300s</code></td>
+<td><strong>Online</strong></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The 300 s (5 min) threshold is conservative: active proxies report to the server every few seconds by default.</p>
+</blockquote>
+<h3 id="how-it-works-in-code">How it works in code</h3>
+<p>Rows per proxy are generated in parallel goroutines controlled by the semaphore <code>sem</code>. Results are re-ordered by their original index to preserve the display order.</p>
+<hr />
+<h3 id="proxy-processes-and-threads">Proxy Processes and Threads</h3>
+<h4 id="what-it-is">What it is</h4>
+<p>Displays the utilization of internal processes for each Zabbix Proxy in a per-proxy accordion. For each process, <code>min</code>, <code>avg</code> and <code>max</code> utilization (%) is shown, along with an <strong>OK</strong> or <strong>Warning</strong> badge in the accordion header.</p>
+<h4 id="table-displayed-one-per-proxy">Table displayed (one per proxy)</h4>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Process</td>
+<td>Name with a <code>?</code> tooltip icon describing the <code>zabbix_proxy.conf</code> parameter</td>
+</tr>
+<tr>
+<td>value_min</td>
+<td>Minimum utilization in the period (<code>CHECKTRENDTIME</code>)</td>
+</tr>
+<tr>
+<td>value_avg</td>
+<td>Average utilization in the period</td>
+</tr>
+<tr>
+<td>value_max</td>
+<td>Peak utilization in the period</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Green OK / Red Warning / Gray not enabled / Gray no data</td>
+</tr>
+</tbody>
+</table>
+<p>Each proxy accordion shows two badges in its header:</p>
+<ul>
+<li><strong>Online / Offline·Unknown</strong> — current communication state with Zabbix Server</li>
+<li><strong>OK / Warning</strong> — worst <code>value_avg</code> across all processes with data</li>
+</ul>
+<h4 id="zabbix-api-calls">Zabbix API calls</h4>
+<p>Each active proxy runs an independent goroutine (controlled by the semaphore <code>sem</code>) with the following flow:</p>
+<h5 id="step-1-proxy-hostid-discovery-3-attempts">Step 1 — Proxy hostid discovery (3 attempts)</h5>
+<p>The hostid of the proxy self-monitoring host may differ from the proxyid starting from Zabbix 7.</p>
+<table>
+<thead>
+<tr>
+<th>Attempt</th>
+<th>Method</th>
+<th>Parameters</th>
+<th>When it works</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td><code>host.get</code></td>
+<td><code>hostids: [proxyid]</code></td>
+<td>Zabbix 6 — proxyid == hostid</td>
+</tr>
+<tr>
+<td>B</td>
+<td><code>host.get</code></td>
+<td><code>filter: {host: proxyName}</code></td>
+<td>Zabbix 7 — lookup by technical name</td>
+</tr>
+<tr>
+<td>C</td>
+<td><code>host.get</code></td>
+<td><code>filter: {name: proxyName}</code></td>
+<td>Zabbix 7 — lookup by display name</td>
+</tr>
+<tr>
+<td>Fallback</td>
+<td>—</td>
+<td>uses <code>proxyid</code> directly</td>
+<td>last resort</td>
+</tr>
+</tbody>
+</table>
+<h5 id="step-2-itemget-bulk-1-call-all-processes-of-the-proxy">Step 2 — <code>item.get</code> bulk (1 call, all processes of the proxy)</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;, &quot;name&quot;, &quot;key_&quot;, &quot;value_type&quot;],
+    &quot;hostids&quot;: &quot;&lt;hostid resolved in Step 1&gt;&quot;,
+    &quot;filter&quot;: { &quot;type&quot;: 5 }
+  }
+}
+</code></pre>
+<ul>
+<li>Fetches <strong>all</strong> items of type <code>5</code> (Zabbix internal) for the host — no wildcard in the API call.</li>
+<li>Matching is done <strong>client-side</strong>: for each returned item, <code>nameToWildcard</code> is tested against both the item's <strong><code>key_</code> and <code>name</code></strong> fields.</li>
+<li>Checking the <code>name</code> field ensures compatibility between Zabbix 6 and 7, as the <code>name</code> (e.g. "Utilization of data sender processes, in %") is stable even when the <code>key_</code> format changes.</li>
+</ul>
+<h5 id="step-3-trendget-bulk-1-call-all-items-of-the-proxy">Step 3 — <code>trend.get</code> bulk (1 call, all items of the proxy)</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;trend.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;value_min&quot;, &quot;value_avg&quot;, &quot;value_max&quot;],
+    &quot;itemids&quot;: [&quot;&lt;iid1&gt;&quot;, &quot;&lt;iid2&gt;&quot;, &quot;...&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;
+  }
+}
+</code></pre>
+<ul>
+<li>Aggregates multiple trend records per item: <code>min(value_min)</code>, <code>mean(value_avg)</code>, <code>max(value_max)</code>.</li>
+<li>Items with no data in the result trigger the fallback below.</li>
+</ul>
+<h5 id="step-4-historyget-fallback-1-call-per-value_type-only-for-items-without-trend-data">Step 4 — <code>history.get</code> fallback (1 call per <code>value_type</code>, only for items without trend data)</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;history.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;value&quot;],
+    &quot;history&quot;: &quot;&lt;value_type&gt;&quot;,
+    &quot;itemids&quot;: [&quot;&lt;iids without trend&gt;&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;,
+    &quot;sortfield&quot;: &quot;clock&quot;,
+    &quot;sortorder&quot;: &quot;ASC&quot;,
+    &quot;limit&quot;: 20000
+  }
+}
+</code></pre>
+<ul>
+<li>Groups items by <code>value_type</code> and makes one call per type (up to 20,000 rows per call).</li>
+<li>Calculates <code>min/avg/max</code> manually from raw values.</li>
+</ul>
+<h4 id="go-functions">Go functions</h4>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getProxies(apiUrl, token)</code></td>
+<td>Returns the full proxy list with all fields (<code>output:extend</code>)</td>
+</tr>
+<tr>
+<td><code>getProxyProcessItems(apiUrl, token, names, hostid)</code></td>
+<td>Fetches all <code>type=5</code> items for the host; client-side match on <code>key_</code> <strong>and</strong> <code>name</code> using <code>nameToWildcard</code></td>
+</tr>
+<tr>
+<td><code>getTrendsBulkStats(apiUrl, token, itemids)</code></td>
+<td><strong>1 <code>trend.get</code></strong> for all itemids; aggregates <code>min/avg/max</code> per item</td>
+</tr>
+<tr>
+<td><code>getHistoryStatsBulkByType(apiUrl, token, items)</code></td>
+<td>Fallback: <strong>1 <code>history.get</code> per <code>value_type</code></strong>; aggregates <code>min/avg/max</code> from raw history</td>
+</tr>
+<tr>
+<td><code>nameToWildcard(name)</code></td>
+<td>Converts <code>"data*sender"</code> → <code>"*data*sender*"</code> for client-side matching</td>
+</tr>
+<tr>
+<td><code>wildcardMatch(pattern, s)</code></td>
+<td>Simple <code>*</code> wildcard match; used by <code>getProxyProcessItems</code> to test <code>key_</code> and <code>name</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="version-logic_1">Version logic</h4>
+<table>
+<thead>
+<tr>
+<th>Zabbix</th>
+<th>Extra processes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>≥ 7</td>
+<td>Includes <code>agent poller</code>, <code>browser poller</code>, <code>http agent poller</code>, <code>snmp poller</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>These four are excluded from the table</td>
+</tr>
+</tbody>
+</table>
+<h4 id="status-logic">Status logic</h4>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Display</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Proxy offline / unknown</td>
+<td>Accordion without table; <strong>Offline/Unknown</strong> badge</td>
+</tr>
+<tr>
+<td>No <code>type=5</code> items found</td>
+<td>Note with the hostid used; no table</td>
+</tr>
+<tr>
+<td><code>trend.get</code> and <code>history.get</code> return no data</td>
+<td>Gray — "No data"</td>
+</tr>
+<tr>
+<td>Item not found for the process</td>
+<td>Gray — "Process not enabled"</td>
+</tr>
+<tr>
+<td><code>value_avg &lt; 60%</code></td>
+<td>Green — OK</td>
+</tr>
+<tr>
+<td><code>value_avg ≥ 60%</code></td>
+<td>Red — Warning</td>
+</tr>
+</tbody>
+</table>
+<h4 id="how-to-add-a-new-process-to-the-proxy">How to add a new process to the proxy</h4>
+<p>There are <strong>2 places</strong> in <code>cmd/app/main.go</code>:</p>
+<p><strong>1. <code>procDesc</code></strong> — tooltip <code>?</code> description (key in lowercase, with spaces instead of <code>*</code>):</p>
+<pre><code class="language-go">&quot;new process&quot;: `&quot;StartNewProcess&quot; parameter: description and when to adjust.`,
+</code></pre>
+<p><strong>2. <code>proxyAllProcNames</code></strong> — proxy process list (use <strong>spaces</strong> as word separators, same as <code>pollerNames</code> on the server):</p>
+<pre><code class="language-go">proxyAllProcNames := []string{
+    &quot;data sender&quot;,
+    ...
+    &quot;new process&quot;,  // ← here
+}
+// or exclusive to Zabbix 7+:
+if majorV &gt;= 7 {
+    proxyAllProcNames = append([]string{&quot;new process&quot;}, proxyAllProcNames...)
+}
+</code></pre>
+<p><strong>Why spaces?</strong> <code>nameToWildcard</code> converts spaces to <code>*</code> automatically when building the search pattern (<code>"data sender"</code> → <code>"*data*sender*"</code>). Using spaces allows <code>strings.Fields</code> to count words correctly, ensuring the <strong>"most specific wins"</strong> sort works — without this, <code>"http*agent*poller"</code> and <code>"http*poller"</code> would have the same word-count of 1 and the sort would be unstable, causing <code>"http*poller"</code> to steal the item from <code>"http*agent*poller"</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> the lookup key in <code>itemsMap</code> and in <code>procDesc</code> uses the name in <strong>lowercase with spaces</strong> (e.g. <code>"http agent poller"</code>). Make sure the entry in <code>procDesc</code> also uses spaces.</p>
+</blockquote>
+<hr />
+<h2 id="guide-users-tab-usuarios">Guide: Users (<code>tab-usuarios</code>)</h2>
+<h3 id="what-it-is_1">What it is</h3>
+<p>This tab shows whether the default Zabbix administrative account (<code>Admin</code>) exists and performs a simple test to check whether it still accepts the default password <code>zabbix</code>.</p>
+<p>Important notes:
+- The report does <strong>not</strong> retrieve the full user list — it makes a <code>user.get</code> call filtering only by <code>username = Admin</code>.
+- When the <code>Admin</code> account is found and appears enabled, the report attempts a <code>user.login</code> authentication with credentials <code>Admin</code>/<code>zabbix</code> (best-effort test). The token returned by the API is not stored; it only serves to detect whether the default password still works.
+- If the <code>Admin</code> account is disabled, the default-account KPI/recommendation is considered OK and the password test is not displayed.</p>
+<h3 id="table-displayed">Table displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>User</td>
+<td>Username (e.g. <code>Admin</code>)</td>
+</tr>
+<tr>
+<td>Full Name</td>
+<td>User's full name</td>
+</tr>
+<tr>
+<td>Default Password</td>
+<td>Whether the account accepts the default password <code>zabbix</code> (Yes/No)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_1">Zabbix API calls</h3>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant parameters</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user.get</code></td>
+<td><code>filter: { username: "Admin" }, output: ["userid","username","name","surname"]</code></td>
+<td>Fetches only the <code>Admin</code> account, avoiding a full user scan</td>
+</tr>
+<tr>
+<td><code>user.login</code></td>
+<td><code>username: "Admin", password: "zabbix"</code></td>
+<td>Authentication attempt to check whether the default password is valid (best-effort). Returns a token on success, which is immediately discarded</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommendations-generated">Recommendations generated</h3>
+<p>If the <code>Admin</code> account exists and accepts the default password, the report automatically adds a recommendation in the "Default Zabbix Admin account detected" section with guidance on how to change or disable the account.</p>
+<hr />
+<h2 id="guide-4-items-and-llds-tab-items">Guide 4: Items and LLDs (<code>tab-items</code>)</h2>
+<h3 id="what-it-is_2">What it is</h3>
+<p>Detailed analysis of monitored items and discovery rules (LLD). Divided into five sections:</p>
+<ol>
+<li><strong>Items without Template</strong> — items created directly on a host, outside any template</li>
+<li><strong>Unsupported items</strong> — breakdown by item type (Zabbix Agent, SNMP, HTTP, etc.)</li>
+<li><strong>Collection Interval</strong> — items with a delay of 1s, 10s, 30s, 60s</li>
+<li><strong>LLD Rules — Collection Interval</strong> — discovery rules with a delay of 1s, 10s, 30s, 60s, 300s</li>
+<li><strong>Text Items with History</strong> — items of type Text that retain history and have delay ≤ 300s</li>
+</ol>
+<h3 id="tables-displayed">Tables displayed</h3>
+<p><strong>Items without Template:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Description</th>
+<th>Count</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Items without Template</td>
+<td>count</td>
+<td>filtered link</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Unsupported items (by type):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item Type</th>
+<th>Total</th>
+<th>Unsupported</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zabbix Agent</td>
+<td>n</td>
+<td>n</td>
+<td>link</td>
+</tr>
+<tr>
+<td>SNMP</td>
+<td>n</td>
+<td>n</td>
+<td>link</td>
+</tr>
+<tr>
+<td>…</td>
+<td>…</td>
+<td>…</td>
+<td>…</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Collection Interval / LLD:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Interval (s)</th>
+<th>Count</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>n</td>
+<td>link</td>
+</tr>
+<tr>
+<td>10</td>
+<td>n</td>
+<td>link</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Text Items with History:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Item Name</th>
+<th>ItemID</th>
+<th>Interval (s)</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_2">Zabbix API calls</h3>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant parameters</th>
+<th>Data extracted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{flags:0}, inherited:false, templated:false, countOutput:true</code></td>
+<td>Items without template</td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:&lt;code&gt;}, countOutput:true, monitored:true</code></td>
+<td>Total per item type</td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:&lt;code&gt;,state:1}, countOutput:true, monitored:true</code></td>
+<td>Unsupported per type</td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{delay:&lt;1\|10\|30\|60&gt;}, countOutput:true</code></td>
+<td>Items by collection interval</td>
+</tr>
+<tr>
+<td><code>discoveryrule.get</code></td>
+<td><code>filter:{delay:&lt;1\|10\|30\|60\|300&gt;}, countOutput:true, templated:true</code></td>
+<td>LLD rules by interval</td>
+</tr>
+<tr>
+<td><code>discoveryrule.get</code></td>
+<td><code>filter:{state:1}, countOutput:true, templated:false</code></td>
+<td>Unsupported LLD rules</td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>templated:true, filter:{value_type:4, delay:[30,60,120,300], history:["1h","1d","7d","31d"]}, selectHosts:["hostid"]</code></td>
+<td>Text items with history and short delay</td>
+</tr>
+<tr>
+<td><code>template.get</code></td>
+<td><code>filter:{hostid:&lt;ids&gt;}, selectHosts:["hostid"]</code></td>
+<td>Resolves template names for text items</td>
+</tr>
+</tbody>
+</table>
+<h3 id="version-logic_2">Version logic</h3>
+<ul>
+<li><strong>Browser (type=22):</strong> included in the unsupported table only for Zabbix ≥ 7</li>
+<li><strong>Frontend links:</strong> <code>zabbix.php?action=item.list</code> (Zabbix 7) or <code>items.php</code> (Zabbix 6)</li>
+<li><strong>LLD links:</strong> <code>host_discovery.php</code> with version-adapted parameters; delay formatted as <code>Xs</code> or <code>Xm</code></li>
+</ul>
+<h3 id="parallelism">Parallelism</h3>
+<p>The <code>item.get</code> calls per type (total + unsupported) are executed in parallel goroutines controlled by the semaphore <code>sem</code>. Rows are re-ordered by <code>Unsup desc</code> to place the most problematic types first.</p>
+<hr />
+<h2 id="guide-5-templates-tab-templates">Guide 5: Templates (<code>tab-templates</code>)</h2>
+<h3 id="what-it-is_3">What it is</h3>
+<p>Details of the <strong>Top N templates</strong> with the most unsupported items. For each template it lists the problematic items with a direct edit link to the Zabbix frontend.</p>
+<h3 id="table-displayed-one-per-template">Table displayed (one per template)</h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Error</th>
+<th>Host</th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>item name</td>
+<td>error message</td>
+<td>hostname</td>
+<td>[Edit]</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_3">Zabbix API calls</h3>
+<p><strong>No new calls.</strong> All data for this tab is computed from the <code>item.get</code> result with <code>state:1, inherited:true</code> collected in the initial phase (same data used by the Top Hosts/Templates/Items tab).</p>
+<p>The template ranking is built as follows:
+1. For each unsupported item, get <code>tplId = item["templateid"]</code> — this is the <strong>ID of the item inside the template</strong>, not the template ID itself.
+2. Convert to the template ID: <code>realTplId = cacheTemplateHostID[tplId]</code>. The <code>cacheTemplateHostID</code> cache was populated earlier via <code>item.get</code> with <code>selectHosts</code>, mapping the item's <code>templateid</code> to the template's <code>hostid</code> (which is the canonical template ID in Zabbix).
+3. Increment <code>templateCounter[realTplId]</code> — ensures all items from the same template are grouped correctly, even if they have different <code>templateid</code> values.
+4. <code>topTemplates = sort(templateCounter) desc</code>
+5. Template names resolved via <code>template.get</code> with <code>templateids: [...]</code> (single batch call)</p>
+<blockquote>
+<p><strong>Why is <code>cacheTemplateHostID</code> needed?</strong> The Zabbix API returns in <code>item["templateid"]</code> the ID of the <strong>inherited item inside the template</strong>, not the parent template ID. Multiple items from the same template have different <code>templateid</code> values — without the conversion, the same template would appear multiple times in the ranking. The correct mapping is: <code>cacheTemplateHostID[item_templateid] → template_hostid</code>.</p>
+</blockquote>
+<h3 id="building-edit-links">Building edit links</h3>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Link format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zabbix ≥ 7</td>
+<td><code>zabbix.php?action=item.list&amp;context=host&amp;filter_hostids[]=&lt;hostid&gt;&amp;filter_name=&lt;item&gt;</code></td>
+</tr>
+<tr>
+<td>Zabbix 6</td>
+<td><code>items.php?form=update&amp;hostid=&lt;hostid&gt;&amp;itemid=&lt;itemid&gt;&amp;context=host</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="guide-6-top-hoststemplatesitems-tab-top">Guide 6: Top Hosts/Templates/Items (<code>tab-top</code>)</h2>
+<h3 id="what-it-is_4">What it is</h3>
+<p>Displays four rankings based on the unsupported items collected:</p>
+<ol>
+<li><strong>Top Offending Templates</strong> — templates with the most problematic items</li>
+<li><strong>Top Offending Hosts</strong> — hosts with the most problematic items (shows the most recurring template per host)</li>
+<li><strong>Top Problematic Items</strong> — item keys with the highest error count</li>
+<li><strong>Most Common Error Types</strong> — most frequent error messages</li>
+</ol>
+<h3 id="tables-displayed_1">Tables displayed</h3>
+<p><strong>Top Offending Templates:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Error Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Top Offending Hosts:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Top Offending Template</th>
+<th>Error Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Top Problematic Items:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Template</th>
+<th>Error Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Most Common Error Types:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Error Message</th>
+<th>Template</th>
+<th>Occurrences</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_4">Zabbix API calls</h3>
+<p><strong>No new calls.</strong> All data comes from groupings performed during the initial phase on the <code>item.get</code> with <code>state:1</code>. The counters are:</p>
+<ul>
+<li><code>templateCounter[realTplId]</code> — errors per template (using the canonical template ID via <code>cacheTemplateHostID</code>)</li>
+<li><code>hostCounter[hostname]</code> — errors per host</li>
+<li><code>itemCounter[itemname|realTplId]</code> — errors per item within the template</li>
+<li><code>errorCounter[errormsg|realTplId]</code> — errors per message within the template</li>
+</ul>
+<p>The <code>realTplId</code> is derived from <code>cacheTemplateHostID[item["templateid"]]</code>, ensuring all items from the same template are grouped under a single key. Without this conversion, the same template could appear multiple times in the rankings with separate counts.</p>
+<p>The Top N is 10 by default (constant <code>topN = 10</code>).</p>
+<hr />
+<h2 id="guide-7-recommendations-tab-recomendacoes">Guide 7: Recommendations (<code>tab-recomendacoes</code>)</h2>
+<h3 id="what-it-is_5">What it is</h3>
+<p>Automatic suggestions generated based on all collected data. All sections and sub-items are <strong>displayed only when there is a recommendation</strong> — if the value is 0, neither the section nor its sub-item appears. KPI cards at the top provide a quick overview.</p>
+<ol>
+<li><strong>Zabbix Server</strong> — processes in Warning + async poller suggestion (Zabbix 7) — only shown if there are processes with avg ≥ 60% or async pollers disabled</li>
+<li><strong>Zabbix Proxies</strong> — processes in Warning + async pollers disabled (Zabbix 7) + Unknown/Offline proxies + proxies without template — only shown when there is an issue</li>
+<li><strong>Items</strong> — each sub-item (without template, unsupported, disabled, short interval, text with history, SNMP) only appears individually if its counter is &gt; 0; the whole section disappears if all are 0</li>
+<li><strong>LLD Rules</strong> — each sub-item (short interval, unsupported) only appears individually if &gt; 0; section disappears if both are 0</li>
+<li><strong>Templates</strong> — only shown if there are templates to review, identified errors, or SNMP templates to migrate (Zabbix 7)</li>
+</ol>
+<h3 id="kpi-cards">KPI cards</h3>
+<p>KPIs are displayed in a horizontal strip at the top of the Recommendations tab. Each card is <strong>clickable</strong> and scrolls the page to the corresponding section. The display order is always:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Label</th>
+<th>Color</th>
+<th>Go variable</th>
+<th>Click leads to</th>
+<th>Display condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Zabbix Server - Process/Pollers with high AVG</td>
+<td>🟡 Yellow / 🟢 Green (<code>kpi-warn</code> / <code>kpi-ok</code>)</td>
+<td><code>attentionCount</code> = <code>len(attention)</code></td>
+<td>Zabbix Server section</td>
+<td>Always (green if 0)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Offline Proxies</td>
+<td>🔴 Red (<code>kpi-crit</code>)</td>
+<td><code>proxyOfflineCount</code></td>
+<td>Zabbix Proxies section</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Unknown Proxies</td>
+<td>⚪ Neutral</td>
+<td><code>proxyUnknownCount</code></td>
+<td>Zabbix Proxies section</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Proxies - Process/Pollers with high AVG</td>
+<td>🟢 Green / 🟡 Yellow</td>
+<td><code>len(proxyProcAttnList)</code></td>
+<td>Zabbix Proxies section</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Unsupported Items</td>
+<td>🔴 Red (<code>kpi-crit</code>)</td>
+<td><code>unsupportedCount</code></td>
+<td>Items section</td>
+<td>Always</td>
+</tr>
+<tr>
+<td>6</td>
+<td>SNMP Templates for Async Poller</td>
+<td>🟢 Green / 🟡 Yellow</td>
+<td><code>len(snmpMigrationTpls)</code></td>
+<td>Templates section</td>
+<td><strong>Zabbix ≥ 7 only</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Items - SNMP-POLLER</td>
+<td>🟢 Green / 🔴 Red</td>
+<td><code>snmpPct</code> (%)</td>
+<td>Items section</td>
+<td><strong>Zabbix ≥ 7 only</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>Text Items with History</td>
+<td>🟡 Yellow (<code>kpi-warn</code>)</td>
+<td><code>textItemsCount</code></td>
+<td>Items section</td>
+<td>Always</td>
+</tr>
+</tbody>
+</table>
+<h3 id="kpi-color-logic">KPI color logic</h3>
+<table>
+<thead>
+<tr>
+<th>KPI</th>
+<th>Condition</th>
+<th>CSS class</th>
+<th>Border</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zabbix Server - Process/Pollers</td>
+<td><code>attentionCount == 0</code> → green; <code>&gt; 0</code> → yellow</td>
+<td><code>kpi-ok</code> / <code>kpi-warn</code></td>
+<td>green / yellow</td>
+</tr>
+<tr>
+<td>Offline Proxies</td>
+<td>always red</td>
+<td><code>kpi-crit</code></td>
+<td>red <code>#ff6666</code></td>
+</tr>
+<tr>
+<td>Unknown Proxies</td>
+<td>always neutral</td>
+<td><em>(no class)</em></td>
+<td>gray</td>
+</tr>
+<tr>
+<td>Proxies - Process/Pollers</td>
+<td><code>len(proxyProcAttnList) == 0</code> → green; <code>&gt; 0</code> → yellow</td>
+<td><code>kpi-ok</code> / <code>kpi-warn</code></td>
+<td>green / yellow</td>
+</tr>
+<tr>
+<td>Unsupported Items</td>
+<td>always red</td>
+<td><code>kpi-crit</code></td>
+<td>red <code>#ff6666</code></td>
+</tr>
+<tr>
+<td>SNMP Templates for Async Poller</td>
+<td><code>len(snmpMigrationTpls) == 0</code> → green; <code>&gt; 0</code> → yellow</td>
+<td><code>kpi-ok</code> / <code>kpi-warn</code></td>
+<td>green / yellow</td>
+</tr>
+<tr>
+<td>Items - SNMP-POLLER (%)</td>
+<td><code>snmpPct &gt;= 80%</code> → green; <code>&lt; 80%</code> → red</td>
+<td><code>kpi-ok</code> / <code>kpi-crit</code></td>
+<td>green / red</td>
+</tr>
+<tr>
+<td>Text Items with History</td>
+<td>always yellow</td>
+<td><code>kpi-warn</code></td>
+<td>yellow <code>#ffcc00</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Threshold reference:</strong> <strong>Zabbix Server</strong> and <strong>Proxy</strong> processes in Warning use avg ≥ 60% (variables <code>attention</code> and <code>proxyProcAttnList</code>).</p>
+</blockquote>
+<h3 id="zabbix-api-calls-exclusive-to-this-tab">Zabbix API calls (exclusive to this tab)</h3>
+<p>Only for Zabbix ≥ 7, two <code>item.get</code> calls for the SNMP KPIs (shared with the "3.x) Items SNMP-POLLER" entry in the Items Section and the "Templates suitable for migration to SNMP-POLLER" sub-section):</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant parameters</th>
+<th>Go variable filled</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:20}, templated:true, countOutput:true</code></td>
+<td><code>snmpTplCount</code></td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true</code></td>
+<td><code>snmpGetWalkCount</code></td>
+</tr>
+<tr>
+<td><code>item.get</code> ×2 + <code>template.get</code></td>
+<td><em>(see "Templates suitable for migration" sub-section)</em></td>
+<td><code>snmpMigrationTpls</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="helper-functions-used">Helper functions used</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pct(part, total int) string</code></td>
+<td>Formats percentage <code>"0.00%"</code>; returns <code>"0%"</code> if total=0</td>
+</tr>
+<tr>
+<td><code>titleWithInfo(tag, title, tip string) string</code></td>
+<td>Generates HTML heading with <code>?</code> icon and tooltip</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-to-add-a-new-kpi">How to add a new KPI</h3>
+<ol>
+<li><strong>Calculate the data</strong> before the <code>html += "&lt;div class='rec-kpis'&gt;"</code> block in <code>cmd/app/main.go</code>.</li>
+<li><strong>Define the CSS class</strong> (<code>kpi-ok</code>, <code>kpi-warn</code>, <code>kpi-crit</code> or empty for neutral) based on the value.</li>
+<li><strong>Insert the <code>&lt;div&gt;</code></strong> at the desired position inside the <code>rec-kpis</code> block, following the pattern:</li>
+</ol>
+<pre><code class="language-go">html += `&lt;div class='kpi ` + classe + `' data-target='#card-&lt;section&gt;' title='&lt;tooltip&gt;'&gt;`+
+    `&lt;div class='kpi-num'&gt;` + value + `&lt;/div&gt;`+
+    `&lt;div class='kpi-label'&gt;KPI Label&lt;/div&gt;&lt;/div&gt;`
+</code></pre>
+<ol>
+<li>Click-to-scroll to the section is managed automatically by the inline JavaScript right after the <code>rec-kpis</code> block — <strong>no JS changes are needed</strong>.</li>
+</ol>
+<hr />
+<h3 id="section-1-zabbix-server">Section 1 — Zabbix Server</h3>
+<h4 id="display-condition">Display condition</h4>
+<p>The section <strong>does not appear</strong> when there is nothing to recommend. The entire block is omitted if:</p>
+<pre><code>len(attention) == 0  AND  len(missingAsync) == 0
+</code></pre>
+<p>The section is only generated when at least one of these conditions is true:
+- There are processes/pollers with <code>value_avg ≥ 60%</code> (list <code>attention</code>)
+- There are async pollers (<code>Agent Poller</code>, <code>HTTP Agent Poller</code>, <code>SNMP Poller</code>) disabled on Zabbix 7+ (list <code>missingAsync</code>)</p>
+<h4 id="generated-html-hierarchy">Generated HTML hierarchy</h4>
+<pre><code>1) Zabbix Server
+  1.1) zabbix_server.conf suggestions:      ← only shown if len(attention) &gt; 0
+       Customize Processes and Threads: ⓘ  ← bold text with tooltip, no own numbering
+         1. &lt;Process name&gt; — avg: X%
+         2. &lt;Process name&gt; — avg: X%
+  1.2) Use Async Pollers: ⓘ                ← only shown if len(missingAsync) &gt; 0
+       • Agent Poller
+       • SNMP Poller
+</code></pre>
+<blockquote>
+<p>When both exist, the sub-numbers are <code>1.1)</code> and <code>1.2)</code>. When only one exists, only <code>1.1)</code> appears.</p>
+</blockquote>
+<h4 id="sub-item-zabbix_serverconf-suggestions">Sub-item "zabbix_server.conf suggestions"</h4>
+<ul>
+<li>Numbered as <code>1.1)</code> via <code>nextSub(&amp;serverSub, "zabbix_server.conf suggestions:")</code></li>
+<li>Shown only when <code>len(attention) &gt; 0</code></li>
+<li>Directly below the numbered header appears the text <strong>"Customize Processes and Threads:"</strong> as <code>&lt;strong&gt;</code> with a <code>?</code> icon (tooltip with guidance on when to increase the process)</li>
+<li>Followed by <code>&lt;ol&gt;</code> with one item per process in Warning: <code>Process name — avg: X%</code></li>
+<li>Processes ordered by <code>value_avg</code> descending (highest utilization first)</li>
+</ul>
+<h4 id="sub-item-use-async-pollers">Sub-item "Use Async Pollers"</h4>
+<ul>
+<li>Numbered as <code>1.1)</code> or <code>1.2)</code> depending on whether "Suggestions" also appears</li>
+<li>Shown only when <code>len(missingAsync) &gt; 0</code></li>
+<li>Only relevant for <strong>Zabbix ≥ 7</strong> (async pollers do not exist in Zabbix 6)</li>
+<li>Lists the disabled pollers: <code>Agent Poller</code>, <code>HTTP Agent Poller</code>, <code>SNMP Poller</code></li>
+<li>Each item has a <code>?</code> icon with a usage description</li>
+</ul>
+<h4 id="go-variables-involved">Go variables involved</h4>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Origin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>attention</code></td>
+<td><code>[]struct{Name string; Vavg float64}</code></td>
+<td>Built by iterating <code>pollRows</code> + <code>procRows</code> where <code>StatusText == "Warning"</code></td>
+</tr>
+<tr>
+<td><code>missingAsync</code></td>
+<td><code>[]string</code></td>
+<td>Built by checking whether <code>Agent Poller</code>, <code>HTTP Agent Poller</code>, <code>SNMP Poller</code> are in <code>pollRows</code> with <code>Disabled == true</code></td>
+</tr>
+<tr>
+<td><code>pollMap</code></td>
+<td><code>map[string]pollRow</code></td>
+<td>Auxiliary map <code>friendly_name_lowercase → pollRow</code> for <code>missingAsync</code> lookup</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="section-2-zabbix-proxies">Section 2 — Zabbix Proxies</h3>
+<h4 id="display-condition_1">Display condition</h4>
+<p>The section <strong>does not appear</strong> when there is nothing to recommend. The entire block is omitted if:</p>
+<pre><code>unknown == 0  AND  offline == 0  AND
+len(proxyProcAttnList) == 0  AND  len(proxyNoTemplateList) == 0  AND
+len(proxyMissingAsyncMap) == 0
+</code></pre>
+<h4 id="generated-html-hierarchy_1">Generated HTML hierarchy</h4>
+<pre><code>2) Zabbix Proxies
+  2.1) Customize Processes and Threads ⓘ   ← only shown if len(proxyProcAttnList) &gt; 0
+       1. PROXY-NAME — Friendly Name — avg: X%
+       2. ...
+  2.2) Use Async Pollers: ⓘ                ← only shown if len(proxyMissingAsyncMap) &gt; 0
+       • PROXY-NAME — Agent Poller — Snmp Poller
+       • ...
+  2.3) Unknown Proxy Status ⓘ              ← only shown if unknown &gt; 0
+       N proxies with Unknown status detected
+       • proxy-name
+  2.4) Offline Proxies ⓘ                  ← only shown if offline &gt; 0
+       N proxies with Offline status detected
+       • proxy-name
+  2.5) Zabbix Proxy without Monitoring ⓘ  ← only shown if len(proxyNoTemplateList) &gt; 0
+       The proxies below do not have the Zabbix Proxy Health template linked...
+       1. proxy-name (link to the host in Zabbix)
+</code></pre>
+<blockquote>
+<p>Sub-numbers are generated automatically by <code>nextSub(&amp;proxySub, ...)</code> — if only some sub-items appear, numbering is sequential starting from <code>2.1)</code>.</p>
+</blockquote>
+<p>In addition to these sub-items, the report also displays a highlighted recommendations area (yellow blocks) for quick proxy-related actions. This area uses CSS classes <code>.rec-highlight-list</code> and <code>.rec-highlight-item</code> (in <code>app/web/static/style.css</code>) and contains, for example:</p>
+<ul>
+<li>One block per proxy with <code>Start...=   # increase until avg drops below 60%</code> lines grouped and deduplicated (one line per <code>Start*</code> parameter), followed by <code>systemctl restart zabbix-proxy</code>.</li>
+<li>A compact block with common actions and diagnostics: suggestion to enable async pollers (Zabbix ≥ 7) and verification commands (<code>systemctl status zabbix-proxy</code>, <code>tail -100 /var/log/zabbix/zabbix_proxy.log</code>, <code>nc -zv &lt;server&gt; 10051</code>).</li>
+<li>Titles and the suggestion comment are localized via the i18n keys <code>fix.proxy_highlight_*</code> and <code>fix.proxy_increase_hint</code>.</li>
+</ul>
+<h4 id="sub-item-customize-processes-and-threads">Sub-item "Customize Processes and Threads"</h4>
+<ul>
+<li>Shown only when <code>len(proxyProcAttnList) &gt; 0</code></li>
+<li>Same behavior as the equivalent sub-item in Section 1 (Zabbix Server), but per proxy</li>
+<li>Ordered <code>&lt;ol&gt;</code> with: <code>PROXY-NAME — Process Friendly Name — avg: X%</code></li>
+<li>Built with avg ≥ 60% per process, per proxy</li>
+</ul>
+<h4 id="sub-item-use-async-pollers_1">Sub-item "Use Async Pollers"</h4>
+<ul>
+<li>Shown only when <code>len(proxyMissingAsyncMap) &gt; 0</code></li>
+<li>Only relevant for <strong>Zabbix ≥ 7</strong> and <strong>only for online proxies</strong> with collected items</li>
+<li>Compact <code>&lt;ul&gt;</code> with one <code>&lt;li&gt;</code> per proxy: <code>**PROXY-NAME** — Agent Poller ⓘ — Snmp Poller ⓘ</code></li>
+<li>Each poller has a tooltip with a usage description</li>
+<li>A proxy appears in the list when at least one of the three async pollers (<code>Agent Poller</code>, <code>Http Agent Poller</code>, <code>Snmp Poller</code>) <strong>was not found</strong> in the collected data or has <code>vavg &lt; 0</code> (process not enabled)</li>
+</ul>
+<h4 id="sub-item-unknown-proxy-status">Sub-item "Unknown Proxy Status"</h4>
+<ul>
+<li>Shown only when <code>unknown &gt; 0</code></li>
+<li>Text: <em>"N proxies with Unknown status detected"</em></li>
+<li>Followed by <code>&lt;ul&gt;</code> with proxy names (<code>unknownNames</code>)</li>
+</ul>
+<h4 id="sub-item-offline-proxies">Sub-item "Offline Proxies"</h4>
+<ul>
+<li>Shown only when <code>offline &gt; 0</code></li>
+<li>Text: <em>"N proxies with Offline status detected"</em></li>
+<li>Followed by <code>&lt;ul&gt;</code> with proxy names (<code>offlineNames</code>)</li>
+</ul>
+<h4 id="sub-item-zabbix-proxy-without-monitoring">Sub-item "Zabbix Proxy without Monitoring"</h4>
+<ul>
+<li>Shown only when <code>len(proxyNoTemplateList) &gt; 0</code></li>
+<li>Reference template: <strong>Zabbix Proxy Health</strong> (Zabbix 7) / <strong>Template App Zabbix Proxy</strong> (Zabbix 6)</li>
+<li>The template link uses the environment URL (<code>ambienteUrl</code>) with automatic filtering by name</li>
+<li>Each proxy in the list is displayed as a clickable link to the Zabbix host screen filtered by the proxy name</li>
+<li>A proxy enters this list if <code>res.noItemsNote != ""</code> — i.e. the collection loop found no process items for that proxy host</li>
+</ul>
+<h4 id="go-variables-involved_1">Go variables involved</h4>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Origin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>proxyProcAttnList</code></td>
+<td><code>[]proxyProcAttnItem{ProxyName, ProcFriendly, Vavg}</code></td>
+<td>Built by iterating <code>ppResults</code> — rows with <code>vavg &gt;= 59.9</code></td>
+</tr>
+<tr>
+<td><code>proxyMissingAsyncMap</code></td>
+<td><code>map[string][]string</code></td>
+<td><code>proxyName → []pollerNames</code> — pollers missing or disabled in the proxy (Zabbix 7+, online, with items)</td>
+</tr>
+<tr>
+<td><code>asyncProcNames</code></td>
+<td><code>[]string</code></td>
+<td><code>{"agent poller", "http agent poller", "snmp poller"}</code> — async pollers checked</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td><code>int</code></td>
+<td>Count of proxies with <code>availability == 0</code> (Unknown)</td>
+</tr>
+<tr>
+<td><code>unknownNames</code></td>
+<td><code>[]string</code></td>
+<td>Names of Unknown proxies</td>
+</tr>
+<tr>
+<td><code>offline</code></td>
+<td><code>int</code></td>
+<td>Count of proxies with <code>availability == 2</code> (Offline)</td>
+</tr>
+<tr>
+<td><code>offlineNames</code></td>
+<td><code>[]string</code></td>
+<td>Names of Offline proxies</td>
+</tr>
+<tr>
+<td><code>proxyNoTemplateList</code></td>
+<td><code>[]proxyNoTemplateItem{ProxyName, HostId}</code></td>
+<td>Online proxies whose <code>res.noItemsNote != ""</code> — no process items collected</td>
+</tr>
+</tbody>
+</table>
+<h4 id="logic-of-proxymissingasyncmap">Logic of <code>proxyMissingAsyncMap</code></h4>
+<p>For each proxy in <code>proxyMetaList</code> that is <strong>online</strong> (<code>pm.Online == true</code>), with <strong>Zabbix ≥ 7</strong> and with <strong>collected items</strong> (<code>res.noItemsNote == ""</code> and <code>len(res.rows) &gt; 0</code>):</p>
+<pre><code class="language-go">for _, apn := range asyncProcNames {   // &quot;agent poller&quot;, &quot;http agent poller&quot;, &quot;snmp poller&quot;
+    found := false
+    hasData := false
+    for _, row := range res.rows {
+        if strings.ToLower(row.friendly) == apn {
+            found = true
+            if row.vavg &gt;= 0 { hasData = true }
+            break
+        }
+    }
+    if !found || !hasData {
+        // capitalize and add to this proxy's &quot;missing&quot; list
+    }
+}
+if len(missing) &gt; 0 {
+    proxyMissingAsyncMap[pm.Name] = missing
+}
+</code></pre>
+<p>A poller is considered missing when:
+- It was not found in <code>res.rows</code> (<code>!found</code>), <strong>or</strong>
+- It was found but <code>vavg &lt; 0</code> — the item returned "Create item in template or Process not enabled" (<code>!hasData</code>)</p>
+<hr />
+<h3 id="section-3-items">Section 3 — Items</h3>
+<h4 id="section-display-condition">Section display condition</h4>
+<p>The entire section is only generated when at least one sub-item has data:</p>
+<pre><code class="language-go">itemsHasData := itemsNoTplCount &gt; 0 || unsupportedVal &gt; 0 || disabledCount &gt; 0 ||
+                itemsLe60 &gt; 0 || textCount &gt; 0 || (majorV &gt;= 7 &amp;&amp; snmpTplCount &gt; 0)
+</code></pre>
+<h4 id="sub-items-and-their-individual-conditions">Sub-items and their individual conditions</h4>
+<table>
+<thead>
+<tr>
+<th>Sub-item</th>
+<th>Condition to appear</th>
+<th>Go variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Items without Template</td>
+<td><code>itemsNoTplCount &gt; 0</code></td>
+<td><code>itemsNoTplCount</code></td>
+</tr>
+<tr>
+<td>Unsupported items</td>
+<td><code>unsupportedVal &gt; 0</code></td>
+<td><code>unsupportedVal</code></td>
+</tr>
+<tr>
+<td>Disabled items</td>
+<td><code>disabledCount &gt; 0</code></td>
+<td><code>disabledCount</code></td>
+</tr>
+<tr>
+<td>Items with Interval ≤ 60s</td>
+<td><code>itemsLe60 &gt; 0</code></td>
+<td><code>itemsLe60</code></td>
+</tr>
+<tr>
+<td>Text Items with History (≤ 300s)</td>
+<td><code>textCount &gt; 0</code></td>
+<td><code>textCount</code></td>
+</tr>
+<tr>
+<td>Items SNMP-POLLER (Zabbix 7)</td>
+<td><code>majorV &gt;= 7 &amp;&amp; snmpTplCount &gt; 0</code></td>
+<td><code>snmpTplCount</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="section-4-lld-rules">Section 4 — LLD Rules</h3>
+<h4 id="section-display-condition_1">Section display condition</h4>
+<p>The entire section is only generated when at least one sub-item has data:</p>
+<pre><code class="language-go">lldLe300 &gt; 0 || lldNotSupCnt &gt; 0
+</code></pre>
+<h4 id="sub-items-and-their-individual-conditions_1">Sub-items and their individual conditions</h4>
+<table>
+<thead>
+<tr>
+<th>Sub-item</th>
+<th>Condition to appear</th>
+<th>Go variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLD Rules with Interval ≤ 300s</td>
+<td><code>lldLe300 &gt; 0</code></td>
+<td><code>lldLe300</code></td>
+</tr>
+<tr>
+<td>Unsupported LLD Rules</td>
+<td><code>lldNotSupCnt &gt; 0</code></td>
+<td><code>lldNotSupCnt</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="section-5-templates">Section 5 — Templates</h3>
+<h4 id="section-display-condition_2">Section display condition</h4>
+<p>The entire section is only generated when at least one sub-item has data:</p>
+<pre><code class="language-go">tplHasData := len(topTemplates) &gt; 0 || len(topErrors) &gt; 0 ||
+              (majorV &gt;= 7 &amp;&amp; len(snmpMigrationTpls) &gt; 0)
+</code></pre>
+<h4 id="sub-items-and-their-individual-conditions_2">Sub-items and their individual conditions</h4>
+<table>
+<thead>
+<tr>
+<th>Sub-item</th>
+<th>Condition to appear</th>
+<th>Go variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Templates for review</td>
+<td><code>len(topTemplates) &gt; 0</code></td>
+<td><code>topTemplates</code></td>
+</tr>
+<tr>
+<td>Most Common Errors</td>
+<td><code>len(topErrors) &gt; 0</code></td>
+<td><code>topErrors</code></td>
+</tr>
+<tr>
+<td>Templates suitable for SNMP-POLLER migration</td>
+<td><code>majorV &gt;= 7 &amp;&amp; len(snmpMigrationTpls) &gt; 0</code></td>
+<td><code>snmpMigrationTpls</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="item-items-snmp-poller-zabbix-7-section-3-items">Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)</h3>
+<h4 id="what-it-is_6">What it is</h4>
+<p>Appears in <strong>Section 3 — Items</strong> of the Recommendations (sub-item <code>3.x)</code>), <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 SNMP item in templates (<code>snmpTplCount &gt; 0</code>). Displays:</p>
+<ul>
+<li>Total SNMP items in templates (<code>snmpTplCount</code>)</li>
+<li>Count already using <code>get[]</code>/<code>walk[]</code> OID — async poller format (<code>snmpGetWalkCount</code>)</li>
+<li>Percentage migrated relative to the total items in the environment</li>
+</ul>
+<p>Points the operator to the <strong>"Templates suitable for migration to SNMP-POLLER"</strong> sub-section to see the specific templates that need attention.</p>
+<h4 id="display-condition_2">Display condition</h4>
+<pre><code>majorV &gt;= 7  AND  snmpTplCount &gt; 0
+</code></pre>
+<h4 id="api-calls">API calls</h4>
+<p>These 2 calls are <strong>shared</strong> with the "Items - SNMP-POLLER" KPI card at the top of Recommendations — values are collected once and reused:</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant parameters</th>
+<th>Go variable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:20}, templated:true, countOutput:true</code></td>
+<td><code>snmpTplCount</code></td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{type:20}, search:{snmp_oid:["get[*","walk[*"]}, searchWildcardsEnabled:true, searchByAny:true, countOutput:true, templated:true</code></td>
+<td><code>snmpGetWalkCount</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong><code>type:20</code></strong> corresponds to the SNMP type in Zabbix. The OIDs <code>get[*</code> and <code>walk[*</code> are the Zabbix 7 standard for the async poller; OIDs in the old format (e.g. <code>.1.3.6.1.2.1.1.1.0</code>) do <strong>not</strong> match this filter.</p>
+</blockquote>
+<h4 id="html-display-logic">HTML display logic</h4>
+<pre><code class="language-go">if majorV &gt;= 7 &amp;&amp; snmpTplCount &gt; 0 {
+    // displays item 3.x with snmpTplCount, snmpGetWalkCount and pct(snmpGetWalkCount, totalItemsVal)
+    // points to the &quot;Templates suitable for migration to SNMP-POLLER&quot; section
+}
+</code></pre>
+<hr />
+<h3 id="sub-section-templates-suitable-for-migration-to-snmp-poller-section-5-templates">Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)</h3>
+<h4 id="what-it-is_7">What it is</h4>
+<p>Appears at the end of <strong>Section 5 — Templates</strong> of the Recommendations, <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 legacy template in use (<code>len(snmpMigrationTpls) &gt; 0</code>). Lists alphabetically the names of templates that satisfy <strong>all</strong> of these conditions:</p>
+<ol>
+<li>Have at least one SNMP item (<code>type=20</code>) in templates</li>
+<li><strong>Have not yet</strong> migrated OIDs to <code>get[]</code> or <code>walk[]</code> format (Zabbix 7 async poller)</li>
+<li>Are <strong>linked to at least one host</strong> (actually in use in the environment)</li>
+</ol>
+<p>Fully migrated templates (where <strong>all</strong> SNMP items already use <code>get[]</code>/<code>walk[]</code>) are automatically excluded.</p>
+<blockquote>
+<p><strong>Note:</strong> A template with a <strong>mix</strong> of old and new OIDs still appears in the list. Only when <strong>100% of SNMP items</strong> use the modern format is the template removed. This ensures incomplete migrations are also reviewed.</p>
+</blockquote>
+<h4 id="zabbix-api-calls-exclusive-to-this-sub-section">Zabbix API calls (exclusive to this sub-section)</h4>
+<p><strong>3 calls</strong> made sequentially after the <code>countOutput</code> calls for the KPI, <strong>only</strong> when <code>majorV &gt;= 7</code>:</p>
+<h5 id="call-1-all-snmp-items-in-templates-with-template-hostid">Call 1 — All SNMP items in templates (with template hostid)</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;],
+    &quot;filter&quot;: { &quot;type&quot;: 20 },
+    &quot;templated&quot;: true,
+    &quot;selectHosts&quot;: [&quot;hostid&quot;]
+  }
+}
+</code></pre>
+<ul>
+<li><code>selectHosts: ["hostid"]</code> returns, for each item, the <code>hosts</code> field with the parent template's <code>hostid</code>.</li>
+<li>Used to build the set of <strong>all hostids of SNMP templates</strong> (<code>allSnmpHostids</code>).</li>
+</ul>
+<h5 id="call-2-snmp-items-already-using-getwalk-template-hostid">Call 2 — SNMP items already using get[]/walk[] (template hostid)</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;],
+    &quot;filter&quot;: { &quot;type&quot;: 20 },
+    &quot;search&quot;: { &quot;snmp_oid&quot;: [&quot;get[*&quot;, &quot;walk[*&quot;] },
+    &quot;searchWildcardsEnabled&quot;: true,
+    &quot;searchByAny&quot;: true,
+    &quot;templated&quot;: true,
+    &quot;selectHosts&quot;: [&quot;hostid&quot;]
+  }
+}
+</code></pre>
+<ul>
+<li><code>search</code> + <code>searchWildcardsEnabled</code> filters only OIDs that <strong>start with</strong> <code>get[</code> or <code>walk[</code>.</li>
+<li>Result → set <code>modernHostids</code> (hostids of templates that have at least 1 modern item).</li>
+<li>The difference <code>allSnmpHostids − modernHostids</code> = <code>legacyHostSet</code> (templates with only legacy OIDs).</li>
+</ul>
+<h5 id="call-3-resolving-legacy-template-names">Call 3 — Resolving legacy template names</h5>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;template.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;templateid&quot;, &quot;name&quot;],
+    &quot;templateids&quot;: [&quot;&lt;ids from legacyHostSet&gt;&quot;],
+    &quot;selectHosts&quot;: [&quot;hostid&quot;]
+  }
+}
+</code></pre>
+<ul>
+<li><code>selectHosts: ["hostid"]</code> returns the <code>hosts</code> field per template.</li>
+<li>Templates with <code>hosts == []</code> (not linked to any host) are <strong>discarded</strong> — they don't appear in the list.</li>
+<li>Remaining template names are sorted alphabetically and stored in <code>snmpMigrationTpls</code>.</li>
+</ul>
+<h4 id="complete-build-flow">Complete build flow</h4>
+<pre><code>Call 1 → allSnmpHostids   (all hostids of templates with SNMP items)
+Call 2 → modernHostids    (hostids of templates with at least 1 get[]/walk[] OID)
+
+legacyHostSet = allSnmpHostids − modernHostids
+
+Call 3 → template.get(legacyHostSet)
+              → discard len(hosts) == 0   (not linked to any host)
+              → sort.Strings()
+              → snmpMigrationTpls
+</code></pre>
+<h4 id="resulting-go-variable">Resulting Go variable</h4>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>snmpMigrationTpls</code></td>
+<td><code>[]string</code></td>
+<td>Alphabetically sorted list of legacy template names <strong>in use</strong></td>
+</tr>
+</tbody>
+</table>
+<h4 id="html-display-condition">HTML display condition</h4>
+<pre><code class="language-go">if majorV &gt;= 7 &amp;&amp; len(snmpMigrationTpls) &gt; 0 {
+    // renders h5 with titleWithInfo + &lt;ul&gt; with template names
+}
+</code></pre>
+<p>If <code>snmpMigrationTpls</code> is empty (all templates already migrated or no Zabbix 7 environment), the sub-section <strong>does not appear</strong> in the report.</p>
+<h4 id="how-to-interpret-the-list">How to interpret the list</h4>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sub-section not displayed</td>
+<td>All SNMP templates in use already use <code>get[]</code>/<code>walk[]</code> — well done!</td>
+</tr>
+<tr>
+<td>Template appears in list</td>
+<td>Has at least 1 SNMP item with a legacy OID <strong>and</strong> is linked to at least 1 host</td>
+</tr>
+<tr>
+<td>Green KPI (≥ 80%) + list present</td>
+<td>Most migrated, but specific templates still have legacy OID remnants</td>
+</tr>
+<tr>
+<td>Red KPI (&lt; 80%) + long list</td>
+<td>Environment with most SNMP templates still using the synchronous poller</td>
+</tr>
+</tbody>
+</table>
+<h4 id="how-to-addremove-detection-logic">How to add/remove detection logic</h4>
+<p>The complete block is in <code>cmd/app/main.go</code>, right after the two <code>item.get countOutput</code> calls for the SNMP KPI, inside the <code>if majorV &gt;= 7 { ... }</code> block. To change the "legacy" criterion (e.g. include another type of old OID), adjust the <code>search.snmp_oid</code> of <strong>Call 2</strong>:</p>
+<pre><code class="language-go">// Call 2 — add a new modern OID pattern:
+&quot;search&quot;: map[string]interface{}{
+    &quot;snmp_oid&quot;: []string{&quot;get[*&quot;, &quot;walk[*&quot;, &quot;new_format[*&quot;},
+},
+</code></pre>
+<hr />
+<h2 id="saved-reports-database-persistence">Saved Reports (Database Persistence)</h2>
+<h3 id="overview">Overview</h3>
+<p>Every time a report is successfully generated, it is <strong>automatically saved</strong> to PostgreSQL — no extra action is required from the user. This allows accessing previous reports at any time, even after restarting the application.</p>
+<blockquote>
+<p><strong>The database is optional.</strong> The app works normally without PostgreSQL — reports are only available in the current session (in-memory) and are lost when the container restarts.</p>
+<p>To enable persistence, set <code>DB_HOST</code> (and optionally the other <code>DB_*</code> variables) and bring up the <code>postgres</code> service with the <code>db</code> profile (see details in <a href="../docker/">docker.md</a>).</p>
+</blockquote>
+<p>When <code>DB_HOST</code> is <strong>not</strong> configured:
+- The <strong>Saved Reports</strong> card is <strong>automatically hidden</strong> in the web interface
+- The endpoints <code>/api/reports</code>, <code>/api/reportdb/:id</code> and <code>DELETE /api/reports</code> return <code>db_enabled: false</code> or <code>404</code>
+- No error is shown to the user — the app simply operates without a database</p>
+<hr />
+<h3 id="how-to-use-the-saved-reports-interface">How to use the Saved Reports interface</h3>
+<p>On the home screen, below the <strong>Generate Report</strong> button, there is a <strong>Saved Reports</strong> card with the following controls:</p>
+<pre><code>┌─ SAVED REPORTS ──────────────────────── [↺ Load list] ─┐
+│                                                          │
+│  [── select a report ──────────────]  [Open] [Delete]   │
+│                                        [Delete All]      │
+└──────────────────────────────────────────────────────────┘
+</code></pre>
+<h4 id="step-by-step">Step by step</h4>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Click <strong>↺ Load list</strong></td>
+<td>The list of the last 20 saved reports is loaded into the selector. Each entry shows the Zabbix URL and the generation date/time.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Select a report from the dropdown</td>
+<td>The report is highlighted — no action yet.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Click <strong>Open</strong></td>
+<td>The selected report is loaded inline, with all tabs, Export HTML and Print PDF buttons working normally.</td>
+</tr>
+<tr>
+<td>4 <em>(optional)</em></td>
+<td>Click <strong>Delete</strong></td>
+<td>Removes <strong>only the selected report</strong> from the database after confirmation. The list is automatically updated.</td>
+</tr>
+<tr>
+<td>5 <em>(optional)</em></td>
+<td>Click <strong>Delete All</strong></td>
+<td>Removes <strong>all reports</strong> from the database after double confirmation. Returns the count of removed records.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Tip:</strong> After opening a saved report, all <strong>Export HTML</strong> and <strong>Generate PDF</strong> buttons work normally — the report reopens with the same layout and functionality as the original generation.</p>
+</blockquote>
+<hr />
+<h3 id="report-action-bar">Report action bar</h3>
+<p>Whenever a report is displayed (generated by the API or loaded from the database), an action bar appears in the report header with three buttons:</p>
+<pre><code>┌─ Zabbix Report ── Generated on: dd/mm/yyyy hh:mm:ss ──────────────────────────────────┐
+│                                                                [NEW] [HTML] [PDF]      │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Icon</th>
+<th>Action</th>
+<th>Available in exported HTML?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>New Report</strong></td>
+<td>Document with <code>+</code></td>
+<td>Closes the current report, clears the screen and returns to the generation form</td>
+<td>❌ No</td>
+</tr>
+<tr>
+<td><strong>Export HTML</strong></td>
+<td>HTML file icon</td>
+<td>Generates a static, self-contained <code>.html</code> file (embedded CSS, working charts) and triggers automatic download</td>
+<td>❌ No</td>
+</tr>
+<tr>
+<td><strong>Generate PDF</strong></td>
+<td>Printer icon</td>
+<td>Opens the browser print dialog — recommended to select "Save as PDF"</td>
+<td>❌ No</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>The <strong>New Report</strong> button <strong>does not exist</strong> in exported HTML files. It is created dynamically only when the report is displayed inline in the web interface — either via API generation or via database loading.</p>
+</blockquote>
+<hr />
+<h3 id="when-reports-are-saved">When reports are saved</h3>
+<p>Saving happens automatically at the end of the <code>generateZabbixReportWithProgress</code> function, in the following flow:</p>
+<pre><code>POST /api/start
+  → goroutine: generateZabbixReport()
+      → report HTML generated successfully
+      → INSERT INTO reports (name, format, content, zabbix_url) VALUES (...)
+         name     = &quot;report-&lt;unix timestamp&gt;&quot;
+         format   = &quot;html&quot;
+         content  = full HTML (BYTEA)
+         zabbix_url = URL entered in the form
+</code></pre>
+<p>If the database is not available, the report is still displayed on screen normally — the persistence error is only logged (<code>[WARN] Failed to save report to DB</code>).</p>
+<hr />
+<h3 id="environment-variables-for-the-database">Environment variables for the database</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_HOST</code></td>
+<td><em>(empty)</em></td>
+<td>PostgreSQL host. <strong>If not set, persistence is disabled.</strong></td>
+</tr>
+<tr>
+<td><code>DB_PORT</code></td>
+<td><code>5432</code></td>
+<td>PostgreSQL port.</td>
+</tr>
+<tr>
+<td><code>DB_USER</code></td>
+<td><code>postgres</code></td>
+<td>Database user.</td>
+</tr>
+<tr>
+<td><code>DB_PASSWORD</code></td>
+<td><code>postgres</code></td>
+<td>Database password.</td>
+</tr>
+<tr>
+<td><code>DB_NAME</code></td>
+<td><code>zabbix_report</code></td>
+<td>Database name.</td>
+</tr>
+</tbody>
+</table>
+<p>Example in <code>docker-compose.yml</code> (variables are <strong>commented out by default</strong>; uncomment to enable):</p>
+<pre><code class="language-yaml">environment:
+  # Uncomment to enable report persistence in PostgreSQL:
+  #- DB_HOST=postgres
+  #- DB_PORT=5432
+  #- DB_USER=postgres
+  #- DB_PASSWORD=postgres
+  #- DB_NAME=zabbix_report
+</code></pre>
+<blockquote>
+<p><strong>How to start with the database:</strong> <code>docker compose --profile db up --build -d</code>
+The <code>db</code> profile is required because the <code>postgres</code> service is only started when explicitly requested.
+The <code>go-app</code> does <strong>not</strong> depend on postgres in <code>depends_on</code> — if the database is not available, the app starts normally without persistence.</p>
+</blockquote>
+<hr />
+<h3 id="database-schema">Database schema</h3>
+<p>The table is created automatically on first run if it does not exist:</p>
+<pre><code class="language-sql">CREATE TABLE reports (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT,            -- &quot;report-&lt;timestamp&gt;&quot; auto-generated
+  format     TEXT,            -- always &quot;html&quot; for now
+  content    BYTEA,           -- full report HTML
+  zabbix_url TEXT,            -- Zabbix URL used during generation
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+</code></pre>
+<blockquote>
+<p><strong>Automatic migration:</strong> If the table exists with missing columns (old schema), the application renames the old table to <code>reports_old_&lt;timestamp&gt;</code> and creates a new one with the correct schema.</p>
+</blockquote>
+<hr />
+<h3 id="rest-api-report-endpoints">REST API — Report endpoints</h3>
+<p>For external integrations or automation, the available endpoints are:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Database required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /api/start</code></td>
+<td>POST</td>
+<td>No</td>
+<td>Starts generation; body <code>{"zabbix_url":"...","zabbix_token":"..."}</code> → returns <code>{"task_id":"..."}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/progress/:id</code></td>
+<td>GET</td>
+<td>No</td>
+<td>Polls task status → <code>{"status":"done\|running\|error","progress_msg":"..."}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/report/:id</code></td>
+<td>GET</td>
+<td>No</td>
+<td>Returns the HTML of the report in the current session (in-memory, lost on restart)</td>
+</tr>
+<tr>
+<td><code>GET /api/db-status</code></td>
+<td>GET</td>
+<td>No</td>
+<td>Informs the frontend whether the database is active → <code>{"db_enabled": true\|false}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/reports</code></td>
+<td>GET</td>
+<td>Optional</td>
+<td>Without DB: <code>{"db_enabled":false,"reports":[]}</code>. With DB: <code>{"db_enabled":true,"reports":[...]}</code></td>
+</tr>
+<tr>
+<td><code>GET /api/reportdb/:id</code></td>
+<td>GET</td>
+<td><strong>Yes</strong></td>
+<td>Returns the saved report as a complete HTML document (to open directly in the browser)</td>
+</tr>
+<tr>
+<td><code>GET /api/reportdb/:id?raw=1</code></td>
+<td>GET</td>
+<td><strong>Yes</strong></td>
+<td>Returns only the internal HTML fragment (used by JS to render inline with the standard layout)</td>
+</tr>
+<tr>
+<td><code>DELETE /api/reportdb/:id</code></td>
+<td>DELETE</td>
+<td><strong>Yes</strong></td>
+<td>Removes a specific report by ID → <code>{"deleted":"&lt;id&gt;"}</code> or <code>404</code> if not found</td>
+</tr>
+<tr>
+<td><code>DELETE /api/reports</code></td>
+<td>DELETE</td>
+<td><strong>Yes</strong></td>
+<td>Removes <strong>all</strong> reports → <code>{"deleted":&lt;count&gt;}</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="example-list-and-open-a-report-via-curl">Example: list and open a report via curl</h4>
+<pre><code class="language-bash"># 1. List saved reports
+curl http://localhost:8080/api/reports
+
+# 2. Open report with ID 3 in the browser
+curl http://localhost:8080/api/reportdb/3 &gt; report.html
+
+# 3. Delete the report with ID 3
+curl -X DELETE http://localhost:8080/api/reportdb/3
+
+# 4. Delete all reports
+curl -X DELETE http://localhost:8080/api/reports
+</code></pre>
+<p>The report is divided into tabs. This section documents each one: what it displays, which Zabbix API calls are made, which Go function generates the HTML, and how the data is processed.</p>
+<hr />
+<h2 id="guide-zabbix-server-tab-processos">Guide: Zabbix Server (<code>tab-processos</code>)</h2>
+<h3 id="what-it-is_8">What it is</h3>
+<p>Displays the utilization level of internal Zabbix Server processes, divided into two groups:</p>
+<ul>
+<li><strong>Pollers (Data Collectors):</strong> processes responsible for actively collecting metrics from agents (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)</li>
+<li><strong>Internal Processes:</strong> server infrastructure processes (history syncer, housekeeper, escalator, trapper, lld manager, etc.)</li>
+</ul>
+<p>For each process, the <strong>minimum</strong>, <strong>average</strong> and <strong>maximum</strong> utilization (%) is shown, along with a visual status of <strong>OK</strong> (&lt; 50%) or <strong>Warning</strong> (≥ 50%).</p>
+<h3 id="table-displayed_1">Table displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poller / Process</td>
+<td>Process name with a <code>?</code> tooltip icon</td>
+</tr>
+<tr>
+<td>value_min</td>
+<td>Minimum utilization in the analyzed period</td>
+</tr>
+<tr>
+<td>value_avg</td>
+<td>Average utilization in the analyzed period</td>
+</tr>
+<tr>
+<td>value_max</td>
+<td>Peak utilization in the analyzed period</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>OK</code> (green, avg &lt; 50%) or <code>Warning</code> (red, avg ≥ 50%) or gray when not enabled</td>
+</tr>
+</tbody>
+</table>
+<h3 id="environment-variables-that-affect-this-tab">Environment variables that affect this tab</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZABBIX_SERVER_HOSTID</code></td>
+<td><em>(empty)</em></td>
+<td>Host ID of the Zabbix Server in Zabbix. If not set, the search ignores the host filter and may return any host that has the key. Recommended to set for accuracy.</td>
+</tr>
+<tr>
+<td><code>CHECKTRENDTIME</code></td>
+<td><code>30d</code></td>
+<td>Time window for trend/history analysis. Accepts suffix <code>d</code> (days), <code>h</code> (hours), <code>m</code> (minutes). E.g. <code>7d</code>, <code>24h</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_CCONCURRENT</code></td>
+<td><code>6</code></td>
+<td>Number of processes that can run concurrently in parallel Zabbix API calls.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_5">Zabbix API calls</h3>
+<p>Each process in the list queries the <strong>pre-loaded map</strong> by <code>getProcessItemsBulk</code> (1 call made before the goroutines) and then makes <strong>two parallel calls</strong> to get trend/history data:</p>
+<h4 id="1-itemget-bulk-locate-all-process-items-1-single-call">1. <code>item.get</code> bulk — locate all process items (1 single call)</h4>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;, &quot;name&quot;, &quot;key_&quot;, &quot;value_type&quot;],
+    &quot;search&quot;: { &quot;key_&quot;: [&quot;*agent*poller*&quot;, &quot;*poller*&quot;, &quot;*history*syncer*&quot;, &quot;...&quot;] },
+    &quot;searchByAny&quot;: true,
+    &quot;searchWildcardsEnabled&quot;: true,
+    &quot;hostids&quot;: &quot;&lt;ZABBIX_SERVER_HOSTID&gt;&quot;
+  }
+}
+</code></pre>
+<ul>
+<li>The key is <strong>no longer</strong> <code>zabbix[process,&lt;name&gt;,avg,busy]</code> — it is searched by wildcard and matches any key format (space or underscore).</li>
+<li>If <code>ZABBIX_SERVER_HOSTID</code> is not set, the <code>hostids</code> parameter is omitted.</li>
+<li>Empty result for a process → marked as <strong>"Process not enabled"</strong> (gray).</li>
+</ul>
+<h4 id="2a-trendget-fetch-trend-statistics-primary">2a. <code>trend.get</code> — fetch trend statistics (primary)</h4>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;trend.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;clock&quot;, &quot;value_min&quot;, &quot;value_avg&quot;, &quot;value_max&quot;],
+    &quot;itemids&quot;: [&quot;&lt;itemid&gt;&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;,
+    &quot;limit&quot;: 1
+  }
+}
+</code></pre>
+<ul>
+<li>Returns the last trend record in the configured period.</li>
+<li>Result <code>[]</code> → triggers the fallback below.</li>
+</ul>
+<h4 id="2b-historyget-fallback-when-trend-is-not-available">2b. <code>history.get</code> — fallback when trend is not available</h4>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;history.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;value&quot;],
+    &quot;history&quot;: 0,
+    &quot;itemids&quot;: [&quot;&lt;itemid&gt;&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;,
+    &quot;sortfield&quot;: &quot;clock&quot;,
+    &quot;sortorder&quot;: &quot;ASC&quot;,
+    &quot;limit&quot;: 2000
+  }
+}
+</code></pre>
+<ul>
+<li>Used when the item has <code>trends=0</code> configured in Zabbix, or when the trend retention period has expired.</li>
+<li>The code collects up to 2,000 data points and calculates <code>min</code>, <code>avg</code> and <code>max</code> manually.</li>
+<li>Result still <code>[]</code> → process marked as <strong>"Process not enabled"</strong> (gray).</li>
+</ul>
+<h3 id="go-function-responsible">Go function responsible</h3>
+<p><strong>File:</strong> <code>cmd/app/main.go</code><br />
+<strong>Function:</strong> <code>generateZabbixReport(url, token string)</code> — the tab block starts around the line marked with <code>// --- Processos e Threads Zabbix Server ---</code></p>
+<h4 id="helpers-used">Helpers used</h4>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nameToWildcard(name)</code></td>
+<td>Converts <code>"agent poller"</code> → <code>"*agent*poller*"</code> for wildcard search</td>
+</tr>
+<tr>
+<td><code>wildcardMatch(pattern, key)</code></td>
+<td>Simple client-side match (<code>*</code>) to map returned items back to each name</td>
+</tr>
+<tr>
+<td><code>getProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
+<td>Makes <strong>1 <code>item.get</code></strong> with all patterns. Resolves collisions by specificity (more words = higher priority). Returns <code>map[nameLowercase]item</code></td>
+</tr>
+<tr>
+<td><code>getLastTrend(apiUrl, token, itemid, days)</code></td>
+<td>Makes <code>trend.get</code> for the itemid in the configured period. Respects <code>CHECKTRENDTIME</code>.</td>
+</tr>
+<tr>
+<td><code>getHistoryStats(apiUrl, token, itemid, histType, days)</code></td>
+<td>Fallback: makes <code>history.get</code>, collects up to 2,000 data points and returns calculated <code>{value_min, value_avg, value_max}</code>.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="version-logic_3">Version logic</h4>
+<p>The poller list varies based on the detected Zabbix version via <code>apiinfo.version</code>:</p>
+<ul>
+<li><strong>Zabbix ≥ 7:</strong> includes <code>agent poller</code>, <code>browser poller</code>, <code>http agent poller</code>, <code>snmp poller</code></li>
+<li><strong>Zabbix 6:</strong> these four are displayed as <strong>"Does not exist in this Zabbix version"</strong></li>
+</ul>
+<h4 id="status-logic_1">Status logic</h4>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Display</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item.get</code> returns empty</td>
+<td>Gray — "Process not enabled"</td>
+</tr>
+<tr>
+<td><code>trend.get</code> and <code>history.get</code> empty</td>
+<td>Gray — "Process not enabled"</td>
+</tr>
+<tr>
+<td><code>value_avg &lt; 50%</code></td>
+<td>Green — "OK"</td>
+</tr>
+<tr>
+<td><code>value_avg ≥ 50%</code></td>
+<td>Red — "Warning"</td>
+</tr>
+<tr>
+<td>Error in any API call</td>
+<td>"Error fetching data"</td>
+</tr>
+</tbody>
+</table>
+<h4 id="parallelism_1">Parallelism</h4>
+<p>Both pollers and internal processes are collected in <strong>parallel goroutines</strong>, controlled by a semaphore with capacity <code>MAX_CCONCURRENT</code>. Results are re-ordered by their original index to preserve display order, then re-ordered by <code>value_avg</code> descending (most utilized processes appear first).</p>
+<h3 id="how-to-add-a-new-process-to-the-list">How to add a new process to the list</h3>
+<p>There are <strong>3 places</strong> in <code>cmd/app/main.go</code>:</p>
+<p><strong>1. <code>procDesc</code></strong> — description shown in the <code>?</code> tooltip (key in lowercase):</p>
+<pre><code class="language-go">&quot;new process&quot;: `&quot;StartNewProcess&quot; parameter: description and when to adjust.`,
+</code></pre>
+<p><strong>2. Correct table:</strong></p>
+<ul>
+<li><strong>Pollers (Data Collectors)</strong> → <code>commonPollers</code> or <code>if majorV &gt;= 7</code> block:</li>
+</ul>
+<pre><code class="language-go">commonPollers := []string{
+    ...
+    &quot;new poller&quot;,
+}
+// or exclusive to Zabbix 7+:
+if majorV &gt;= 7 {
+    pollerNames = append([]string{&quot;new poller&quot;}, pollerNames...)
+}
+</code></pre>
+<ul>
+<li><strong>Internal Process</strong> → <code>procNames</code> slice:</li>
+</ul>
+<pre><code class="language-go">procNames := []string{
+    ...
+    &quot;new process&quot;,
+}
+</code></pre>
+<p><strong>3. Name rule:</strong> use the name exactly as it appears in the Zabbix item key (with space or underscore). The <code>nameToWildcard</code> function converts automatically — <code>"agent poller"</code> → <code>"*agent*poller*"</code> — matching <code>agent poller</code>, <code>agent_poller</code> or any variant.</p>
+<hr />
+<h2 id="zabbix-api-calls-used">Zabbix API calls used</h2>
+<p>Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the <code>/api_jsonrpc.php</code> endpoint of Zabbix.</p>
+<h3 id="1-apiinfoversion">1. apiinfo.version</h3>
+<ul>
+<li><strong>Description:</strong> Gets the Zabbix API version.</li>
+<li><strong>Parameters:</strong> <code>[]</code> (empty)</li>
+<li><strong>Use:</strong> Detect Zabbix version to adjust queries and links.</li>
+</ul>
+<h3 id="2-userget">2. user.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches all registered users.</li>
+<li><strong>Parameters:</strong> <code>{ "output": "userid" }</code></li>
+<li><strong>Use:</strong> Count the number of users.</li>
+</ul>
+<h3 id="3-itemget">3. item.get</h3>
+<ul>
+<li><strong>Description:</strong> Used in various contexts:</li>
+<li><strong>Bulk fetch of all process items</strong> (pollers + internal) in 1 call with wildcard</li>
+<li>Fetch items by key (<code>key_</code>) and hostid</li>
+<li>Count total, enabled, disabled, unsupported items</li>
+<li>List unsupported items and their details</li>
+<li>Fetch items without template</li>
+<li>Fetch items by type (<code>type</code>), state (<code>state</code>), interval (<code>delay</code>)</li>
+<li><strong>Parameter examples:</strong></li>
+<li>Bulk server process fetch (new approach):
+    <code>json
+    {
+      "output": ["itemid", "hostid", "name", "key_", "value_type"],
+      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
+      "searchByAny": true,
+      "searchWildcardsEnabled": true,
+      "hostids": "&lt;ZABBIX_SERVER_HOSTID&gt;"
+    }</code></li>
+<li>Fetch item by exact key:
+    <code>json
+    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "&lt;hostid&gt;", "limit": 1 }</code></li>
+<li>Count unsupported items:
+    <code>json
+    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }</code></li>
+<li>Count items by type:
+    <code>json
+    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }</code></li>
+<li>Fetch items without template:
+    <code>json
+    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }</code></li>
+</ul>
+<h3 id="4-historyget">4. history.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches the last history value of an item.</li>
+<li><strong>Parameters:</strong>
+  <code>json
+  { "output": "extend", "history": &lt;value_type&gt;, "itemids": "&lt;itemid&gt;", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }</code></li>
+<li><strong>Use:</strong> Get the most recent value of an item (e.g. NVPS).</li>
+</ul>
+<h3 id="5-trendget">5. trend.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches trend statistics (minimum, maximum, average) of an item over a time interval.</li>
+<li><strong>Parameters:</strong>
+  <code>json
+  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["&lt;itemid&gt;"], "limit": 1, "time_from": &lt;unix&gt;, "time_to": &lt;unix&gt; }</code></li>
+<li><strong>Use:</strong> Usage statistics for processes/pollers.</li>
+</ul>
+<h3 id="6-hostget">6. host.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered hosts, enabled or disabled.</li>
+<li><strong>Parameters:</strong></li>
+<li>All hosts: <code>{ "output": "hostid" }</code></li>
+<li>Enabled: <code>{ "output": "hostid", "filter": { "status": 0 } }</code></li>
+<li>Disabled: <code>{ "output": "hostid", "filter": { "status": 1 } }</code></li>
+</ul>
+<h3 id="7-templateget">7. template.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered templates, by id or for counting.</li>
+<li><strong>Parameters:</strong></li>
+<li>Count: <code>{ "countOutput": true }</code></li>
+<li>Fetch by id: <code>{ "output": ["templateid", "name"], "templateids": [&lt;ids&gt;] }</code></li>
+</ul>
+<h3 id="8-discoveryruleget">8. discoveryrule.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches LLD (discovery) rules, by interval, state, etc.</li>
+<li><strong>Parameters:</strong></li>
+<li>By interval:
+    <code>json
+    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }</code></li>
+<li>Unsupported:
+    <code>json
+    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }</code></li>
+</ul>
+<h3 id="9-proxyget">9. proxy.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered proxies, by state (active/passive), status (online/offline), etc.</li>
+<li><strong>Parameters:</strong></li>
+<li>All proxies: <code>{ "output": "proxyid" }</code></li>
+<li>Active: <code>{ "output": "proxyid", "filter": { "state": 2 } }</code></li>
+<li>Passive: <code>{ "output": "proxyid", "filter": { "state": 1 } }</code></li>
+<li>Online: <code>{ "output": "proxyid", "filter": { "status": 0 } }</code></li>
+<li>Offline: <code>{ "output": "proxyid", "filter": { "status": 1 } }</code></li>
+</ul>
+<h2 id="top-errors">Top Errors</h2>
+<p>Checks the top item, trigger and LLD rule errors, ordered by number of failures.</p>
+<p>API call used to collect items with error (unsupported items):</p>
+<p>Parameters: item.get with
+  output: ["itemid","name","templateid","error","key_"]
+  filter: { "state": 1 }
+  webitems: 1
+  selectHosts: ["name","hostid"]
+  inherited: true
+  How errorCounter is filled:</p>
+<p>The code iterates each returned item, extracts templateid, name, error and host.
+  Increments the errorCounter map with the key formed by itemError + "|" + tplId, where itemError is the error text and tplId is the template ID (or "no_template" if there is none).
+  topErrors is iterated to generate the "Most Common Error Types" table.</p>
+<hr />
+<p>These calls are made dynamically according to the Zabbix version and the environment data. Consult the code for details on optional parameters and fallback logic.</p>
+<hr />
+<h2 id="internationalization-i18n">Internationalization (i18n)</h2>
+<p>The interface and report support multiple languages. Currently available: <strong>Portuguese (pt_BR)</strong> — default language — and <strong>English (en_US)</strong>.</p>
+<h3 id="language-selector">Language selector</h3>
+<p>The selector is in the <strong>header</strong> of the page, to the right of the "ZBX-Easy" title. Switching the language translates the interface instantly (without reloading).</p>
+<p>The preference is saved in the browser's <code>localStorage</code> under the key <code>zbx-lang</code> and automatically restored on future visits.</p>
+<h3 id="how-it-works">How it works</h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dictionaries</td>
+<td><code>app/web/locales/pt_BR/messages.json</code> and <code>app/web/locales/en_US/messages.json</code></td>
+<td>Contain all translations in the format <code>"key": "translated text"</code></td>
+</tr>
+<tr>
+<td>Runtime JS</td>
+<td><code>app/web/static/script.js</code></td>
+<td>Functions <code>t()</code>, <code>applyI18n()</code>, <code>setLang()</code> and <code>initI18n()</code> that load and apply translations</td>
+</tr>
+<tr>
+<td>HTML template</td>
+<td><code>app/web/templates/index.html</code></td>
+<td>Uses attributes <code>data-i18n</code>, <code>data-i18n-placeholder</code>, <code>data-i18n-title</code> and <code>data-i18n-aria</code></td>
+</tr>
+<tr>
+<td>Backend Go</td>
+<td><code>app/cmd/app/main.go</code></td>
+<td>Emits HTML with <code>data-i18n</code> and <code>data-i18n-args</code> attributes for dynamic report texts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="translation-attributes">Translation attributes</h3>
+<p>The i18n system uses HTML attributes processed by JavaScript on the client side:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Target</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data-i18n="key"</code></td>
+<td>Element <code>textContent</code></td>
+<td><code>&lt;span data-i18n="tabs.summary"&gt;&lt;/span&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-args="val1\|val2"</code></td>
+<td><code>%s</code> / <code>%d</code> arguments in the translation</td>
+<td><code>&lt;span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"&gt;&lt;/span&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-placeholder="key"</code></td>
+<td>Input <code>placeholder</code></td>
+<td><code>&lt;input data-i18n-placeholder="placeholder_url"&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-title="key"</code></td>
+<td><code>title</code> (native tooltip)</td>
+<td><code>&lt;div data-i18n-title="kpi.server_attention"&gt;&lt;/div&gt;</code></td>
+</tr>
+<tr>
+<td><code>data-i18n-aria="key"</code></td>
+<td><code>aria-label</code></td>
+<td><code>&lt;button data-i18n-aria="aria_new_report"&gt;&lt;/button&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="locale-file-structure">Locale file structure</h3>
+<pre><code>app/web/locales/
+├── pt_BR/
+│   └── messages.json      # ~290 keys — Portuguese (Brazil)
+└── en_US/
+    └── messages.json      # ~290 keys — English (US)
+</code></pre>
+<p>Each file is a flat JSON (<code>"key": "value"</code>). Keys with <code>%s</code> or <code>%d</code> accept positional arguments passed via <code>data-i18n-args</code>.</p>
+<h3 id="key-categories">Key categories</h3>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>label_*</code>, <code>btn_*</code>, <code>placeholder_*</code>, <code>aria_*</code>, <code>tooltip_*</code></td>
+<td>Interface (form, buttons, fields)</td>
+</tr>
+<tr>
+<td><code>progress.*</code></td>
+<td>Progress messages during generation</td>
+</tr>
+<tr>
+<td><code>tabs.*</code></td>
+<td>Report tab names</td>
+</tr>
+<tr>
+<td><code>section.*</code></td>
+<td>Section titles (h3) in the report</td>
+</tr>
+<tr>
+<td><code>tip.*</code></td>
+<td>Explanatory tooltip texts (? icon)</td>
+</tr>
+<tr>
+<td><code>table.*</code></td>
+<td>Table headers</td>
+</tr>
+<tr>
+<td><code>summary.*</code></td>
+<td>Summary table rows</td>
+</tr>
+<tr>
+<td><code>gauge.*</code></td>
+<td>Doughnut chart captions</td>
+</tr>
+<tr>
+<td><code>proxy.*</code></td>
+<td>Proxy labels (summary, status)</td>
+</tr>
+<tr>
+<td><code>items.*</code>, <code>lld.*</code></td>
+<td>Item/LLD explanatory paragraphs</td>
+</tr>
+<tr>
+<td><code>types.*</code></td>
+<td>Item types (Zabbix Agent, SNMP, etc.)</td>
+</tr>
+<tr>
+<td><code>kpi.*</code></td>
+<td>KPIs in the Recommendations tab</td>
+</tr>
+<tr>
+<td><code>sub.*</code></td>
+<td>Subtitles of Recommendations sections</td>
+</tr>
+<tr>
+<td><code>rec.*</code></td>
+<td>Auxiliary Recommendations phrases</td>
+</tr>
+<tr>
+<td><code>procdesc.*</code></td>
+<td>Internal process descriptions (tooltips)</td>
+</tr>
+<tr>
+<td><code>badge.*</code></td>
+<td>Badges in recommendation cards</td>
+</tr>
+<tr>
+<td><code>error.*</code>, <code>stats.*</code>, <code>process.*</code></td>
+<td>Error and status messages</td>
+</tr>
+</tbody>
+</table>
+<h3 id="loading-flow">Loading flow</h3>
+<ol>
+<li>On page load, <code>initI18n()</code> reads <code>localStorage.zbx-lang</code> (fallback: <code>pt_BR</code>).</li>
+<li>Makes <code>fetch('/locales/{lang}/messages.json?cb=&lt;timestamp&gt;')</code> — the <code>cb</code> parameter avoids caching.</li>
+<li>Stores the dictionary in <code>_i18n</code> and calls <code>applyI18n()</code>.</li>
+<li><code>applyI18n()</code> iterates all elements with <code>data-i18n*</code> and replaces the content/attribute with the translation.</li>
+<li>When the report is dynamically inserted (via AJAX), <code>applyI18n()</code> is called again to translate the HTML injected by the server.</li>
+</ol>
+<h3 id="server-side-translation-go">Server-side translation (Go)</h3>
+<p>The backend <strong>does not</strong> translate texts — it emits HTML with <code>data-i18n</code> markers that JavaScript translates on the client. Examples:</p>
+<pre><code class="language-go">// Section title with tooltip
+html += titleWithInfo(&quot;h3&quot;, &quot;i18n:section.pollers&quot;, &quot;i18n:tip.pollers|15d&quot;)
+
+// Numbered sub-section
+html += nextSub(&amp;sub, &quot;i18n:sub.items_unsupported&quot;)
+
+// Table with translatable headers
+html += `&lt;th data-i18n='table.description'&gt;&lt;/th&gt;`
+
+// Cell with arguments
+html += `&lt;span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'&gt;&lt;/span&gt;`
+</code></pre>
+<p>The helpers <code>titleWithInfo()</code> and <code>nextSub()</code> detect the <code>i18n:</code> prefix and automatically generate <code>data-i18n</code> and <code>data-i18n-args</code> attributes.</p>
+<hr />
+<h2 id="diagram-zabbix-api-calls">Diagram: Zabbix API Calls</h2>
+<pre><code class="language-mermaid">flowchart TD
+  App[&quot;zabbix-easy app\n(app/cmd/app/main.go)&quot;]
+
+  subgraph ZabbixAPI[&quot;Zabbix API (JSON-RPC)&quot;]
+    HostGet[&quot;host.get\nfields: hostid, host, name, status, templates[]&quot;]
+    ProxyGet[&quot;proxy.get\nfields: proxyid, host, status, state&quot;]
+    ItemGetProxy[&quot;item.get (proxy scope)\nitemid, key_, hostid, lastvalue, lastclock, value_type, status&quot;]
+    ItemGetHost[&quot;item.get (host scope / type filters)\nitemid, key_, hostid, name, value_type&quot;]
+    ItemGetCount[&quot;item.get (countOutput:true)\nreturns count for KPIs&quot;]
+    TrendGet[&quot;trend.get\nitemid, clock, value_min, value_avg, value_max&quot;]
+    HistoryGet[&quot;history.get\nitemid, clock, value&quot;]
+    TemplateGet[&quot;template.get\ntemplateid, name, hosts&quot;]
+    UserGetCount[&quot;user.get (countOutput:true)\nreturns count&quot;]
+    DiscoveryGet[&quot;discoveryrule.get\ncount / details&quot;]
+  end
+
+  subgraph Helpers[&quot;App helpers (functions)&quot;]
+    getItemByKey[&quot;getItemByKey()\nuses item.get&quot;]
+    getProcessBulk[&quot;getProcessItemsBulk()\nuses item.get with search wildcards&quot;]
+    getProxyProc[&quot;getProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
+    getTrendsBulk[&quot;getTrendsBulkStats()\nuses trend.get&quot;]
+    getHistoryBulk[&quot;getHistoryStatsBulkByType()\nuses history.get&quot;]
+  end
+
+  subgraph Tabs[&quot;UI Tabs / Views&quot;]
+    Summary[&quot;Summary tab&quot;]
+    Server[&quot;Server / Processes tab&quot;]
+    Proxies[&quot;Proxies tab&quot;]
+    Items[&quot;Items tab&quot;]
+    Templates[&quot;Templates tab&quot;]
+    Top[&quot;Top tab&quot;]
+    Recs[&quot;Recommendations tab&quot;]
+  end
+
+  App --&gt; HostGet
+  App --&gt; ProxyGet
+  App --&gt; ItemGetProxy
+  App --&gt; ItemGetHost
+  App --&gt; ItemGetCount
+  App --&gt; TrendGet
+  App --&gt; HistoryGet
+  App --&gt; TemplateGet
+  App --&gt; UserGetCount
+  App --&gt; DiscoveryGet
+
+  getItemByKey --&gt; ItemGetHost
+  getProcessBulk --&gt; ItemGetHost
+  getProxyProc --&gt; ItemGetHost
+  getTrendsBulk --&gt; TrendGet
+  getHistoryBulk --&gt; HistoryGet
+
+  HostGet --&gt; Summary
+  UserGetCount --&gt; Summary
+  ItemGetCount --&gt; Summary
+  TemplateGet --&gt; Summary
+  ProxyGet --&gt; Summary
+
+  getProcessBulk --&gt; Server
+  getTrendsBulk --&gt; Server
+  getHistoryBulk --&gt; Server
+  ItemGetHost --&gt; Server
+
+  ProxyGet --&gt; Proxies
+  ItemGetProxy --&gt; Proxies
+  ItemGetCount --&gt; Proxies
+  getProxyProc --&gt; Proxies
+  HostGet --&gt; Proxies
+
+  ItemGetHost --&gt; Items
+  TemplateGet --&gt; Items
+  DiscoveryGet --&gt; Items
+  ItemGetCount --&gt; Items
+
+  TemplateGet --&gt; Templates
+  TemplateGet --&gt; Top
+  ItemGetCount --&gt; Top
+
+  getTrendsBulk --&gt; Recs
+  getHistoryBulk --&gt; Recs
+  ItemGetProxy --&gt; Recs
+  ItemGetHost --&gt; Recs
+  TemplateGet --&gt; Recs
+  DiscoveryGet --&gt; Recs
+  ProxyGet --&gt; Recs
+  ItemGetCount --&gt; Recs
+
+  classDef fix fill:#fff4a3,stroke:#e6c800
+</code></pre>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "Mais 1 nesta p\u00e1gina", "search.result.more.other": "Mais # nesta p\u00e1gina", "search.result.none": "Nenhum resultado encontrado", "search.result.one": "1 resultado encontrado", "search.result.other": "# resultados encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.60a45f97.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../../js/mermaid-init.js"></script>
+      
+        <script src="../../js/lang-switch.js"></script>
+      
+    
+  </body>
+</html>

@@ -9,6 +9,10 @@
       
       
       
+        <link rel="prev" href="../installation/">
+      
+      
+        <link rel="next" href="../docker/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -213,7 +217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -237,7 +241,7 @@
         
   
   <span class="md-ellipsis">
-    Novidades
+    Changelog
   </span>
   
 
@@ -253,11 +257,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../instalacao/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Instalação
+    Installation
   </span>
   
 
@@ -270,10 +274,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../api/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    API
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -282,6 +306,68 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#endpoints-principais" class="md-nav__link">
+    <span class="md-ellipsis">
+      Endpoints principais
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Endpoints principais">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apistart" class="md-nav__link">
+    <span class="md-ellipsis">
+      POST /api/start
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiprogresstask_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      GET /api/progress/{task_id}
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apireporttask_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      GET /api/report/{task_id}
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -293,7 +379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../docker/" class="md-nav__link">
+      <a href="../docker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -313,11 +399,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../utilizacao/" class="md-nav__link">
+      <a href="../usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Utilização
+    Usage
   </span>
   
 
@@ -333,11 +419,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contribuicao/" class="md-nav__link">
+      <a href="../contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Contribuição
+    Contribution
   </span>
   
 
@@ -454,6 +540,9 @@
 
 
 
+  
+  
+
 
 
 
@@ -498,7 +587,7 @@
     
       <script src="../../assets/javascripts/bundle.60a45f97.min.js"></script>
       
-        <script src="../../js/mermaid.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
         <script src="../../js/mermaid-init.js"></script>
       

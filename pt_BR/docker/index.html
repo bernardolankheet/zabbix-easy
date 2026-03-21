@@ -9,6 +9,10 @@
       
       
       
+        <link rel="prev" href="../api/">
+      
+      
+        <link rel="next" href="../usage/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -213,7 +217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -237,7 +241,7 @@
         
   
   <span class="md-ellipsis">
-    Novidades
+    Changelog
   </span>
   
 
@@ -253,11 +257,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../instalacao/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Instalação
+    Installation
   </span>
   
 
@@ -273,7 +277,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/" class="md-nav__link">
+      <a href="../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -290,10 +294,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../docker/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Docker
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -302,6 +326,155 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#modos-de-execucao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modos de execução
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modo-1-sem-banco-de-dados-padrao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modo 1 — Sem banco de dados (padrão)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modo-2-com-banco-de-dados-postgresql" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modo 2 — Com banco de dados PostgreSQL
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Modo 2 — Com banco de dados PostgreSQL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 1 — Habilitar as variáveis de banco no docker-compose.yml
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passo-2-subir-com-o-profile-db" class="md-nav__link">
+    <span class="md-ellipsis">
+      Passo 2 — Subir com o profile db
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#o-que-acontece-na-primeira-execucao" class="md-nav__link">
+    <span class="md-ellipsis">
+      O que acontece na primeira execução
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#referencia-de-variaveis-de-ambiente" class="md-nav__link">
+    <span class="md-ellipsis">
+      Referência de variáveis de ambiente
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Referência de variáveis de ambiente">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#variaveis-do-go-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variáveis do go-app
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variaveis-do-postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variáveis do postgres
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profiles-do-docker-compose" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profiles do Docker Compose
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comandos-uteis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Comandos úteis
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#porta-exposta" class="md-nav__link">
+    <span class="md-ellipsis">
+      Porta exposta
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistencia-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistência de dados
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -313,11 +486,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../utilizacao/" class="md-nav__link">
+      <a href="../usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Utilização
+    Usage
   </span>
   
 
@@ -333,11 +506,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contribuicao/" class="md-nav__link">
+      <a href="../contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Contribuição
+    Contribution
   </span>
   
 
@@ -451,8 +624,53 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#variaveis-do-postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variáveis do postgres
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#profiles-do-docker-compose" class="md-nav__link">
+    <span class="md-ellipsis">
+      Profiles do Docker Compose
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comandos-uteis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Comandos úteis
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#porta-exposta" class="md-nav__link">
+    <span class="md-ellipsis">
+      Porta exposta
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistencia-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistência de dados
+    </span>
+  </a>
   
 </li>
       
@@ -540,31 +758,158 @@ Sem <code>--profile db</code>, o postgres não sobe — mesmo com as variáveis 
 <tr>
 <td><code>MAX_CCONCURRENT</code></td>
 <td><code>4</code></td>
-<td>Goroutines paralelas para chamadas à API do Zabbix. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento.</td>
+<td>Goroutines paralelas para chamadas à API do Zabbix. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento ou retornar timeouts.</td>
 </tr>
 <tr>
 <td><code>API_TIMEOUT_SECONDS</code></td>
 <td><code>60</code></td>
-<td>Timeout em segundos por requisição. Aumentar para <code>90</code>–<code>120</code> em ambientes lentos.</td>
+<td>Timeout em segundos de cada requisição HTTP à API do Zabbix. Aumentar para <code>90</code>–<code>120</code> em ambientes com muitos hosts/itens ou latência alta.</td>
 </tr>
 <tr>
 <td><code>APP_DEBUG</code></td>
 <td><em>(vazio)</em></td>
-<td><code>true</code> para logs detalhados de cada requisição à API.</td>
+<td><code>1</code> para logs detalhados de cada requisição à API.</td>
 </tr>
 <tr>
 <td><code>DB_HOST</code></td>
 <td><em>(vazio)</em></td>
-<td>Host do PostgreSQL. <strong>Se vazio, persistência desativada.</strong></td>
+<td>Host do PostgreSQL. <strong>Se vazio, persistência desativada e card DB oculto.</strong></td>
+</tr>
+<tr>
+<td><code>DB_PORT</code></td>
+<td><code>5432</code></td>
+<td>Porta do PostgreSQL.</td>
+</tr>
+<tr>
+<td><code>DB_USER</code></td>
+<td><code>postgres</code></td>
+<td>Usuário do banco.</td>
+</tr>
+<tr>
+<td><code>DB_PASSWORD</code></td>
+<td><code>postgres</code></td>
+<td>Senha do banco.</td>
+</tr>
+<tr>
+<td><code>DB_NAME</code></td>
+<td><code>zabbix_report</code></td>
+<td>Nome do banco de dados.</td>
 </tr>
 </tbody>
 </table>
+<h3 id="variaveis-do-postgres">Variáveis do <code>postgres</code></h3>
+<table>
+<thead>
+<tr>
+<th>Variável</th>
+<th>Valor padrão</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POSTGRES_DB</code></td>
+<td><code>zabbix_report</code></td>
+</tr>
+<tr>
+<td><code>POSTGRES_USER</code></td>
+<td><code>postgres</code></td>
+</tr>
+<tr>
+<td><code>POSTGRES_PASSWORD</code></td>
+<td><code>postgres</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="profiles-do-docker-compose">Profiles do Docker Compose</h2>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Serviços iniciados</th>
+<th>Quando usar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(nenhum)</em></td>
+<td><code>go-app</code></td>
+<td>Uso sem banco — avaliação rápida</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td><code>go-app</code> + <code>postgres</code></td>
+<td>Uso com persistência de relatórios</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Nota:</strong> o serviço <code>go-app</code> também possui <code>profiles: ["app"]</code> no <code>docker-compose.yml</code>.
+Para subir apenas o <code>go-app</code> pelo profile: <code>docker compose --profile app up -d</code>.
+Para subir tudo junto: <code>docker compose --profile app --profile db up --build -d</code>.</p>
+</blockquote>
+<hr />
+<h2 id="comandos-uteis">Comandos úteis</h2>
+<pre><code class="language-bash"># Subir sem banco (padrão)
+docker compose up -d
+
+# Subir com banco
+docker compose --profile db up --build -d
+
+# Ver logs do app
+docker logs -f go-zabbix-app
+
+# Ver logs do postgres
+docker logs -f go-zabbix-postgres
+
+# Parar tudo (preserva volume de dados)
+docker compose --profile db down
+
+# Parar e remover volume de dados
+docker compose --profile db down -v
+
+# Acessar o banco diretamente
+docker exec -it go-zabbix-postgres psql -U postgres -d zabbix_report
+</code></pre>
+<hr />
+<h2 id="porta-exposta">Porta exposta</h2>
+<table>
+<thead>
+<tr>
+<th>Serviço</th>
+<th>Porta host</th>
+<th>Porta container</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>go-app</code></td>
+<td><code>8080</code></td>
+<td><code>8080</code></td>
+</tr>
+<tr>
+<td><code>postgres</code></td>
+<td><code>5433</code></td>
+<td><code>5432</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>O postgres expõe a porta <code>5433</code> no host (evita conflito com um postgres local na <code>5432</code>).</p>
+</blockquote>
+<hr />
+<h2 id="persistencia-de-dados">Persistência de dados</h2>
+<p>O volume <code>go_zabbix_postgres_data</code> é nomeado explicitamente para sobreviver a <code>docker compose down</code>.
+Só é removido com <code>docker compose down -v</code> ou <code>docker volume rm go_zabbix_postgres_data</code>.</p>
 
 
 
 
 
 
+
+  
+  
 
 
 
@@ -610,7 +955,7 @@ Sem <code>--profile db</code>, o postgres não sobe — mesmo com as variáveis 
     
       <script src="../../assets/javascripts/bundle.60a45f97.min.js"></script>
       
-        <script src="../../js/mermaid.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
         <script src="../../js/mermaid-init.js"></script>
       

@@ -213,7 +213,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../pt_BR/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -237,7 +237,7 @@
         
   
   <span class="md-ellipsis">
-    Novidades
+    Changelog
   </span>
   
 
@@ -253,11 +253,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../instalacao/" class="md-nav__link">
+      <a href="../pt_BR/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Instalação
+    Installation
   </span>
   
 
@@ -273,7 +273,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/" class="md-nav__link">
+      <a href="../pt_BR/api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -293,7 +293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../docker/" class="md-nav__link">
+      <a href="../pt_BR/docker/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -313,11 +313,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../utilizacao/" class="md-nav__link">
+      <a href="../pt_BR/usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Utilização
+    Usage
   </span>
   
 
@@ -333,11 +333,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../contribuicao/" class="md-nav__link">
+      <a href="../pt_BR/contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Contribuição
+    Contribution
   </span>
   
 
@@ -366,6 +366,41 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changelog
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -383,14 +418,29 @@
 
 
 <h1 id="zabbix-easy-healthcheck-report">Zabbix Easy HealthCheck Report</h1>
-<p>Modern project to generate Zabbix HealthCheck reports using Go and Postgres.</p>
-<p>See the Portuguese docs if translations are missing.</p>
+<p>Modern project to generate Zabbix HealthCheck reports using Go and PostgreSQL.</p>
+<h2 id="components">Components</h2>
+<ul>
+<li>Go backend: API, workers, Zabbix data collection</li>
+<li>PostgreSQL: temporary storage for reports</li>
+</ul>
+<h2 id="flow">Flow</h2>
+<ol>
+<li>User provides Zabbix URL/token via the web UI</li>
+<li>Workers collect data and store it in PostgreSQL</li>
+<li>Report is generated and displayed in the UI</li>
+</ol>
+<h2 id="changelog">Changelog</h2>
+<p>See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md</p>
 
 
 
 
 
 
+
+  
+  
 
 
 
@@ -436,7 +486,7 @@
     
       <script src="../assets/javascripts/bundle.60a45f97.min.js"></script>
       
-        <script src="../js/mermaid.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
         <script src="../js/mermaid-init.js"></script>
       
