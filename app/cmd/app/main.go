@@ -4049,7 +4049,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>` +
-			`<h5>` + nextSub() + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
+			`<h5>` + nextSub(&securitySub, "i18n:sub.default_admin_account") + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
 			`<p data-i18n='tip.default_admin'></p>` +
 			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
 			`<ul>` +
@@ -4068,7 +4068,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div></details>`
 	}
 
-	html += `</div>` // fecha tab-recomendacoes
+	html += `</div>` // fecha tab-recomendacoes \O/
 
 	// small JS to handle tab switching (keeps markup simple and UX clean)
 	html += `<script>` +
