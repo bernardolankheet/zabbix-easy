@@ -1,63 +1,56 @@
 # Zabbix Easy Report
 
-Zabbix Easy é um projeto opensource que utiliza a API do Zabbix, tendo seu objetivo de verificar métricas, comportamentos e configurações, para  e propor melhorias e correções em Ambientes Zabbix, a fim de melhorar a performance e a estabilidade do sistema.
+Zabbix Easy é uma ferramenta open-source que analisa um ambiente Zabbix via API e gera um relatório com recomendações práticas para melhorar desempenho, confiabilidade e manutenção.
 
-Zabbix Easy é uma Interface simples, precisando apenas de um token de API para acesso ao ambiente, a ferramenta consulta a API do Zabbix e gera relatórios com dados a partir de expertises de profissionais que atuam a anos com Zabbix, facilitando a analise de administradores que possam estar iniciando na jornada de monitoramento.
+Resumo rápido
+- Linguagem backend: Go
+- Frontend: HTML/CSS/JS (estático gerado pelo backend)
+- Documentação: MkDocs (em `docs/`)
 
-## Componentes
-- **Go Backend**: API, workers e lógica de coleta/processamento Zabbix
-- **Postgres**: Armazenamento temporário dos dados coletados (Em devolvimento)
-- **Web UI**: Interface para entrada de URL/token, barra de progresso e relatório pronto para impressão
+Principais componentes
+- `app/cmd/app` — backend em Go que coleta dados via API do Zabbix e gera o HTML do relatório
+- `app/web` — recursos estáticos (templates, i18n, CSS, JS)
+- `docs/` — documentação do projeto (MkDocs)
 
-## Como funciona
-1. O usuário informa a URL/token do Zabbix via Web UI
-2. Workers Go processam as tarefas, coletam dados do Zabbix e armazenam no Postgres
-4. Após a coleta, o relatório é gerado e exibido na interface
+Funcionalidades principais
+- Coleta e agregação de métricas via Zabbix API
+- Análises: itens não suportados, itens sem template, pollers/processos do server e proxys, trends, LLD
+- Recomendações automatizadas com snippets de correção
+- Exportação para HTML/PDF
+- Persistência opcional de relatórios (Postgres)
 
-## Funcionalidades:
-✅ Coleta de dados do Zabbix via API;
-✅ Autenticação via token (tratativa para token inválido);
-✅ Totalizadores de Templates, Hosts, Items, Proxys e Usuario;
-✅ Totalizadores de itens desabilitados, Habilitados, não suportados;
-✅ NVPS;
-✅ Analise de Pollers e Treads do Zabbix Server;
-✅ Analise de totalizadores de Itens, items não suportados e queue por Proxys; (Facilitando analise das filas)
-✅ Analise de Items sem templates;
-✅ Analise de Items e LLDs não suportados;
-✅ Analise de Items e LLDs com intervalo de coleta abaixo de 1m e 5m;
-✅ Analise de Items do Tipo Texto com retenção de historico, sem a utilização de Preprocessamento Discardunchanged;
-✅ Analise dos principais erros de Coleta dos Items;
-✅ Top 10 Items/Hosts/Templates Ofensores do Ambiente, com mais itens Não suportados e Erros;
-✅ Contagem de proxys, verificação por status de comunicação, queue e itens não suportados;
-✅ Verificação se está utilizando "Asynchronous poller" no Zabbix 7;
-✅ Verificação se está utilizando chaves get[] e walk[] em items SNMP;
-✅ Links para integração com o Frontend do Zabbix, filtrando informações especificas;
-✅ Paralelização de coleta e processamento para otimização de chamadas à API do Zabbix, melhorando significativamente peformance;
-✅ Exportação HTML e PDF;
-✅ Banco de dados Postgres para armazenamento de dados, por enquanto somente html armazenado;
-✅ Trends dos Pollers Proxys para analise de comportamento e performance do ambiente;
-✅ Checagem de compatibilidade dos proxys com a versão do Zabbix, identificando proxys com versão desatualizada ou incompatível;
-✅ Banco de Dados para armazenamento de relatórios (no momento só armazena os HTML), permitindo comparação e histórico de análises anteriores;
-✅ Recomendação de ações corretivas;
-    - Processos e Threads do Zabbix Server (recomendação para habilitar conforme a versão do Zabbix, exemplo habilitar snmp poller no Zabbix 7);
-    - Sugestões de correções em Items e Templates;
-    - Recomendação para migrar items snmp com SNMP OID para formato get[] e walk[], para utilização do novo poller no Zabbix 7;
-    - Recomendação de ações corretivas para proxys desatualizados ou incompatíveis;
+Rápido tutorial — executar localmente
+1) Usando Docker (mais simples):
 
-Proximas Funcionalidades:
-⬜ Botão de refresh para atualizar o relatório ou consulta específica sem precisar reiniciar a coleta;
-⬜ Imagem do fluxo de processos do zabbix;
-⬜ Preprocessamento de item texto com discardunchanged - https://www.zabbix.com/documentation/current/en/manual/api/reference/item/get#retrieving-items-with-preprocessing-rules;
-⬜ Melhoria no Banco de Dados para armazenar os dados coletados, permitindo análises mais avançadas e customizadas, além de comparação entre relatórios;
+```bash
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+# abra http://localhost:8080
+```
 
-## Observações
-- Os dados no atualmente podem ser armazenados apenas em HTML;
-- O sistema é escalável e pronto para ambientes com grande volume de dados.
----
+2) Rodando localmente (desenvolvimento):
 
-## Novidades
-Incluso em Recomendações uma sessão de Como Resolver.
+```bash
+# compilar
+cd app/cmd/app
+go build -o zbx-easy
+# executar
+./zbx-easy
+```
 
-- Facilitando correções rapidas, com blocos de codigos pré-formatados para ajustes comuns, como aumento de pollers, ajustes de itens e templates, etc.
+Documentação (MkDocs)
+- URL EM BREVE: documentação online
+- Para rodar localmente: veja `docs/contribuicao.md`
 
-Veja as notas completas em `docs/changes.md`.
+Contribuição
+- Abra issues e PRs. Veja `docs/contribuicao.md` para orientações de i18n, desenvolvimento e como rodar a documentação localmente.
+
+Boas práticas
+- Não comite o ambiente virtual (`.venv`) — já incluímos `.gitignore`.
+- Use um ambiente virtual Python para trabalhar com MkDocs.
+
+Contato e licença
+- Repositório: https://github.com/bernardolankheet/zabbix-easy
+- Licença: veja `LICENSE`
+
+Notas
+- Para detalhes das novas funcionalidades e mudanças veja `docs/CHANGELOG.md`.

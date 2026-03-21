@@ -597,6 +597,38 @@ if majorV >= 7 {
 
 ---
 
+## Guia: Usuários (`tab-usuarios`)
+
+### O que é
+
+Esta guia exibe se a conta administrativa padrão do Zabbix (`Admin`) existe e realiza um teste simples para verificar se ainda aceita a senha padrão `zabbix`.
+
+Observações importantes:
+- O relatório NÃO busca a lista completa de usuários — ele faz uma chamada `user.get` filtrando apenas pelo `username = Admin`.
+- Quando a conta `Admin` é encontrada e aparece habilitada, o relatório realiza uma tentativa de autenticação `user.login` com as credenciais `Admin`/`zabbix` (teste *best-effort*). O token retornado pela API não é armazenado; serve apenas para detectar se a senha padrão ainda funciona.
+- Se a conta `Admin` estiver desabilitada, o KPI/recomendação de conta padrão é considerado OK e o teste de senha não é exibido.
+
+### Tabela exibida
+
+| Coluna | Descrição |
+|--------|-----------|
+| Usuário | Nome do usuário (ex: `Admin`) |
+| Nome Completo | Nome completo do usuário |
+| Senha Padrão | Indica se a conta aceita a senha padrão `zabbix` (Sim/Não) |
+
+### Chamadas à API do Zabbix
+
+| Chamada | Parâmetros relevantes | Observação |
+|---------|-----------------------|-----------|
+| `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Busca apenas a conta `Admin`, evitando varredura de todos os usuários |
+| `user.login` | `username: "Admin", password: "zabbix"` | Tentativa de autenticação para verificar se a senha padrão é válida (best-effort). Retorna token em caso de sucesso, que é descartado imediatamente |
+
+### Recomendações geradas
+
+Se a conta `Admin` existir e aceitar a senha padrão, o relatório adiciona automaticamente uma recomendação na seção "Conta Admin padrão do Zabbix detectada" com orientações para alterar/desabilitar a conta.
+
+---
+
 ## Guia 4: Items e LLDs (`tab-items`)
 
 ### O que é

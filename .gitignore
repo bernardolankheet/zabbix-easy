@@ -1,0 +1,26 @@
+# Python virtualenv
+.venv/
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.site/
+site/
+.DS_Store
+*.log
+.vscode/
+.idea/
+node_modules/
+*.tgz
+*.swp
+*.swo
+*.bak
+*.tmp
+*.out
+/.venv
+
+venv/
+ENV/
+.env.d/

@@ -1136,6 +1136,70 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	if progressCb != nil { progressCb("progress.collecting_templates") }
 	if progressCb != nil { progressCb("progress.collecting_items") }
 
+	// Fetch only the 'Admin' account (avoid fetching all users)
+	var usersList []map[string]interface{}
+	hasDefaultAdmin := false
+	if usersResp, usersErr2 := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{
+		"output": []string{"userid", "username", "name", "surname"},
+		"filter": map[string]interface{}{"username": "Admin"},
+	}); usersErr2 == nil {
+		if arr, ok := usersResp["result"].([]interface{}); ok {
+			for _, raw := range arr {
+				if u, ok2 := raw.(map[string]interface{}); ok2 {
+					usersList = append(usersList, u)
+					// determine if the user is enabled (best-effort: check common fields)
+					enabled := true
+					if s, ok := u["status"]; ok {
+						switch v := s.(type) {
+						case float64:
+							if int(v) != 0 { enabled = false }
+						case int:
+							if v != 0 { enabled = false }
+						case bool:
+							if v { enabled = false }
+						case string:
+							sv := strings.TrimSpace(v)
+							if sv == "1" || strings.EqualFold(sv, "true") || strings.EqualFold(sv, "disabled") { enabled = false }
+						}
+					}
+					if d, ok := u["disabled"]; ok {
+						switch v := d.(type) {
+						case bool:
+							if v { enabled = false }
+						case float64:
+							if int(v) != 0 { enabled = false }
+						case int:
+							if v != 0 { enabled = false }
+						case string:
+							dv := strings.TrimSpace(v)
+							if dv == "1" || strings.EqualFold(dv, "true") || strings.EqualFold(dv, "disabled") { enabled = false }
+						}
+					}
+					// mark default Admin only when username == Admin AND enabled
+					if fmt.Sprintf("%v", u["username"]) == "Admin" && enabled {
+						hasDefaultAdmin = true
+					}
+				}
+			}
+		}
+	}
+
+	// Test whether the default Admin password 'zabbix' is accepted (best-effort).
+	// Only attempt this when Admin account exists and appears enabled (hasDefaultAdmin).
+	adminDefaultPasswordValid := false
+	if hasDefaultAdmin {
+		if loginResp, loginErr := zabbixApiRequest(apiUrl, "", "user.login", map[string]interface{}{"username": "Admin", "password": "zabbix"}); loginErr == nil {
+			if r, ok := loginResp["result"]; ok {
+				if tok, ok2 := r.(string); ok2 && strings.TrimSpace(tok) != "" {
+					adminDefaultPasswordValid = true
+				}
+			}
+		} else {
+			// non-fatal: just log at debug level
+			log.Printf("[DEBUG] default-admin password test failed: %v", loginErr)
+		}
+	}
+
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
 	nvps := "N/A"
@@ -1419,6 +1483,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
 	html += `<button class='tab-btn' data-tab='tab-templates' data-i18n='tabs.templates'></button>`
 	html += `<button class='tab-btn' data-tab='tab-top' data-i18n='tabs.top'></button>`
+	html += `<button class='tab-btn' data-tab='tab-usuarios' data-i18n='tabs.users'></button>`
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
 	html += `</div>`
 
@@ -3140,6 +3205,66 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `</tbody></table></div>`
 	html += `</div>` // end tab-top
 
+	// ── Tab: Usuários ─────────────────────────────────────────────────────────
+	html += `<div id='tab-usuarios' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.users'></h2>`
+	html += titleWithInfo("h3", "i18n:section.users", "i18n:tip.users")
+
+	// Security alert: default Admin found. Highlight as CRITICAL when default password 'zabbix' is accepted.
+	if hasDefaultAdmin {
+		if adminDefaultPasswordValid {
+			html += `<div style='background:#fee2e2;border:1px solid #f43f5e;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
+				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p>` +
+				`<p style='margin:8px 0 0;font-size:0.95em;color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></p></div>` +
+				`</div>`
+		} else {
+			html += `<div style='background:#fff1f0;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
+				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p></div>` +
+				`</div>`
+		}
+	}
+
+	if len(usersList) == 0 {
+		html += `<p data-i18n='users.no_data'></p>`
+	} else {
+		// Simple table showing the Admin account only (no counts, no type column)
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
+			`<th data-i18n='table.username'></th>` +
+			`<th data-i18n='table.fullname'></th>` +
+			`<th data-i18n='table.default_password'></th>` +
+			`</tr></thead><tbody>`
+		for _, u := range usersList {
+			username := fmt.Sprintf("%v", u["username"])
+			firstName := fmt.Sprintf("%v", u["name"])
+			surname := fmt.Sprintf("%v", u["surname"])
+			fullName := strings.TrimSpace(firstName + " " + surname)
+			rowStyle := ""
+			if username == "Admin" {
+				rowStyle = " style='background:#fff7ed;'"
+			}
+			// determine default-password badge for this user (only relevant for Admin)
+			defaultPwdCell := "<td><span style='background:#ecfdf5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_no'></span></span></td>"
+			if username == "Admin" && adminDefaultPasswordValid {
+				defaultPwdCell = "<td><span style='background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_yes'></span></span></td>"
+			}
+
+			html += `<tr` + rowStyle + `>` +
+				`<td><strong>` + htmlpkg.EscapeString(username) + `</strong>` +
+				func() string {
+					if username == "Admin" { return ` <span style='background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:700;margin-left:4px;' data-i18n='users.default_badge'></span>` }
+					return ""
+				}() +
+				`</td>` +
+				`<td>` + htmlpkg.EscapeString(fullName) + `</td>` +
+				defaultPwdCell +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
+	html += `</div>` // end tab-usuarios
+
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title' data-i18n='tabs.recommendations'></h2>`
@@ -3366,6 +3491,20 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 	}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
 	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
+	// KPI: default Admin account
+	adminKpiClass := "kpi-ok"
+	if hasDefaultAdmin {
+		adminKpiClass = "kpi-warn"
+		if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
+	}
+	adminKpiIcon := "✅"
+	if hasDefaultAdmin {
+		adminKpiIcon = "🟡"
+		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
+	}
+	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
+		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
+		`<div class='kpi-label' data-i18n='kpi.default_admin'></div></div>`
 	html += `</div>`	
 
 	html += `<script>
@@ -3418,7 +3557,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		serverDescParts := []string{}
 		if len(attention) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_attention' data-i18n-args='%d'></span>", len(attention))) }
 		if len(missingAsync) > 0 { serverDescParts = append(serverDescParts, fmt.Sprintf("<span data-i18n='rec.desc.server_async' data-i18n-args='%d'></span>", len(missingAsync))) }
-		html += `<details class='rec-section' open id='card-server'>` +
+		html += `<details class='rec-section' id='card-server'>` +
 			`<summary><span class='rec-sec-icon'>⚙️</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.server'></span></div>` +
@@ -3504,7 +3643,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if offline > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_offline' data-i18n-args='%d'></span>", offline)) }
 		if unknown > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_unknown' data-i18n-args='%d'></span>", unknown)) }
 		if len(proxyProcAttnList) > 0 { proxyDescParts = append(proxyDescParts, fmt.Sprintf("<span data-i18n='rec.desc.proxy_process_attn' data-i18n-args='%d'></span>", len(proxyProcAttnList))) }
-		html += `<details class='rec-section' open id='card-proxys'>` +
+		html += `<details class='rec-section' id='card-proxys'>` +
 			`<summary><span class='rec-sec-icon'>📡</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.proxies'></span></div>` +
@@ -3691,7 +3830,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if unsupportedVal > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_unsupported' data-i18n-args='"+formatInt(unsupportedVal)+"'></span>") }
 		if itemsLe60 > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_short_interval' data-i18n-args='"+formatInt(itemsLe60)+"'></span>") }
 		if textCount > 0 { itemsDescParts = append(itemsDescParts, "<span data-i18n='rec.desc.items_text_history' data-i18n-args='"+formatInt(textCount)+"'></span>") }
-		html += `<details class='rec-section' open id='card-items'>` +
+		html += `<details class='rec-section' id='card-items'>` +
 			`<summary><span class='rec-sec-icon'>📋</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.items'></span></div>` +
@@ -3753,7 +3892,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		lldDescParts := []string{}
 		if lldLe300 > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_short_interval' data-i18n-args='%d'></span>", lldLe300)) }
 		if lldNotSupCnt > 0 { lldDescParts = append(lldDescParts, fmt.Sprintf("<span data-i18n='rec.desc.lld_unsupported' data-i18n-args='%d'></span>", lldNotSupCnt)) }
-		html += `<details class='rec-section' open id='card-lld'>` +
+		html += `<details class='rec-section' id='card-lld'>` +
 			`<summary><span class='rec-sec-icon'>🔍</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.lld'></span></div>` +
@@ -3793,7 +3932,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		if len(topTemplates) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_review' data-i18n-args='%d'></span>", templatesShown)) }
 		if len(topErrors) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_error_types' data-i18n-args='%d'></span>", func() int { if len(topErrors) > topN { return topN }; return len(topErrors) }())) }
 		if majorV >= 7 && len(snmpMigrationTpls) > 0 { tplDescParts = append(tplDescParts, fmt.Sprintf("<span data-i18n='rec.desc.templates_snmp_migrate' data-i18n-args='%d'></span>", len(snmpMigrationTpls))) }
-		html += `<details class='rec-section' open id='card-templates'>` +
+		html += `<details class='rec-section' id='card-templates'>` +
 			`<summary><span class='rec-sec-icon'>📑</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.templates'></span></div>` +
@@ -3853,6 +3992,49 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		html += `</ul></div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
+
+	// --- Seção: Segurança (conta Admin padrão) ---
+	if hasDefaultAdmin {
+		secNum++
+		// badge: warn by default, escalate to crit when default password is accepted
+		badgeClass := "warn"
+		badgeIcon := "🟡"
+		if adminDefaultPasswordValid { badgeClass = "crit"; badgeIcon = "🔴" }
+
+		html += `<details class='rec-section' id='card-security'>` +
+			`<summary><span class='rec-sec-icon'>🔐</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.security'></span></div>` +
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.default_admin'></span>` +
+			func() string {
+				if adminDefaultPasswordValid {
+					return ` <br/><span style='color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></span>`
+				}
+				return ""
+			}() +
+			`</div>` +
+			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>` +
+			`<h5>` + nextSub() + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
+			`<p data-i18n='tip.default_admin'></p>` +
+			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.default_admin_change_password'></span></li>` +
+			`<li><span data-i18n='fix.default_admin_rename'></span></li>` +
+			`<li><span data-i18n='fix.default_admin_disable'></span></li>` +
+			`</ul>` +
+			func() string {
+				if adminDefaultPasswordValid {
+					return "<ul><li><span data-i18n='fix.default_admin_password_in_use'></span></li></ul>"
+				}
+				return ""
+			}() +
+			`<a href='` + htmlpkg.EscapeString(ambienteUrl+"/zabbix.php?action=user.list") + `' target='_blank' rel='noopener' style='display:inline-block;margin-top:6px;font-size:0.85em;' data-i18n='fix.open_users_list'></a>` +
+			`</div>` +
+			`</div></details>`
+	}
+
 	html += `</div>` // fecha tab-recomendacoes
 
 	// small JS to handle tab switching (keeps markup simple and UX clean)
