@@ -53,4 +53,4 @@ Contato e licença
 - Licença: veja `LICENSE`
 
 Notas
-- Para detalhes das novas funcionalidades e mudanças veja `docs/changes.md`.
+- Para detalhes das novas funcionalidades e mudanças veja `docs/CHANGELOG.md`.
