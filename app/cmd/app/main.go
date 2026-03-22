@@ -4099,7 +4099,7 @@ func main() {
 
 	r.Static("/static", "./web/static")
 	r.Static("/locales", "./web/locales")
-	r.LoadHTMLGlob("web/templates/*")
+	r.LoadHTMLGlob("web/templates/*")git a
 
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "index.html", nil)
