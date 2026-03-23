@@ -2,66 +2,68 @@
 title: "Usage"
 lang: en_US
 ---
-
-# Usage
-
-1. Access the web interface
-2. Enter the Zabbix URL and token
-3. Wait for the report to be generated
-4. Export or print the report as needed
-
+---
 ---
 
-## Global environment variables
+**Compatibility:** tested and working on Zabbix 6.0, 6.4 and 7.0.
 
-These variables affect the behavior of the entire report generation:
-
-| Variable              | Default  | Description |
-|-----------------------|---------|-------------|
-| `ZABBIX_SERVER_HOSTID`| _(empty)_ | ID of the Zabbix Server host. Used to filter item calls by host. If not set, searches run without a host filter. |
-| `CHECKTRENDTIME`      | `30d`   | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
-| `MAX_CCONCURRENT`     | `4`     | Maximum parallel goroutines for Zabbix API calls. Reduce to `2`–`3` if Zabbix is slow or times out. |
-| `API_TIMEOUT_SECONDS` | `60`    | Per-request timeout in seconds for Zabbix API HTTP calls. Increase to `90`–`120` for slow environments. |
-| `APP_DEBUG`           | _(empty)_ | `1` or `true` to enable verbose API request/response logs. |
-
----
-
-## General flow
-
-The main function is `generateZabbixReport(url, token string, progressCb func(string))` in `cmd/app/main.go`.
-
-- `url` and `token` must be non-empty — the function returns an error immediately if either is missing.
-- `url` may be provided as `http://host/` or `http://host/api_jsonrpc.php` — both are accepted; `/api_jsonrpc.php` is appended only when necessary.
-- `progressCb` is passed as a parameter (not global), keeping concurrent calls isolated.
-
-```
-POST /api/start
-  → validates url and token (returns 400 if empty)
-  → creates an in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
-      → progressCb() updates the progress message (parameter, not global)
-      → returns an HTML fragment
-      → saves to PostgreSQL (if DB_HOST is configured)
-
-GET /api/progress/:id      → polling for status + progress message
-GET /api/report/:id        → returns the generated HTML fragment (current session)
-GET /api/reportdb/:id      → returns the report saved in the database
-GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
+- **Internal Process** → add to `procNames`:
+```go
+procNames := []string{
+    ...
+    "new process",
+}
 ```
 
-Report generation detects the Zabbix version via `apiinfo.version` and automatically adjusts API calls and process lists for Zabbix 6 and 7.
+**3. Name rule:** use the name exactly as it appears in the Zabbix item key, with space or underscore. The `nameToWildcard` function converts automatically — `"agent poller"` → `"*agent*poller*"` — matching `agent poller`, `agent_poller` or any variant.
 
 ---
 
-Proxy process detection uses an `item.get` call that searches for *internal items* and *dependent items* (types `5` and `18`). This ensures the tool finds keys in both "dot-style" format (e.g. `process.*.avg.busy`) and the Zabbix function format (`zabbix[process,*,avg,busy]`), since the match is performed against both the `key_` and `name` fields.
+## Guide 3: Zabbix Proxies (`tab-proxys`)
+
+### What it is
+
+Shows the status and metrics of Zabbix Proxies configured in the environment. Proxies are grouped into: Unknown, Offline, Active, Passive. For each active/communicating proxy it shows total items, unsupported items and the 10-minute queue.
+
+### Tables displayed
+
+**Summary:**
+
+| Description | Count |
+|-------------|-------|
+| Proxies Unknown | count |
+| Proxies Offline | count |
+| Proxies Active | count |
+| Proxies Passive | count |
+| Total Proxies | count + link |
+
+**Per-proxy detail** (only proxies with `state=2`, communicating):
+
+| Proxy | Type | Total Items | Unsupported Items | Queue-10m |
+|-------|------|-------------|-------------------|-----------|
+| name | Active / Passive | count | count | value |
+
+### Zabbix API calls
+
+The proxy list is collected at the Summary stage. For each active proxy two parallel calls are made:
+
+| Call | Relevant params | Extracted data |
+|------|-----------------|----------------|
+| `item.get` | `search:{key_: ["*queue,10m*","*items_unsupported*", ...]}, proxyids:<id>, monitored:true` | `lastvalue` of `zabbix[queue,10m]` and `zabbix[items_unsupported]` |
+| `item.get` | `countOutput:true, templated:false, proxyids:<id>` | Total monitored items for the proxy |
+
+### Proxy Processes — keys and item types
+
+Process detection for proxies uses an `item.get` that searches for internal items and dependent items (types `5` and `18`). This ensures the tool finds both dot-style keys (e.g. `process.*.avg.busy`) and function-style keys (`zabbix[process,*,avg,busy]`) by matching both `key_` and `name` fields.
 
 Key points:
 
-- The filter now includes `type: [5, 18]` — Internal (5) and Dependent (18). Previously only `type=5` (internal) items were queried, which caused dependent-item keys to be missed.
-- Matching uses wildcards, so patterns like `*availability*manager*` cover both notations.
+- The filter now includes `type: [5, 18]` — Internal (5) and Dependent (18). Previously only `type=5` was queried, which missed dependent items.
+- Matching uses wildcards. We use patterns like `*availability*manager*` to cover both notations.
 - If the report shows "No process items found", check:
-  - Whether the template (e.g. `Zabbix Proxy Health` or `Remote Zabbix Proxy Health`) is linked to the host/proxy.
-  - Whether the template uses dependent items — in Zabbix, dependent items depend on a master item; confirm the master item exists and is active.
-  - For debugging, query the API directly to list the host's items with `filter: {"type": [5,18]}` and `searchWildcardsEnabled:true`, for example:
+  - The host/proxy has the correct Proxy template (e.g. `Zabbix Proxy Health` or `Remote Zabbix Proxy Health`).
+  - The template uses dependent items — in Zabbix dependent items rely on a master item; ensure the master exists and is active.
+  - For debugging, call the API directly with `filter: {"type": [5,18]}` and `searchWildcardsEnabled:true`, for example:
 
 ```json
 {"jsonrpc":"2.0","method":"item.get","params":{
@@ -75,9 +77,9 @@ Key points:
 },"auth":"<TOKEN>","id":1}
 ```
 
-This returns both dot-style `key_` items and dependent items that use `zabbix[...]` in their `name`/`key_`.
+This returns both dot-style `key_` items and dependent items using `zabbix[...]` in `name`/`key_`.
 
-This change fixes cases where keys such as `process.availability_manager.avg.busy` were not found because they were returned as dependent items.
+This change fixes cases where keys like `process.availability_manager.avg.busy` were missed because they were returned as dependent items.
 
 ### Version logic
 
@@ -85,26 +87,26 @@ This change fixes cases where keys such as `process.availability_manager.avg.bus
 
 | Field | Zabbix ≥ 7 | Zabbix 6 |
 |-------|-----------|---------|
-| Type  | `operating_mode` (`0`=Active, `1`=Passive) | `status` (`5`=Active, `6`=Passive) |
+| Type | `operating_mode` (`0`=Active, `1`=Passive) | `status` (`5`=Active, `6`=Passive) |
 
 #### Connectivity state (Online / Offline / Unknown)
 
-Zabbix 7 returns the `state` field directly in `proxy.get`. Zabbix 6 **does not return `state`**, so the state is derived from the `lastaccess` field (Unix timestamp of the last communication with the server):
+Zabbix 7 returns the `state` field directly in `proxy.get`. Zabbix 6 does **not** return `state`, so the state is derived from `lastaccess` (Unix timestamp of last contact):
 
 | Condition | Inferred state | Zabbix 7 equivalent |
-|-----------|---------------|---------------------|
+|-----------|----------------|---------------------|
 | `state` present and `state == "2"` | **Online** | `state=2` |
 | `state` present and `state == "1"` | **Offline** | `state=1` |
 | `state` present and `state == "0"` | **Unknown** | `state=0` |
 | `state` absent and `lastaccess == 0` | **Unknown** — never connected | — |
-| `state` absent and `now - lastaccess > 300s` | **Offline** — connection lost | — |
+| `state` absent and `now - lastaccess > 300s` | **Offline** — lost connection | — |
 | `state` absent and `now - lastaccess ≤ 300s` | **Online** | — |
 
-> The 300 s (5 min) threshold is conservative: active proxies report to the server every few seconds by default.
+> The 300s (5 min) threshold is conservative: active proxies usually report every few seconds.
 
 ### How it works in code
 
-Rows per proxy are generated in parallel goroutines controlled by the semaphore `sem`. Results are re-ordered by their original index to preserve the display order.
+Rows per proxy are generated in parallel goroutines using the semaphore `sem`. Results are reordered by original index to keep display order.
 
 ---
 
@@ -112,197 +114,34 @@ Rows per proxy are generated in parallel goroutines controlled by the semaphore 
 
 #### What it is
 
-Displays the utilization of internal processes for each Zabbix Proxy in a per-proxy accordion. For each process, `min`, `avg` and `max` utilization (%) is shown, along with an **OK** or **Warning** badge in the accordion header.
+Displays utilization of internal processes of each Zabbix Proxy in an accordion per proxy. For each process it shows `min`, `avg` and `max` utilization (%), plus an **OK** or **Attention** badge in the accordion header.
 
 #### Table displayed (one per proxy)
 
 | Column | Description |
 |--------|-----------|
-| Process | Name with a `?` tooltip icon describing the `zabbix_proxy.conf` parameter |
-| value_min | Minimum utilization in the period (`CHECKTRENDTIME`) |
-| value_avg | Average utilization in the period |
-| value_max | Peak utilization in the period |
-| Status | Green OK / Red Warning / Gray not enabled / Gray no data |
+| Process | Name with a `?` tooltip showing the `zabbix_proxy.conf` parameter description |
+| value_min | Minimum utilization during `CHECKTRENDTIME` |
+| value_avg | Average utilization during the period |
+| value_max | Peak utilization during the period |
+| Status | Green OK / Red Attention / Gray disabled / Gray no data |
 
-Each proxy accordion shows two badges in its header:
+The accordion header shows two badges:
 
 - **Online / Offline·Unknown** — current communication state with Zabbix Server
-- **OK / Warning** — worst `value_avg` across all processes with data
+- **OK / Attention** — worst `value_avg` among all processes with data
 
 #### Zabbix API calls
 
-Each active proxy runs an independent goroutine (controlled by the semaphore `sem`) with the following flow:
+Each active proxy executes a goroutine (controlled by `sem`) with the flow below:
 
 ##### Step 1 — Proxy hostid discovery (3 attempts)
 
-The hostid of the proxy self-monitoring host may differ from the proxyid starting from Zabbix 7.
+The hostid of the proxy auto-monitoring host can differ from the proxyid starting in Zabbix 7.
 
 | Attempt | Method | Parameters | When it works |
-|---------|--------|-----------|---------------|
-| A | `host.get` | `hostids: [proxyid]` | Zabbix 6 — proxyid == hostid |
-| B | `host.get` | `filter: {host: proxyName}` | Zabbix 7 — lookup by technical name |
-| C | `host.get` | `filter: {name: proxyName}` | Zabbix 7 — lookup by display name |
-| Fallback | — | uses `proxyid` directly | last resort |
+|-----------|--------|-----------|-----------------|
 
-##### Step 2 — `item.get` bulk (1 call, all processes of the proxy)
-
-```json
-{
-  "method": "item.get",
-  "params": {
-    "output": ["itemid", "hostid", "name", "key_", "value_type"],
-    "hostids": "<hostid resolved in Step 1>",
-    "filter": { "type": 5 }
-  }
-}
-```
-
-- Fetches **all** items of type `5` (Zabbix internal) for the host — no wildcard in the API call.
-- Matching is done **client-side**: for each returned item, `nameToWildcard` is tested against both the item's **`key_` and `name`** fields.
-- Checking the `name` field ensures compatibility between Zabbix 6 and 7, as the `name` (e.g. "Utilization of data sender processes, in %") is stable even when the `key_` format changes.
-
-##### Step 3 — `trend.get` bulk (1 call, all items of the proxy)
-
-```json
-{
-  "method": "trend.get",
-  "params": {
-    "output": ["itemid", "value_min", "value_avg", "value_max"],
-    "itemids": ["<iid1>", "<iid2>", "..."],
-    "time_from": "<now - CHECKTRENDTIME>",
-    "time_to": "<now>"
-  }
-}
-```
-
-- Aggregates multiple trend records per item: `min(value_min)`, `mean(value_avg)`, `max(value_max)`.
-- Items with no data in the result trigger the fallback below.
-
-##### Step 4 — `history.get` fallback (1 call per `value_type`, only for items without trend data)
-
-```json
-{
-  "method": "history.get",
-  "params": {
-    "output": ["itemid", "value"],
-    "history": "<value_type>",
-    "itemids": ["<iids without trend>"],
-    "time_from": "<now - CHECKTRENDTIME>",
-    "time_to": "<now>",
-    "sortfield": "clock",
-    "sortorder": "ASC",
-    "limit": 20000
-  }
-}
-```
-
-- Groups items by `value_type` and makes one call per type (up to 20,000 rows per call).
-- Calculates `min/avg/max` manually from raw values.
-
-#### Go functions
-
-| Function | Description |
-|--------|-----------|
-| `getProxies(apiUrl, token)` | Returns the full proxy list with all fields (`output:extend`) |
-| `getProxyProcessItems(apiUrl, token, names, hostid)` | Fetches all `type=5` items for the host; client-side match on `key_` **and** `name` using `nameToWildcard` |
-| `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** for all itemids; aggregates `min/avg/max` per item |
-| `getHistoryStatsBulkByType(apiUrl, token, items)` | Fallback: **1 `history.get` per `value_type`**; aggregates `min/avg/max` from raw history |
-| `nameToWildcard(name)` | Converts `"data*sender"` → `"*data*sender*"` for client-side matching |
-| `wildcardMatch(pattern, s)` | Simple `*` wildcard match; used by `getProxyProcessItems` to test `key_` and `name` |
-
-#### Version logic
-
-| Zabbix | Extra processes |
-|--------|----------------|
-| ≥ 7 | Includes `agent poller`, `browser poller`, `http agent poller`, `snmp poller` |
-| 6 | These four are excluded from the table |
-
-#### Status logic
-
-| Condition | Display |
-|----------|----------|
-| Proxy offline / unknown | Accordion without table; **Offline/Unknown** badge |
-| No `type=5` items found | Note with the hostid used; no table |
-| `trend.get` and `history.get` return no data | Gray — "No data" |
-| Item not found for the process | Gray — "Process not enabled" |
-| `value_avg < 60%` | Green — OK |
-| `value_avg ≥ 60%` | Red — Warning |
-
-#### How to add a new process to the proxy
-
-There are **2 places** in `cmd/app/main.go`:
-
-**1. `procDesc`** — tooltip `?` description (key in lowercase, with spaces instead of `*`):
-```go
-"new process": `"StartNewProcess" parameter: description and when to adjust.`,
-```
-
-**2. `proxyAllProcNames`** — proxy process list (use **spaces** as word separators, same as `pollerNames` on the server):
-```go
-proxyAllProcNames := []string{
-    "data sender",
-    ...
-    "new process",  // ← here
-}
-// or exclusive to Zabbix 7+:
-if majorV >= 7 {
-    proxyAllProcNames = append([]string{"new process"}, proxyAllProcNames...)
-}
-```
-
-**Why spaces?** `nameToWildcard` converts spaces to `*` automatically when building the search pattern (`"data sender"` → `"*data*sender*"`). Using spaces allows `strings.Fields` to count words correctly, ensuring the **"most specific wins"** sort works — without this, `"http*agent*poller"` and `"http*poller"` would have the same word-count of 1 and the sort would be unstable, causing `"http*poller"` to steal the item from `"http*agent*poller"`.
-
-> **Note:** the lookup key in `itemsMap` and in `procDesc` uses the name in **lowercase with spaces** (e.g. `"http agent poller"`). Make sure the entry in `procDesc` also uses spaces.
-
----
-
-## Guide: Users (`tab-usuarios`)
-
-### What it is
-
-This tab shows whether the default Zabbix administrative account (`Admin`) exists and performs a simple test to check whether it still accepts the default password `zabbix`.
-
-Important notes:
-- The report does **not** retrieve the full user list — it makes a `user.get` call filtering only by `username = Admin`.
-- When the `Admin` account is found and appears enabled, the report attempts a `user.login` authentication with credentials `Admin`/`zabbix` (best-effort test). The token returned by the API is not stored; it only serves to detect whether the default password still works.
-- If the `Admin` account is disabled, the default-account KPI/recommendation is considered OK and the password test is not displayed.
-
-### Table displayed
-
-| Column | Description |
-|--------|-----------|
-| User | Username (e.g. `Admin`) |
-| Full Name | User's full name |
-| Default Password | Whether the account accepts the default password `zabbix` (Yes/No) |
-
-### Zabbix API calls
-
-| Call | Relevant parameters | Note |
-|------|--------------------|------|
-| `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Fetches only the `Admin` account, avoiding a full user scan |
-| `user.login` | `username: "Admin", password: "zabbix"` | Authentication attempt to check whether the default password is valid (best-effort). Returns a token on success, which is immediately discarded |
-
-### Recommendations generated
-
-If the `Admin` account exists and accepts the default password, the report automatically adds a recommendation in the "Default Zabbix Admin account detected" section with guidance on how to change or disable the account.
-
----
-
-## Guide 4: Items and LLDs (`tab-items`)
-
-### What it is
-
-Detailed analysis of monitored items and discovery rules (LLD). Divided into five sections:
-
-1. **Items without Template** — items created directly on a host, outside any template
-2. **Unsupported items** — breakdown by item type (Zabbix Agent, SNMP, HTTP, etc.)
-3. **Collection Interval** — items with a delay of 1s, 10s, 30s, 60s
-4. **LLD Rules — Collection Interval** — discovery rules with a delay of 1s, 10s, 30s, 60s, 300s
-5. **Text Items with History** — items of type Text that retain history and have delay ≤ 300s
-
-### Tables displayed
-
-**Items without Template:**
 
 | Description | Count | Link |
 |-----------|-----------|------|
@@ -432,6 +271,55 @@ Displays four rankings based on the unsupported items collected:
 The `realTplId` is derived from `cacheTemplateHostID[item["templateid"]]`, ensuring all items from the same template are grouped under a single key. Without this conversion, the same template could appear multiple times in the rankings with separate counts.
 
 The Top N is 10 by default (constant `topN = 10`).
+
+---
+
+## Guide: Users (`tab-usuarios`)
+
+### What it is
+
+This tab checks whether the Zabbix default administrative account (`Admin`) exists and performs a best-effort test to detect if it still accepts the default password `zabbix`.
+
+Key points:
+- The report does **not** list all users — it performs a targeted `user.get` filtered by `username = Admin` to avoid scanning the entire user table.
+- If the `Admin` account appears enabled, the report attempts a `user.login` with `Admin`/`zabbix`. The returned token is discarded; the check is only to detect the default-password exposure.
+- If the `Admin` account is missing or clearly disabled, the password test is skipped and the KPI is considered safe.
+
+### How "enabled" is detected (best-effort)
+
+The code inspects common fields returned by `user.get` (`status`, `disabled`) and accepts several representations (numeric, boolean or string). Concretely, values indicating disabled (examples) are interpreted as:
+
+- `status != 0` (numeric)
+- `disabled == true` (boolean) or `disabled == "1"`/`"true"` (string)
+
+If none of those markers indicate the account is disabled and the username equals `Admin`, the account is considered present and enabled for the default-password test.
+
+### Table displayed
+
+| Column | Description |
+|--------|-------------|
+| User | Username (e.g. `Admin`) |
+| Full Name | User's full name (name + surname) |
+| Default Password | Badge: shows whether `Admin` accepts the default password `zabbix` (Yes / No) |
+
+### Zabbix API calls used
+
+| Call | Params | Purpose |
+|------|--------|---------|
+| `user.get` | `countOutput:true` (summary) | Counts users shown in the summary table |
+| `user.get` | `filter:{username:"Admin"}, output:["userid","username","name","surname"]` | Fetches only the `Admin` account to display the single-row table (avoids fetching full user list) |
+| `user.login` | `username:"Admin", password:"zabbix"` | Best-effort authentication attempt to determine whether the default password is still valid (token discarded) |
+
+Notes:
+- The password check is non-destructive and only tests authentication; it may fail silently depending on API rate limits, network errors, or insufficient permissions. Failures are logged at debug level.
+
+### UI behavior and recommendations
+
+- If `Admin` exists and accepts `zabbix`, the tab displays a critical alert (red) and the table marks the default-password column as `Yes`.
+- If `Admin` exists but the default password is rejected, a milder warning box is shown and the table shows `No`.
+- If `Admin` is absent or disabled, the tab shows a localized `users.no_data` message.
+
+The report also surfaces a recommendation entry when the default `Admin` account with default password is detected, advising to change or disable the account.
 
 ---
 
@@ -919,7 +807,7 @@ Every time a report is successfully generated, it is **automatically saved** to 
 
 > **The database is optional.** The app works normally without PostgreSQL — reports are only available in the current session (in-memory) and are lost when the container restarts.
 >
-> To enable persistence, set `DB_HOST` (and optionally the other `DB_*` variables) and bring up the `postgres` service with the `db` profile (see details in [docker.md](docker.md)).
+> To enable persistence, set `DB_HOST` (and optionally the other `DB_*` variables) and bring up the `postgres` service with the `db` profile (see details in [Installation](installation.md)).
 
 When `DB_HOST` is **not** configured:
 - The **Saved Reports** card is **automatically hidden** in the web interface
@@ -1075,7 +963,6 @@ The report is divided into tabs. This section documents each one: what it displa
 
 ---
 
-## Guide: Zabbix Server (`tab-processos`)
 
 ### What it is
 
@@ -1238,106 +1125,6 @@ procNames := []string{
 
 --- 
 
-## Zabbix API calls used
-
-Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the `/api_jsonrpc.php` endpoint of Zabbix.
-
-### 1. apiinfo.version
-- **Description:** Gets the Zabbix API version.
-- **Parameters:** `[]` (empty)
-- **Use:** Detect Zabbix version to adjust queries and links.
-
-### 2. user.get
-- **Description:** Fetches all registered users.
-- **Parameters:** `{ "output": "userid" }`
-- **Use:** Count the number of users.
-
-### 3. item.get
-- **Description:** Used in various contexts:
-  - **Bulk fetch of all process items** (pollers + internal) in 1 call with wildcard
-  - Fetch items by key (`key_`) and hostid
-  - Count total, enabled, disabled, unsupported items
-  - List unsupported items and their details
-  - Fetch items without template
-  - Fetch items by type (`type`), state (`state`), interval (`delay`)
-- **Parameter examples:**
-  - Bulk server process fetch (new approach):
-    ```json
-    {
-      "output": ["itemid", "hostid", "name", "key_", "value_type"],
-      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
-      "searchByAny": true,
-      "searchWildcardsEnabled": true,
-      "hostids": "<ZABBIX_SERVER_HOSTID>"
-    }
-    ```
-  - Fetch item by exact key:
-    ```json
-    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "<hostid>", "limit": 1 }
-    ```
-  - Count unsupported items:
-    ```json
-    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }
-    ```
-  - Count items by type:
-    ```json
-    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }
-    ```
-  - Fetch items without template:
-    ```json
-    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }
-    ```
-
-### 4. history.get
-- **Description:** Fetches the last history value of an item.
-- **Parameters:**
-  ```json
-  { "output": "extend", "history": <value_type>, "itemids": "<itemid>", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }
-  ```
-- **Use:** Get the most recent value of an item (e.g. NVPS).
-
-### 5. trend.get
-- **Description:** Fetches trend statistics (minimum, maximum, average) of an item over a time interval.
-- **Parameters:**
-  ```json
-  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["<itemid>"], "limit": 1, "time_from": <unix>, "time_to": <unix> }
-  ```
-- **Use:** Usage statistics for processes/pollers.
-
-### 6. host.get
-- **Description:** Fetches registered hosts, enabled or disabled.
-- **Parameters:**
-  - All hosts: `{ "output": "hostid" }`
-  - Enabled: `{ "output": "hostid", "filter": { "status": 0 } }`
-  - Disabled: `{ "output": "hostid", "filter": { "status": 1 } }`
-
-### 7. template.get
-- **Description:** Fetches registered templates, by id or for counting.
-- **Parameters:**
-  - Count: `{ "countOutput": true }`
-  - Fetch by id: `{ "output": ["templateid", "name"], "templateids": [<ids>] }`
-
-### 8. discoveryrule.get
-- **Description:** Fetches LLD (discovery) rules, by interval, state, etc.
-- **Parameters:**
-  - By interval:
-    ```json
-    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }
-    ```
-  - Unsupported:
-    ```json
-    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }
-    ```
-
-### 9. proxy.get
-- **Description:** Fetches registered proxies, by state (active/passive), status (online/offline), etc.
-- **Parameters:**
-  - All proxies: `{ "output": "proxyid" }`
-  - Active: `{ "output": "proxyid", "filter": { "state": 2 } }`
-  - Passive: `{ "output": "proxyid", "filter": { "state": 1 } }`
-  - Online: `{ "output": "proxyid", "filter": { "status": 0 } }`
-  - Offline: `{ "output": "proxyid", "filter": { "status": 1 } }`
-
 ## Top Errors
   Checks the top item, trigger and LLD rule errors, ordered by number of failures.
 
@@ -1453,6 +1240,112 @@ html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'>
 ```
 
 The helpers `titleWithInfo()` and `nextSub()` detect the `i18n:` prefix and automatically generate `data-i18n` and `data-i18n-args` attributes.
+
+---
+
+## Zabbix API calls used
+
+Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the `/api_jsonrpc.php` endpoint of Zabbix.
+
+### 1. apiinfo.version
+- **Description:** Gets the Zabbix API version.
+- **Parameters:** `[]` (empty)
+- **Use:** Detect Zabbix version to adjust queries and links.
+
+### 2. user.get
+- **Description:** Fetches all registered users.
+- **Parameters:** `{ "output": "userid" }`
+- **Use:** Count the number of users.
+
+### 3. item.get
+- **Description:** Used in various contexts:
+  - **Bulk fetch of all process items** (pollers + internal) in 1 call with wildcard
+  - Fetch items by key (`key_`) and hostid
+  - Count total, enabled, disabled, unsupported items
+  - List unsupported items and their details
+  - Fetch items without template
+  - Fetch items by type (`type`), state (`state`), interval (`delay`)
+- **Parameter examples:**
+  - Bulk server process fetch (new approach):
+    ```json
+    {
+      "output": ["itemid", "hostid", "name", "key_", "value_type"],
+      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
+      "searchByAny": true,
+      "searchWildcardsEnabled": true,
+      "hostids": "<ZABBIX_SERVER_HOSTID>"
+    }
+    ```
+  - Fetch item by exact key:
+    ```json
+    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "<hostid>", "limit": 1 }
+    ```
+  - Count unsupported items:
+    ```json
+    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }
+    ```
+  - Count items by type:
+    ```json
+    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }
+    ```
+  - Fetch items without template:
+    ```json
+    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }
+    ```
+
+### 4. history.get
+- **Description:** Fetches the last history value of an item.
+- **Parameters:**
+  ```json
+  { "output": "extend", "history": <value_type>, "itemids": "<itemid>", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }
+  ```
+- **Use:** Get the most recent value of an item (e.g. NVPS).
+
+### 5. trend.get
+- **Description:** Fetches trend statistics (minimum, maximum, average) of an item over a time interval.
+- **Parameters:**
+  ```json
+  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["<itemid>"], "limit": 1, "time_from": <unix>, "time_to": <unix> }
+  ```
+- **Use:** Usage statistics for processes/pollers.
+
+### 6. host.get
+- **Description:** Fetches registered hosts, enabled or disabled.
+- **Parameters:**
+  - All hosts: `{ "output": "hostid" }`
+  - Enabled: `{ "output": "hostid", "filter": { "status": 0 } }`
+  - Disabled: `{ "output": "hostid", "filter": { "status": 1 } }`
+
+### 7. template.get
+- **Description:** Fetches registered templates, by id or for counting.
+- **Parameters:**
+  - Count: `{ "countOutput": true }`
+  - Fetch by id: `{ "output": ["templateid", "name"], "templateids": [<ids>] }`
+
+### 8. discoveryrule.get
+- **Description:** Fetches LLD (discovery) rules, by interval, state, etc.
+- **Parameters:**
+  - By interval:
+    ```json
+    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }
+    ```
+  - Unsupported:
+    ```json
+    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }
+    ```
+
+### 9. proxy.get
+- **Description:** Fetches registered proxies, by state (active/passive), status (online/offline), etc.
+- **Parameters:**
+  - All proxies: `{ "output": "proxyid" }`
+  - Active: `{ "output": "proxyid", "filter": { "state": 2 } }`
+  - Passive: `{ "output": "proxyid", "filter": { "state": 1 } }`
+  - Online: `{ "output": "proxyid", "filter": { "status": 0 } }`
+  - Offline: `{ "output": "proxyid", "filter": { "status": 1 } }`
+
+---
+
+These calls are made dynamically according to the Zabbix version and the environment data. Consult the code for details on optional parameters and fallback logic.
 
 ---
 

@@ -13,7 +13,7 @@ lang: en_US
 
 ## Option 1 — Docker Run (quickest)
 
-Ideal for quick evaluation without cloning the repository.
+Ideal for quick evaluation without using a database.
 
 ```bash
 docker run -d \

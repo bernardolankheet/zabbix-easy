@@ -1,261 +1,8 @@
 ﻿---
-title: "Utilização"
-lang: pt_BR
 ---
 
-# Utilização
+**Compatibilidade:** testado e funcionando com Zabbix 6.0, 6.4 e 7.0.
 
-1. Acesse a interface web
-2. Informe a URL e o token do Zabbix
-3. Aguarde a geração do relatório
-4. Exporte ou imprima o relatório conforme necessário
-
----
-
-## Variáveis de ambiente globais
-
-Estas variáveis afetam o comportamento de toda a geração do relatório:
-
-| Variável              | Padrão  | Descrição                                                                                   |
-|-----------------------|---------|---------------------------------------------------------------------------------------------|
-| `ZABBIX_SERVER_HOSTID`| _(vazio)_ | ID do host do Zabbix Server. Usado para filtrar chamadas de item por host. Se não definido, a busca ocorre sem filtro de host. |
-| `CHECKTRENDTIME`      | `30d`   | Janela de tempo para análise de trends/histórico. Aceita sufixo `d` (dias), `h` (horas), `m` (minutos). Ex: `7d`, `24h`. |
-| `MAX_CCONCURRENT`     | `4`     | Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente. Reduzir para `2`–`3` se o Zabbix ficar lento ou retornar timeouts. |
-| `API_TIMEOUT_SECONDS` | `60`    | Timeout em segundos de cada requisição HTTP à API do Zabbix. Timeouts de rede são registrados em log e não tentam retry. Aumentar para `90`–`120` em ambientes com muitos hosts/itens. |
-| `APP_DEBUG`           | _(vazio)_ | `1` ou `true` para ativar logs detalhados de cada requisição/resposta da API Zabbix.        |
-
----
-
-## Fluxo geral de geração
-
-A função principal é `generateZabbixReport(url, token string, progressCb func(string))` em `cmd/app/main.go`.
-
-- `url` e `token` devem ser não-vazios — a função retorna erro imediatamente se qualquer um estiver vazio.
-- `url` pode ser fornecida como `http://host/` ou `http://host/api_jsonrpc.php` — ambas são aceitas, o sufixo `/api_jsonrpc.php` é adicionado apenas quando necessário.
-- `progressCb` é passada como parâmetro (não global), tornando chamadas concorrentes completamente isoladas.
-
-```
-POST /api/start
-  → valida url e token (retorna 400 se vazios)
-  → cria Task em memória → goroutine: generateZabbixReport(url, token, progressCb)
-      → progressCb() atualiza mensagem de progresso (parâmetro, não global)
-      → retorna HTML fragment
-      → salva no PostgreSQL (se DB_HOST configurado)
-
-GET /api/progress/:id      → polling de status + mensagem de progresso
-GET /api/report/:id        → retorna o HTML fragment gerado (sessão atual)
-GET /api/reportdb/:id      → retorna relatório salvo no banco
-GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
-```
-
-A geração detecta a versão do Zabbix via `apiinfo.version` e ajusta chamadas e listas de processos automaticamente para Zabbix 6 e 7.
-
----
-
-## Guias do Relatório
-
-O relatório é dividido em 7 guias. A seguir a documentação completa de cada uma.
-
----
-
-## Guia 1: Resumo do Ambiente (`tab-resumo`)
-
-### O que é
-
-Visão consolidada do ambiente Zabbix com os principais contadores. É a guia exibida por padrão ao carregar o relatório. Inclui dois gráficos doughnut (gauge) para visualização rápida de hosts desabilitados e itens não suportados.
-
-### Tabela exibida
-
-| Parâmetro | Valor | Detalhes |
-|-----------|-------|----------|
-| Número de hosts | total | habilitados / desabilitados |
-| Número de templates | contagem | — |
-| Número de itens | total | habilitados / desabilitados / não suportados |
-| Número de Proxys | contagem | — |
-| Número de usuários | contagem | — |
-| Required server performance (NVPS) | float | new values per second |
-
-**Gauges:**
-- **Hosts Desabilitados** — doughnut com proporção habilitados vs desabilitados
-- **Itens Não Suportados** — doughnut com proporção suportados vs não suportados
-
-### Chamadas à API do Zabbix
-
-As chamadas de resumo são executadas em **paralelas** (via `sync.WaitGroup`), reduzindo o tempo de coleta inicial significativamente:
-
-| Goroutine | Chamadas executadas | Dados extraídos |
-|-----------|--------------------|-----------------|
-| 1 | `user.get` | Contagem de usuários |
-| 2 | `host.get` ×3 | Total, habilitados e desabilitados |
-| 3 | `template.get` | Total de templates |
-| 4 | `item.get` ×3 | Total, habilitados e desabilitados de itens |
-| 5 | `item.get` (não suportados) | Total de itens não suportados |
-
-Chamadas executadas fora de resumo (sempre seriais, pois outras partes dependem delas):
-
-| Chamada | Parâmetros relevantes | Dado extraído |
-|---------|----------------------|---------------|
-| `apiinfo.version` | _(sem auth)_ | Versão do Zabbix; determina o `majorV` usado em todo o relatório |
-| `item.get` | `filter:{key_:"zabbix[requiredperformance]"}, hostids:<ZABBIX_SERVER_HOSTID>` | Localiza o item de NVPS |
-| `history.get` | `itemids:<id>, sortorder:DESC, limit:1` | Último valor do item NVPS |
-| `proxy.get` | `output:extend` | Lista completa de proxies (usada em outras guias); contagem derivada de `len(proxies)` |
-
-### Funções Go responsáveis
-
-| Função | Descrição |
-|--------|-----------|
-| `getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)` | Localiza o item NVPS com cache em memória |
-| `getLastHistoryValue(apiUrl, token, itemid, histType)` | Busca o último valor do history para o NVPS |
-| `getProxies(apiUrl, token)` | Retorna lista completa de proxies; a contagem de proxies é derivada de `len(proxies)` |
-
----
-
-## Guia 2: Zabbix Server (`tab-processos`)
-
-### O que é
-
-Exibe o nível de utilização dos processos internos do Zabbix Server, divididos em dois grupos:
-
-- **Pollers (Data Collectors):** processos que coletam métricas ativamente (`poller`, `http poller`, `icmp pinger`, `agent poller`, `snmp poller`, etc.)
-- **Internal Processes:** processos de infraestrutura do servidor (`history syncer`, `housekeeper`, `escalator`, `trapper`, `lld manager`, etc.)
-
-Para cada processo é exibido `min`, `avg` e `max` de utilização (%), além de status visual **OK** (avg < 60%) ou **Atenção** (avg ≥ 60%).
-
-### Tabela exibida
-
-| Coluna | Descrição |
-|--------|-----------|
-| Poller / Processo | Nome com ícone `?` de tooltip com descrição do parâmetro `zabbix_server.conf` |
-| value_min | Mínimo de utilização no período (`CHECKTRENDTIME`) |
-| value_avg | Média de utilização no período |
-| value_max | Pico de utilização no período |
-| Status | Verde OK / Vermelho Atenção / Cinza não habilitado |
-
-### Chamadas à API do Zabbix
-
-#### 1. `item.get` — busca bulk de todos os processos (1 chamada única)
-
-Antes de disparar as goroutines de trend/history, o código faz **uma única chamada** `item.get` que cobre todos os processos (pollers + internal) de uma vez:
-
-```json
-{
-  "method": "item.get",
-  "params": {
-    "output": ["itemid", "hostid", "name", "key_", "value_type"],
-    "search": {
-      "key_": [
-        "*agent*poller*",
-        "*browser*poller*",
-        "*configuration*syncer*",
-        "*history*syncer*",
-        "*housekeeper*",
-        "*poller*",
-        "..."
-      ]
-    },
-    "searchByAny": true,
-    "searchWildcardsEnabled": true,
-    "hostids": "<ZABBIX_SERVER_HOSTID>"
-  }
-}
-```
-
-- Cada nome de processo é convertido para um padrão wildcard por `nameToWildcard`: `"agent poller"` → `"*agent*poller*"`. Isso funciona tanto com chaves `agent poller` quanto `agent_poller`.
-- `searchByAny: true` faz o Zabbix retornar qualquer item que case com **ao menos um** padrão.
-- Os items retornados são mapeados de volta a cada nome via `wildcardMatch` (client-side), priorizando o padrão mais específico (mais palavras) para evitar colisões entre `*poller*` e `*agent*poller*`.
-- Se `ZABBIX_SERVER_HOSTID` não estiver definida, o parâmetro `hostids` é omitido.
-
-#### 2a. `trend.get` bulk — **1 chamada** para todos os processos (pollers + internos)
-
-Após o `item.get` da fase 1, todos os `itemid`s resolvidos são agrupados e enviados numa **única chamada** `trend.get`:
-
-```json
-{
-  "method": "trend.get",
-  "params": {
-    "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
-    "itemids": ["<id1>", "<id2>", "..."],
-    "time_from": "<agora - CHECKTRENDTIME>",
-    "time_to": "<agora>"
-  }
-}
-```
-
-Todos os registros do período são retornados de uma vez. O código agrega os pontos de cada `itemid` separadamente: `value_min` = mínimo global, `value_avg` = média das médias, `value_max` = máximo global.
-
-#### 2b. `history.get` bulk — **1 chamada** de fallback para itens sem dados de trend
-
-Quando um `itemid` não retornou registros no `trend.get` (item com `trends=0` ou retenção expirada), os ids faltantes são agrupados por `value_type` e buscados em **no máximo 2 chamadas** `history.get` (uma por tipo: float `0` e inteiro `3`):
-
-```json
-{
-  "method": "history.get",
-  "params": {
-    "output": ["itemid", "clock", "value"],
-    "history": 0,
-    "itemids": ["<id_sem_trend1>", "<id_sem_trend2>", "..."],
-    "time_from": "<agora - CHECKTRENDTIME>",
-    "time_till": "<agora>",
-    "sortorder": "ASC",
-    "limit": 5000
-  }
-}
-```
-
-O `min/avg/max` é calculado manualmente a partir dos pontos retornados, por `itemid`.
-
-> **Resultado:** toda a seção Zabbix Server gera **no máximo 3 chamadas à API** — 1 `item.get` + 1 `trend.get` + 1 `history.get` — independentemente do número de processos monitorados.
-
-### Funções Go responsáveis
-
-| Função | Descrição |
-|--------|-----------|
-| `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
-| `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome de processo |
-| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna `map[nomeLowercase]item` |
-| `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids. Agrega todos os pontos do período por itemid (min/avg/max). Retorna `map[itemid]stats` |
-| `getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)` | Fallback: agrupa ids por `value_type`, faz **no máximo 2 `history.get`**. Calcula min/avg/max por itemid. Retorna `map[itemid]stats` |
-
-### Lógica de versão
-
-| Zabbix | Pollers extras |
-|--------|---------------|
-| ≥ 7 | Inclui `agent poller`, `browser poller`, `http agent poller`, `snmp poller` |
-| 6 | Esses quatro aparecem como "Não existe nesta versão do Zabbix" |
-
-### Lógica de status
-
-| Condição | Exibição |
-|----------|----------|
-| `item.get` retorna vazio | Cinza — "Processo não habilitado" |
-| `trend.get` e `history.get` vazios | Cinza — "Processo não habilitado" |
-| `ZABBIX_SERVER_HOSTID` definido mas hostid inválido | Cinza — "Hostid X não encontrado" |
-| avg < 60% | Verde — OK |
-| avg ≥ 60% | Vermelho — Atenção |
-| Erro em qualquer chamada | "Erro ao obter dados" |
-
-### Como adicionar um novo processo
-
-São **3 lugares** em `cmd/app/main.go`:
-
-**1. `procDesc`** — descrição exibida no tooltip `?` (obrigatório, chave em lowercase):
-```go
-"novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
-```
-
-**2. Tabela correta:**
-
-- **Pollers (Data Collectors)** → adicione em `commonPollers` ou dentro de `if majorV >= 7`:
-```go
-commonPollers := []string{
-    ...
-    "novo poller",  // ← aqui
-}
-// ou exclusivo do Zabbix 7+:
-if majorV >= 7 {
-    pollerNames = append([]string{"novo poller"}, pollerNames...)
-}
-```
 
 - **Internal Process** → adicione em `procNames`:
 ```go
@@ -508,38 +255,6 @@ if majorV >= 7 {
 
 ---
 
-## Guia: Usuários (`tab-usuarios`)
-
-### O que é
-
-Esta guia exibe se a conta administrativa padrão do Zabbix (`Admin`) existe e realiza um teste simples para verificar se ainda aceita a senha padrão `zabbix`.
-
-Observações importantes:
-- O relatório NÃO busca a lista completa de usuários — ele faz uma chamada `user.get` filtrando apenas pelo `username = Admin`.
-- Quando a conta `Admin` é encontrada e aparece habilitada, o relatório realiza uma tentativa de autenticação `user.login` com as credenciais `Admin`/`zabbix` (teste *best-effort*). O token retornado pela API não é armazenado; serve apenas para detectar se a senha padrão ainda funciona.
-- Se a conta `Admin` estiver desabilitada, o KPI/recomendação de conta padrão é considerado OK e o teste de senha não é exibido.
-
-### Tabela exibida
-
-| Coluna | Descrição |
-|--------|-----------|
-| Usuário | Nome do usuário (ex: `Admin`) |
-| Nome Completo | Nome completo do usuário |
-| Senha Padrão | Indica se a conta aceita a senha padrão `zabbix` (Sim/Não) |
-
-### Chamadas à API do Zabbix
-
-| Chamada | Parâmetros relevantes | Observação |
-|---------|-----------------------|-----------|
-| `user.get` | `filter: { username: "Admin" }, output: ["userid","username","name","surname"]` | Busca apenas a conta `Admin`, evitando varredura de todos os usuários |
-| `user.login` | `username: "Admin", password: "zabbix"` | Tentativa de autenticação para verificar se a senha padrão é válida (best-effort). Retorna token em caso de sucesso, que é descartado imediatamente |
-
-### Recomendações geradas
-
-Se a conta `Admin` existir e aceitar a senha padrão, o relatório adiciona automaticamente uma recomendação na seção "Conta Admin padrão do Zabbix detectada" com orientações para alterar/desabilitar a conta.
-
----
-
 ## Guia 4: Items e LLDs (`tab-items`)
 
 ### O que é
@@ -672,6 +387,22 @@ Exibe quatro rankings baseados nos itens não suportados coletados:
 | Mensagem de Erro | Template | Ocorrências |
 |------------------|----------|-------------|
 
+**Como é gerado (Top Erros):**
+
+O relatório coleta itens com `state:1` (itens não suportados) usando uma chamada `item.get` com os seguintes parâmetros principais:
+
+```json
+{
+  "output": ["itemid","name","templateid","error","key_"],
+  "filter": { "state": 1 },
+  "selectHosts": ["name","hostid"],
+  "inherited": true
+}
+```
+
+O código itera sobre cada item retornado e preenche o mapa `errorCounter` com chaves formadas por `errorMsg + "|" + realTplId` (onde `realTplId` é o ID canônico do template, obtido via `cacheTemplateHostID[item["templateid"]]` ou `no_template`). Em seguida `topErrors` é gerado ordenando `errorCounter` por contagem decrescente, produzindo a tabela "Tipos de Erro Mais Comuns" exibida nesta guia.
+
+
 ### Chamadas à API do Zabbix
 
 **Nenhuma chamada nova.** Todos os dados vêm dos agrupamentos feitos na fase inicial sobre o `item.get` com `state:1`. Os contadores são:
@@ -684,6 +415,55 @@ Exibe quatro rankings baseados nos itens não suportados coletados:
 O `realTplId` é derivado de `cacheTemplateHostID[item["templateid"]]`, garantindo que todos os itens do mesmo template sejam agrupados sob uma única chave. Sem essa conversão, o mesmo template poderia aparecer múltiplas vezes nos rankings com contagens separadas.
 
 O Top N é 10 por padrão (constante `topN = 10`).
+
+---
+
+## Guia: Usuários (`tab-usuarios`)
+
+### O que é
+
+Esta guia verifica se a conta administrativa padrão do Zabbix (`Admin`) existe e executa um teste best-effort para detectar se ela ainda aceita a senha padrão `zabbix`.
+
+Pontos importantes:
+- O relatório **não** lista todos os usuários — executa um `user.get` filtrando apenas `username = Admin` para evitar varredura completa.
+- Quando a conta `Admin` existe e parece habilitada, o relatório tenta `user.login` com `Admin`/`zabbix`. O token retornado não é armazenado; o cheque serve apenas para detectar exposição de senha padrão.
+- Se a conta `Admin` estiver ausente ou claramente desabilitada, o teste de senha é pulado e o KPI é considerado seguro.
+
+### Como é detectado que a conta está habilitada (best-effort)
+
+O código inspeciona campos comuns retornados por `user.get` (`status`, `disabled`) e aceita várias representações (numérica, booleana ou string). Exemplos que são interpretados como **desabilitado** incluem:
+
+- `status != 0` (numérico)
+- `disabled == true` (booleano) ou `disabled == "1"` / `"true"` (string)
+
+Se nenhum desses marcadores indicar que a conta está desabilitada e o `username` for `Admin`, a conta é tratada como presente e habilitada para executar o teste de senha padrão.
+
+### Tabela exibida
+
+| Coluna | Descrição |
+|--------|-----------|
+| Usuário | Nome do usuário (ex: `Admin`) |
+| Nome Completo | Nome completo do usuário |
+| Senha Padrão | Badge indicando se `Admin` aceita a senha padrão `zabbix` (Sim / Não) |
+
+### Chamadas à API do Zabbix
+
+| Chamada | Parâmetros relevantes | Observação |
+|---------|-----------------------|-----------|
+| `user.get` | `countOutput:true` (resumo) | Conta de usuários exibida no sumário |
+| `user.get` | `filter:{username:"Admin"}, output:["userid","username","name","surname"]` | Busca somente a conta `Admin` para exibir a tabela de uma linha (evita varredura completa) |
+| `user.login` | `username:"Admin", password:"zabbix"` | Tentativa de autenticação best-effort para detectar se a senha padrão é válida (token descartado) |
+
+Observações:
+- O teste de senha é não-destrutivo e pode falhar silenciosamente devido a limites da API, erros de rede ou permissões insuficientes. Falhas são logadas em nível debug.
+
+### Comportamento na interface e recomendações
+
+- Se `Admin` existir e aceitar `zabbix`, a guia mostra um alerta crítico (vermelho) e a tabela marca a coluna "Senha Padrão" como `Sim`.
+- Se `Admin` existir mas a senha padrão for rejeitada, exibe-se um alerta mais brando e a tabela mostra `Não`.
+- Se `Admin` não existir ou estiver desabilitado, a guia exibe a mensagem localizada `users.no_data`.
+
+O relatório também inclui uma recomendação automática quando detecta a conta `Admin` com senha padrão, orientando a alterar ou desabilitar a conta.
 
 ---
 
@@ -1171,7 +951,7 @@ Toda vez que um relatório é gerado com sucesso, ele é **salvo automaticamente
 
 > **O banco de dados é opcional.** O app funciona normalmente sem PostgreSQL — os relatórios ficam disponíveis apenas na sessão atual (in-memory) e se perdem ao reiniciar o container.
 >
-> Para habilitar a persistência, defina `DB_HOST` (e opcionalmente as demais variáveis `DB_*`) e suba o serviço `postgres` com o profile `db` (veja detalhes em [docker.md](docker.md)).
+> Para habilitar a persistência, defina `DB_HOST` (e opcionalmente as demais variáveis `DB_*`) e suba o serviço `postgres` com o profile `db` (veja detalhes em [Instalação](installation.md)).
 
 Quando `DB_HOST` **não** está configurada:
 - O card **Relatórios Salvos** é **ocultado automaticamente** na interface web
@@ -1326,169 +1106,105 @@ curl -X DELETE http://localhost:8080/api/reports
 O relatório é dividido em guias (tabs). Esta seção documenta cada uma delas: o que exibe, quais chamadas à API do Zabbix são feitas, qual função Go gera o HTML e como os dados são tratados.
 
 ---
+ 
+---
 
-## Guia: Zabbix Server (`tab-processos`)
+---
 
-### O que é
+## Internacionalização (i18n)
 
-Exibe o nível de utilização dos processos internos do Zabbix Server, divididos em dois grupos:
+A interface e o relatório suportam múltiplos idiomas. Atualmente estão disponíveis **Português (pt_BR)** — idioma padrão — e **Inglês (en_US)**.
 
-- **Pollers (Data Collectors):** processos responsáveis por coletar métricas ativamente dos agentes (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)
-- **Internal Processes:** processos de infraestrutura do servidor (history syncer, housekeeper, escalator, trapper, lld manager, etc.)
+### Seletor de idioma
 
-Para cada processo é exibido o **mínimo**, **média** e **máximo** de utilização (%), além de um status visual **OK** (< 50%) ou **Atenção** (≥ 50%).
+O seletor fica no **header** da página, à direita do título "ZBX-Easy". Ao trocar o idioma a interface é traduzida instantaneamente (sem recarregar).
 
-### Tabela exibida
+A preferência é salva no `localStorage` do navegador com a chave `zbx-lang` e restaurada automaticamente nas próximas visitas.
 
-| Coluna       | Descrição                                                  |
-|--------------|------------------------------------------------------------|
-| Poller / Processo | Nome do processo com ícone `?` de tooltip explicativo |
-| value_min    | Mínimo de utilização no período analisado                  |
-| value_avg    | Média de utilização no período analisado                   |
-| value_max    | Pico de utilização no período analisado                    |
-| Status       | `OK` (verde, avg < 50%) ou `Atenção` (vermelho, avg ≥ 50%) ou cinza quando não habilitado |
+### Como funciona
 
-### Variáveis de ambiente que influenciam esta guia
+| Componente | Arquivo | Responsabilidade |
+|---|---|---|
+| Dicionários | `app/web/locales/pt_BR/messages.json` e `app/web/locales/en_US/messages.json` | Contêm todas as traduções no formato `"chave": "texto traduzido"` |
+| Runtime JS | `app/web/static/script.js` | Funções `t()`, `applyI18n()`, `setLang()` e `initI18n()` que carregam e aplicam as traduções |
+| HTML template | `app/web/templates/index.html` | Usa atributos `data-i18n`, `data-i18n-placeholder`, `data-i18n-title` e `data-i18n-aria` |
+| Backend Go | `app/cmd/app/main.go` | Emite HTML com atributos `data-i18n` e `data-i18n-args` para textos dinâmicos do relatório |
 
-| Variável              | Padrão | Descrição                                                                                   |
-|-----------------------|--------|---------------------------------------------------------------------------------------------|
-| `ZABBIX_SERVER_HOSTID`| _(vazio)_ | ID do host do Zabbix Server no Zabbix. Se não definida, a busca ignora o filtro por host e pode retornar qualquer host que tenha a chave. Recomendado definir para garantir precisão. |
-| `CHECKTRENDTIME`      | `30d`  | Janela de tempo para análise dos trends/histórico. Aceita sufixo `d` (dias), `h` (horas), `m` (minutos). Ex: `7d`, `24h`. |
-| `MAX_CCONCURRENT`     | `6`    | Numero de processos que podem ser executados em concorrência nas chamadas paralelas à API do Zabbix.                            |
+### Atributos de tradução
 
-### Chamadas à API do Zabbix
+O sistema de i18n utiliza atributos HTML que são processados pelo JavaScript no lado do cliente:
 
-Cada processo da lista consulta o **mapa pré-carregado** por `getProcessItemsBulk` (1 chamada feita antes das goroutines) e depois faz **duas chamadas** paralelas para obter os dados de trend/history:
+| Atributo | Alvo | Exemplo |
+|---|---|---|
+| `data-i18n="chave"` | `textContent` do elemento | `<span data-i18n="tabs.summary"></span>` |
+| `data-i18n-args="val1\|val2"` | Argumentos `%s` / `%d` na tradução | `<span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"></span>` |
+| `data-i18n-placeholder="chave"` | `placeholder` de inputs | `<input data-i18n-placeholder="placeholder_url">` |
+| `data-i18n-title="chave"` | `title` (tooltip nativo) | `<div data-i18n-title="kpi.server_attention"></div>` |
+| `data-i18n-aria="chave"` | `aria-label` | `<button data-i18n-aria="aria_new_report"></button>` |
 
-#### 1. `item.get` bulk — localizar todos os itens de processos (1 chamada única)
+### Estrutura dos arquivos de locale
 
-```json
-{
-  "method": "item.get",
-  "params": {
-    "output": ["itemid", "hostid", "name", "key_", "value_type"],
-    "search": { "key_": ["*agent*poller*", "*poller*", "*history*syncer*", "..."] },
-    "searchByAny": true,
-    "searchWildcardsEnabled": true,
-    "hostids": "<ZABBIX_SERVER_HOSTID>"
-  }
-}
+```
+app/web/locales/
+├── pt_BR/
+│   └── messages.json      # ~290 chaves — Português (Brasil)
+└── en_US/
+    └── messages.json      # ~290 chaves — Inglês (EUA)
 ```
 
-- A chave **não** é mais `zabbix[process,<nome>,avg,busy]` — é buscada por wildcard e casa com qualquer formato de chave (espaço ou underscore).
-- Se `ZABBIX_SERVER_HOSTID` não estiver definida, o parâmetro `hostids` é omitido.
-- Resultado vazio para um processo → marcado como **"Processo não habilitado"** (cinza).
+Cada arquivo é um JSON plano (`"chave": "valor"`). Chaves com `%s` ou `%d` aceitam argumentos posicionais passados via `data-i18n-args`.
 
-#### 2a. `trend.get` — buscar estatísticas de trend (primária)
+### Categorias de chaves
 
-```json
-{
-  "method": "trend.get",
-  "params": {
-    "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
-    "itemids": ["<itemid>"],
-    "time_from": "<agora - CHECKTRENDTIME>",
-    "time_to": "<agora>",
-    "limit": 1
-  }
-}
-```
+| Prefixo | Conteúdo |
+|---|---|
+| `label_*`, `btn_*`, `placeholder_*`, `aria_*`, `tooltip_*` | Interface (formulário, botões, campos) |
+| `progress.*` | Mensagens de progresso durante a geração |
+| `tabs.*` | Nomes das guias do relatório |
+| `section.*` | Títulos de seções (h3) no relatório |
+| `tip.*` | Textos de tooltip explicativo (ícone ?) |
+| `table.*` | Cabeçalhos de tabelas |
+| `summary.*` | Linhas da tabela de resumo do ambiente |
+| `gauge.*` | Legendas dos gráficos doughnut |
+| `proxy.*` | Rótulos de proxies (sumário, status) |
+| `items.*`, `lld.*` | Parágrafos explicativos de items/LLD |
+| `types.*` | Tipos de item (Zabbix Agent, SNMP, etc.) |
+| `kpi.*` | KPIs da guia Recomendações |
+| `sub.*` | Subtítulos das seções de Recomendações |
+| `rec.*` | Frases auxiliares de Recomendações |
+| `procdesc.*` | Descrições de processos internos (tooltips) |
+| `badge.*` | Badges nos cards de recomendação |
+| `error.*`, `stats.*`, `process.*` | Mensagens de erro e status |
 
-- Retorna o último registro de trend no período configurado.
-- Resultado `[]` → aciona o fallback abaixo.
+### Fluxo de carregamento
 
-#### 2b. `history.get` — fallback quando trend não está disponível
+1. Ao carregar a página, `initI18n()` lê `localStorage.zbx-lang` (fallback: `pt_BR`).
+2. Faz `fetch('/locales/{lang}/messages.json?cb=<timestamp>')` — o parâmetro `cb` evita cache.
+3. Armazena o dicionário em `_i18n` e chama `applyI18n()`.
+4. `applyI18n()` percorre todos os elementos com `data-i18n*` e substitui o conteúdo/atributo pela tradução.
+5. Quando o relatório é inserido dinamicamente (via AJAX), `applyI18n()` é chamado novamente para traduzir o HTML injetado pelo servidor.
 
-```json
-{
-  "method": "history.get",
-  "params": {
-    "output": ["value"],
-    "history": 0,
-    "itemids": ["<itemid>"],
-    "time_from": "<agora - CHECKTRENDTIME>",
-    "time_to": "<agora>",
-    "sortfield": "clock",
-    "sortorder": "ASC",
-    "limit": 2000
-  }
-}
-```
+### Tradução no servidor (Go)
 
-- Usado quando o item tem `trends=0` configurado no Zabbix, ou quando o período de retenção de trends já expirou.
-- O código coleta até 2.000 pontos e calcula manualmente `min`, `avg` e `max`.
-- Resultado ainda `[]` → processo marcado como **"Processo não habilitado"** (cinza).
+O backend **não** traduz os textos — ele emite HTML com marcadores `data-i18n` que o JavaScript traduz no cliente. Exemplos:
 
-### Função Go responsável
-
-**Arquivo:** `cmd/app/main.go`  
-**Função:** `generateZabbixReport(url, token string)` — o bloco da guia começa em torno da linha marcada com `// --- Processos e Threads Zabbix Server ---`
-
-#### Helpers utilizados
-
-| Função | Descrição |
-|--------|-----------|
-| `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
-| `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome |
-| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade). Retorna `map[nomeLowercase]item` |
-| `getLastTrend(apiUrl, token, itemid, days)` | Faz `trend.get` para o itemid no período configurado. Respeita `CHECKTRENDTIME`. |
-| `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: faz `history.get`, coleta até 2.000 pontos e retorna `{value_min, value_avg, value_max}` calculados. |
-
-#### Lógica de versão
-
-A lista de pollers varia conforme a versão do Zabbix detectada via `apiinfo.version`:
-
-- **Zabbix ≥ 7:** inclui `agent poller`, `browser poller`, `http agent poller`, `snmp poller`
-- **Zabbix 6:** esses quatro são exibidos como **"Não existe nesta versão do Zabbix"**
-
-#### Lógica de status
-
-| Condição                          | Exibição                                      |
-|-----------------------------------|-----------------------------------------------|
-| `item.get` retorna vazio          | Cinza — "Processo não habilitado"             |
-| `trend.get` e `history.get` vazios| Cinza — "Processo não habilitado"             |
-| `value_avg < 50%`                 | Verde — "OK"                                  |
-| `value_avg ≥ 50%`                 | Vermelho — "Atenção"                          |
-| Erro em qualquer chamada API      | "Erro ao obter dados"                         |
-
-#### Paralelismo
-
-Tanto os pollers quanto os internal processes são coletados em **goroutines paralelas**, controladas por um semáforo com capacidade `MAX_CCONCURRENT`. Os resultados são reordenados pelo índice original para manter a ordem de exibição, depois reordenados por `value_avg` decrescente (processos mais utilizados aparecem primeiro).
-
-### Como adicionar um novo processo à lista
-
-São **3 lugares** em `cmd/app/main.go`:
-
-**1. `procDesc`** — descrição exibida no tooltip `?` (chave em lowercase):
 ```go
-"novo processo": `Parâmetro "StartNovoProcesso": descrição e quando ajustar.`,
+// Título de seção com tooltip
+html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|15d")
+
+// Sub-seção numerada
+html += nextSub(&sub, "i18n:sub.items_unsupported")
+
+// Tabela com cabeçalhos traduzíveis
+html += `<th data-i18n='table.description'></th>`
+
+// Célula com argumentos
+html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'></span>`
 ```
 
-**2. Tabela correta:**
+Os helpers `titleWithInfo()` e `nextSub()` detectam o prefixo `i18n:` e geram automaticamente os atributos `data-i18n` e `data-i18n-args`.
 
-- **Pollers (Data Collectors)** → `commonPollers` ou bloco `if majorV >= 7`:
-```go
-commonPollers := []string{
-    ...
-    "novo poller",
-}
-// ou exclusivo do Zabbix 7+:
-if majorV >= 7 {
-    pollerNames = append([]string{"novo poller"}, pollerNames...)
-}
-```
-
-- **Internal Process** → slice `procNames`:
-```go
-procNames := []string{
-    ...
-    "novo processo",
-}
-```
-
-**3. Regra do nome:** use o nome exatamente como aparece na chave do item no Zabbix (com espaço ou underscore). A função `nameToWildcard` converte automaticamente — `"agent poller"` → `"*agent*poller*"` — casando com `agent poller`, `agent_poller` ou qualquer variante.
-
---- 
+---
 
 ## Chamadas à API do Zabbix utilizadas
 
@@ -1590,121 +1306,9 @@ Abaixo estão listadas as principais chamadas feitas pelo backend Go à API do Z
   - Online: `{ "output": "proxyid", "filter": { "status": 0 } }`
   - Offline: `{ "output": "proxyid", "filter": { "status": 1 } }`
 
-## Top Erros
-  Verifica os tops erros de itens, triggers e LLD rules, ordenados por número de falhas.
-
-  Chamada API usada para coletar os itens com erro (itens "não suportados"):
-
-  Parâmetros: item.get com
-  output: ["itemid","name","templateid","error","key_"]
-  filter: { "state": 1 }
-  webitems: 1
-  selectHosts: ["name","hostid"]
-  inherited: true
-  Como errorCounter é preenchido:
-
-  O código itera cada item retornado, extrai templateid, name, error e host.
-  Incrementa o mapa errorCounter com a chave formada por itemError + "|" + tplId, onde itemError é o texto do erro e tplId é o ID do template (ou "no_template" se não houver).
-  topErrors é percorrido para gerar a tabela de "Tipos de Erro Mais Comuns".
-
 ---
 
 Essas chamadas são feitas dinamicamente conforme a versão do Zabbix e os dados do ambiente. Consulte o código para detalhes de parâmetros opcionais e lógica de fallback.
-
----
-
-## Internacionalização (i18n)
-
-A interface e o relatório suportam múltiplos idiomas. Atualmente estão disponíveis **Português (pt_BR)** — idioma padrão — e **Inglês (en_US)**.
-
-### Seletor de idioma
-
-O seletor fica no **header** da página, à direita do título "ZBX-Easy". Ao trocar o idioma a interface é traduzida instantaneamente (sem recarregar).
-
-A preferência é salva no `localStorage` do navegador com a chave `zbx-lang` e restaurada automaticamente nas próximas visitas.
-
-### Como funciona
-
-| Componente | Arquivo | Responsabilidade |
-|---|---|---|
-| Dicionários | `app/web/locales/pt_BR/messages.json` e `app/web/locales/en_US/messages.json` | Contêm todas as traduções no formato `"chave": "texto traduzido"` |
-| Runtime JS | `app/web/static/script.js` | Funções `t()`, `applyI18n()`, `setLang()` e `initI18n()` que carregam e aplicam as traduções |
-| HTML template | `app/web/templates/index.html` | Usa atributos `data-i18n`, `data-i18n-placeholder`, `data-i18n-title` e `data-i18n-aria` |
-| Backend Go | `app/cmd/app/main.go` | Emite HTML com atributos `data-i18n` e `data-i18n-args` para textos dinâmicos do relatório |
-
-### Atributos de tradução
-
-O sistema de i18n utiliza atributos HTML que são processados pelo JavaScript no lado do cliente:
-
-| Atributo | Alvo | Exemplo |
-|---|---|---|
-| `data-i18n="chave"` | `textContent` do elemento | `<span data-i18n="tabs.summary"></span>` |
-| `data-i18n-args="val1\|val2"` | Argumentos `%s` / `%d` na tradução | `<span data-i18n="items.unsupported_paragraph" data-i18n-args="42\|3.50%"></span>` |
-| `data-i18n-placeholder="chave"` | `placeholder` de inputs | `<input data-i18n-placeholder="placeholder_url">` |
-| `data-i18n-title="chave"` | `title` (tooltip nativo) | `<div data-i18n-title="kpi.server_attention"></div>` |
-| `data-i18n-aria="chave"` | `aria-label` | `<button data-i18n-aria="aria_new_report"></button>` |
-
-### Estrutura dos arquivos de locale
-
-```
-app/web/locales/
-├── pt_BR/
-│   └── messages.json      # ~290 chaves — Português (Brasil)
-└── en_US/
-    └── messages.json      # ~290 chaves — Inglês (EUA)
-```
-
-Cada arquivo é um JSON plano (`"chave": "valor"`). Chaves com `%s` ou `%d` aceitam argumentos posicionais passados via `data-i18n-args`.
-
-### Categorias de chaves
-
-| Prefixo | Conteúdo |
-|---|---|
-| `label_*`, `btn_*`, `placeholder_*`, `aria_*`, `tooltip_*` | Interface (formulário, botões, campos) |
-| `progress.*` | Mensagens de progresso durante a geração |
-| `tabs.*` | Nomes das guias do relatório |
-| `section.*` | Títulos de seções (h3) no relatório |
-| `tip.*` | Textos de tooltip explicativo (ícone ?) |
-| `table.*` | Cabeçalhos de tabelas |
-| `summary.*` | Linhas da tabela de resumo do ambiente |
-| `gauge.*` | Legendas dos gráficos doughnut |
-| `proxy.*` | Rótulos de proxies (sumário, status) |
-| `items.*`, `lld.*` | Parágrafos explicativos de items/LLD |
-| `types.*` | Tipos de item (Zabbix Agent, SNMP, etc.) |
-| `kpi.*` | KPIs da guia Recomendações |
-| `sub.*` | Subtítulos das seções de Recomendações |
-| `rec.*` | Frases auxiliares de Recomendações |
-| `procdesc.*` | Descrições de processos internos (tooltips) |
-| `badge.*` | Badges nos cards de recomendação |
-| `error.*`, `stats.*`, `process.*` | Mensagens de erro e status |
-
-### Fluxo de carregamento
-
-1. Ao carregar a página, `initI18n()` lê `localStorage.zbx-lang` (fallback: `pt_BR`).
-2. Faz `fetch('/locales/{lang}/messages.json?cb=<timestamp>')` — o parâmetro `cb` evita cache.
-3. Armazena o dicionário em `_i18n` e chama `applyI18n()`.
-4. `applyI18n()` percorre todos os elementos com `data-i18n*` e substitui o conteúdo/atributo pela tradução.
-5. Quando o relatório é inserido dinamicamente (via AJAX), `applyI18n()` é chamado novamente para traduzir o HTML injetado pelo servidor.
-
-### Tradução no servidor (Go)
-
-O backend **não** traduz os textos — ele emite HTML com marcadores `data-i18n` que o JavaScript traduz no cliente. Exemplos:
-
-```go
-// Título de seção com tooltip
-html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|15d")
-
-// Sub-seção numerada
-html += nextSub(&sub, "i18n:sub.items_unsupported")
-
-// Tabela com cabeçalhos traduzíveis
-html += `<th data-i18n='table.description'></th>`
-
-// Célula com argumentos
-html += `<span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'></span>`
-```
-
-Os helpers `titleWithInfo()` e `nextSub()` detectam o prefixo `i18n:` e geram automaticamente os atributos `data-i18n` e `data-i18n-args`.
 
 ---
 

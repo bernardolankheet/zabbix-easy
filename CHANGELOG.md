@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [0.0.3] - 22/03/2026
+
+### Documentation updates (22/03/2026)
+
+- Reordered and consolidated documentation sections in both English and Portuguese (`docs/en/usage.md`, `docs/pt_BR/usage.md`): canonicalized the "Zabbix API calls" block and moved it to appear immediately before the API diagram; removed duplicate blocks.
+- Added expanded documentation for the `Users` tab (based on `app/cmd/app/main.go`) in both `docs/en/usage.md` and `docs/pt_BR/usage.md`.
+- Updated screenshots pages with more descriptive captions and added screenshots (`docs/en/screenshots.md`, `docs/pt_BR/screenshots.md`).
+- Added a prominent compatibility note stating the app is "tested and working on Zabbix 6.0, 6.4 and 7.0" to: `README.md`, `README_pt_br.md`, `docs/index.md`, and `docs/pt_BR/usage.md`.
+- Split README into English (`README.md`) and Portuguese (`README_pt_br.md`) versions; English README now the primary repo README.
+
+These documentation edits were applied to improve clarity, remove duplicate content, and align docs with the app's UI and code.
+
 ## [0.0.2] - 21/03/2026
 
 ## New Features and Improvements
