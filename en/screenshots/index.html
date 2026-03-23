@@ -16,7 +16,7 @@
     
     
       
-        <title>Docker - Zabbix Easy Report</title>
+        <title>Screenshots - Zabbix Easy Report</title>
       
     
     
@@ -60,7 +60,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docker" class="md-skip">
+        <a href="#screenshots" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -95,7 +95,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Docker
+              Screenshots
             
           </span>
         </div>
@@ -231,11 +231,11 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
+      <a href="../../pt_BR/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Changelog
+    Installation
   </span>
   
 
@@ -251,11 +251,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/installation/" class="md-nav__link">
+      <a href="../../pt_BR/usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Installation
+    Usage
   </span>
   
 
@@ -291,11 +291,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/docker/" class="md-nav__link">
+      <a href="../../pt_BR/screenshots/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Docker
+    Screenshots
   </span>
   
 
@@ -311,11 +311,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/usage/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Usage
+    Changelog
   </span>
   
 
@@ -371,69 +371,162 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#execution-modes" class="md-nav__link">
+  <a href="#login-screen" class="md-nav__link">
     <span class="md-ellipsis">
-      Execution Modes
+      Login screen
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#mode-1-without-database-default" class="md-nav__link">
+  <a href="#report-summary-view" class="md-nav__link">
     <span class="md-ellipsis">
-      Mode 1 — Without database (default)
+      Report: Summary view
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#mode-2-with-postgresql" class="md-nav__link">
+  <a href="#zabbix-server-pollers-view" class="md-nav__link">
     <span class="md-ellipsis">
-      Mode 2 — With PostgreSQL
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Mode 2 — With PostgreSQL">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#step-1-enable-database-variables-in-docker-composeyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      Step 1 — Enable database variables in docker-compose.yml
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-2-start-with-the-db-profile" class="md-nav__link">
-    <span class="md-ellipsis">
-      Step 2 — Start with the db profile
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-variables-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      Environment Variables Reference
+      Zabbix Server: pollers view
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#useful-commands" class="md-nav__link">
+  <a href="#zabbix-server-internal-details" class="md-nav__link">
     <span class="md-ellipsis">
-      Useful Commands
+      Zabbix Server: internal details
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zabbix-proxy-list-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix Proxy: list view
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#zabbix-proxy-specific-proxy-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix Proxy: specific proxy details
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#items-low-level-discovery-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Items: Low-level discovery examples
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-templates-and-associations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report: Templates and associations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-top-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report: Top items
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-users-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report: Users &amp; permissions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-recommendations-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report: Recommendations (overview)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation-topics-general" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendation topics: general
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation-topic-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendation topic: Templates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation-topic-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendation topic: Security
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendation-topic-items-snmpldd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendation topic: Items (SNMP/LDD)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#language-selector" class="md-nav__link">
+    <span class="md-ellipsis">
+      Language selector
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-buttons" class="md-nav__link">
+    <span class="md-ellipsis">
+      Action buttons
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database reports
     </span>
   </a>
   
@@ -457,98 +550,80 @@
   
 
 
-<h1 id="docker">Docker</h1>
-<h2 id="execution-modes">Execution Modes</h2>
-<p>Zabbix Easy supports two modes: <strong>without database</strong> (default) and <strong>with database</strong> for report persistence.
-The <code>DB_HOST</code> environment variable controls this: if empty, no database is used and the "Saved Reports" card is hidden. Reports are kept only for the current session (in-memory).</p>
-<pre><code class="language-go">var dbEnabled = os.Getenv(&quot;DB_HOST&quot;) != &quot;&quot;
-</code></pre>
+<h1 id="screenshots">Screenshots</h1>
+<p>Some screenshots of the app.</p>
+<!-- Screenshots gallery -->
+<h3 id="login-screen">Login screen</h3>
+<p>Screenshot of the login form where you enter the Zabbix API URL and token.</p>
+<p><img alt="Login screen" src="/img/screenshots/login.jpg" /></p>
 <hr />
-<h2 id="mode-1-without-database-default">Mode 1 — Without database (default)</h2>
-<p>Ideal for quick evaluation or environments where report history is not required.</p>
-<pre><code class="language-bash">docker compose up --build -d
-</code></pre>
-<ul>
-<li>Only the <code>go-app</code> service starts</li>
-<li>Reports are available <strong>only in the current session</strong> (in-memory)</li>
-<li>The <strong>Saved Reports</strong> card is <strong>automatically hidden</strong></li>
-<li>Restarting the container loses all reports</li>
-</ul>
+<h3 id="report-summary-view">Report: Summary view</h3>
+<p>Overview tab of a generated report with high-level metrics and badges.</p>
+<p><img alt="Report summary" src="/img/screenshots/report-summary.jpg" /></p>
 <hr />
-<h2 id="mode-2-with-postgresql">Mode 2 — With PostgreSQL</h2>
-<p>Persists all generated reports in PostgreSQL. Allows reopening, comparing and deleting past reports.</p>
-<h3 id="step-1-enable-database-variables-in-docker-composeyml">Step 1 — Enable database variables in <code>docker-compose.yml</code></h3>
-<p>Uncomment the <code>DB_*</code> block under the <code>go-app</code> service:</p>
-<pre><code class="language-yaml">environment:
-  - DB_HOST=postgres
-  - DB_PORT=5432
-  - DB_USER=postgres
-  - DB_PASSWORD=postgres
-  - DB_NAME=zabbix_report
-</code></pre>
-<h3 id="step-2-start-with-the-db-profile">Step 2 — Start with the <code>db</code> profile</h3>
-<pre><code class="language-bash">docker compose --profile db up --build -d
-</code></pre>
+<h3 id="zabbix-server-pollers-view">Zabbix Server: pollers view</h3>
+<p>Internal Zabbix Server metrics showing poller processes and their states.</p>
+<p><img alt="Zabbix Server - pollers" src="/img/screenshots/report-zabbix-server-pollers.jpg" /></p>
 <hr />
-<h2 id="environment-variables-reference">Environment Variables Reference</h2>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ZABBIX_SERVER_HOSTID</code></td>
-<td>10084</td>
-<td>Zabbix Server host ID for performance data collection.</td>
-</tr>
-<tr>
-<td><code>CHECKTRENDTIME</code></td>
-<td><code>30d</code></td>
-<td>Trend analysis window. Accepts <code>d</code>, <code>h</code>, <code>m</code>.</td>
-</tr>
-<tr>
-<td><code>MAX_CCONCURRENT</code></td>
-<td><code>4</code></td>
-<td>Parallel goroutines for Zabbix API calls.</td>
-</tr>
-<tr>
-<td><code>API_TIMEOUT_SECONDS</code></td>
-<td><code>60</code></td>
-<td>Per-request HTTP timeout in seconds.</td>
-</tr>
-<tr>
-<td><code>APP_DEBUG</code></td>
-<td><em>(empty)</em></td>
-<td><code>true</code> for verbose API request logs.</td>
-</tr>
-<tr>
-<td><code>DB_HOST</code></td>
-<td><em>(empty)</em></td>
-<td>PostgreSQL host. <strong>If empty, persistence is disabled.</strong></td>
-</tr>
-</tbody>
-</table>
+<h3 id="zabbix-server-internal-details">Zabbix Server: internal details</h3>
+<p>Detailed internal metrics for the Zabbix Server used by the report.</p>
+<p><img alt="Zabbix Server - internal" src="/img/screenshots/report-zabbix-server-internal.jpg" /></p>
 <hr />
-<h2 id="useful-commands">Useful Commands</h2>
-<pre><code class="language-bash"># Start without database
-docker compose up -d
-
-# Start with database
-docker compose --profile db up --build -d
-
-# View app logs
-docker logs -f go-zabbix-app
-
-# Stop everything (preserves data volume)
-docker compose --profile db down
-
-# Stop and remove data volume
-docker compose --profile db down -v
-</code></pre>
+<h3 id="zabbix-proxy-list-view">Zabbix Proxy: list view</h3>
+<p>List of configured Zabbix proxies as shown in the report (proxy list view).</p>
+<p><img alt="Zabbix Proxy - list" src="/img/screenshots/report-zabbix-proxy-list.jpg" /></p>
+<hr />
+<h3 id="zabbix-proxy-specific-proxy-details">Zabbix Proxy: specific proxy details</h3>
+<p>Detailed metrics and status for a selected Zabbix Proxy instance.</p>
+<p><img alt="Zabbix Proxy - details" src="/img/screenshots/report-zabbix-proxy-especific.jpg" /></p>
+<hr />
+<h3 id="items-low-level-discovery-examples">Items: Low-level discovery examples</h3>
+<p>Example report section showing LLD items and their intervals.</p>
+<p><img alt="Items LLD" src="/img/screenshots/report-items-lld.jpg" /></p>
+<hr />
+<h3 id="report-templates-and-associations">Report: Templates and associations</h3>
+<p>Templates tab showing template usage and linked hosts.</p>
+<p><img alt="Report templates" src="/img/screenshots/report-templates.jpg" /></p>
+<hr />
+<h3 id="report-top-items">Report: Top items</h3>
+<p>Top tab displaying highest-impact items and their metrics.</p>
+<p><img alt="Report top items" src="/img/screenshots/report-top.jpg" /></p>
+<hr />
+<h3 id="report-users-permissions">Report: Users &amp; permissions</h3>
+<p>User counts and potential misconfigurations (e.g., default admin account).</p>
+<p><img alt="Report users" src="/img/screenshots/report-users.jpg" /></p>
+<hr />
+<h3 id="report-recommendations-overview">Report: Recommendations (overview)</h3>
+<p>Recommendations generated by the app with categorized topics.</p>
+<p><img alt="Report recommendations" src="/img/screenshots/report-recommendations.jpg" /></p>
+<hr />
+<h3 id="recommendation-topics-general">Recommendation topics: general</h3>
+<p>Expanded view of recommendation topics and affected items.</p>
+<p><img alt="Recommendation topics" src="/img/screenshots/report-recommendations-topics.jpg" /></p>
+<hr />
+<h3 id="recommendation-topic-templates">Recommendation topic: Templates</h3>
+<p>Recommendations specifically about template usage and improvements.</p>
+<p><img alt="Recommendation topic - templates" src="/img/screenshots/report-recommendations-topics-templates.jpg" /></p>
+<hr />
+<h3 id="recommendation-topic-security">Recommendation topic: Security</h3>
+<p>Security-related recommendations such as default accounts and password issues.</p>
+<p><img alt="Recommendation topic - security" src="/img/screenshots/report-recommendations-topics-security.jpg" /></p>
+<hr />
+<h3 id="recommendation-topic-items-snmpldd">Recommendation topic: Items (SNMP/LDD)</h3>
+<p>Recommendations for item-level improvements including LLD and SNMP polls.</p>
+<p><img alt="Recommendation topic - items" src="/img/screenshots/report-recommendations-topics-items.jpg" /></p>
+<hr />
+<h3 id="language-selector">Language selector</h3>
+<p>Shows the language selection dropdown for PT/EN and how labels change.</p>
+<p><img alt="Language selector" src="/img/screenshots/languages.jpg" /></p>
+<hr />
+<h3 id="action-buttons">Action buttons</h3>
+<p>Primary buttons and controls used to generate or export reports.</p>
+<p><img alt="Action buttons" src="/img/screenshots/buttons.jpg" /></p>
+<hr />
+<h3 id="database-reports">Database reports</h3>
+<p>Load database reports.</p>
+<p><img alt="Database reports" src="/img/screenshots/database-report.jpg" /></p>
 
 
 

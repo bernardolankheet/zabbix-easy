@@ -12,7 +12,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../api/">
+        <link rel="next" href="../usage/">
       
       
       <link rel="icon" href="../../img/favicon.svg">
@@ -232,26 +232,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Changelog
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -393,6 +373,26 @@
   
   
     <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Usage
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../api/" class="md-nav__link">
         
   
@@ -413,11 +413,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../docker/" class="md-nav__link">
+      <a href="../screenshots/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Docker
+    Screenshots
   </span>
   
 
@@ -433,11 +433,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Usage
+    Changelog
   </span>
   
 
@@ -595,7 +595,7 @@
 </ul>
 <hr />
 <h2 id="opcao-1-docker-run-mais-simples">Opção 1 — Docker Run (mais simples)</h2>
-<p>Ideal para uso rápido, sem precisar clonar o repositório.</p>
+<p>Ideal para uso rápido, e sem necessidade de utilizar banco de dados.</p>
 <pre><code class="language-bash">docker run -d \
   --name zabbix-easy \
   -p 8080:8080 \
@@ -608,6 +608,9 @@
 <p><strong>Como encontrar o <code>ZABBIX_SERVER_HOSTID</code>:</strong> Acesse o frontend do Zabbix → <strong>Data Collection</strong> → pesquise pelo host "Zabbix Server" → abra o host e verifique o ID na URL. O valor padrão é <code>10084</code>.</p>
 </blockquote>
 <p>Acesse a interface em <code>http://localhost:8080</code>.</p>
+<p>UI: <img alt="UI form" src="/img/screenshots/ui-form.svg" /></p>
+<p>Sample report: <img alt="Report sample" src="/img/screenshots/report-sample.svg" /></p>
+<p>Helm deploy: <img alt="Helm install" src="/img/screenshots/helm-install.svg" /></p>
 <hr />
 <h2 id="opcao-2-docker-compose-sem-banco-de-dados">Opção 2 — Docker Compose (sem banco de dados)</h2>
 <p>Relatórios ficam disponíveis apenas na sessão atual. Ao reiniciar o container, os relatórios anteriores são perdidos.</p>

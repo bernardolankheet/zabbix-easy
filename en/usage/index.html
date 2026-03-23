@@ -231,11 +231,11 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
+      <a href="../../pt_BR/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Changelog
+    Installation
   </span>
   
 
@@ -251,11 +251,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/installation/" class="md-nav__link">
+      <a href="../../pt_BR/usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Installation
+    Usage
   </span>
   
 
@@ -291,11 +291,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/docker/" class="md-nav__link">
+      <a href="../../pt_BR/screenshots/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Docker
+    Screenshots
   </span>
   
 
@@ -311,11 +311,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/usage/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Usage
+    Changelog
   </span>
   
 
@@ -361,14 +361,21 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Índice
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#global-environment-variables" class="md-nav__link">
@@ -380,14 +387,203 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#general-flow" class="md-nav__link">
+  <a href="#overall-generation-flow" class="md-nav__link">
     <span class="md-ellipsis">
-      General flow
+      Overall generation flow
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="General flow">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#report-guides" class="md-nav__link">
+    <span class="md-ellipsis">
+      Report Guides
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-1-environment-summary-tab-resumo" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 1: Environment Summary (tab-resumo)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 1: Environment Summary (tab-resumo)">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-functions-responsible" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go functions responsible
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-2-zabbix-server-tab-processos" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 2: Zabbix Server (tab-processos)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 2: Zabbix Server (tab-processos)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-itemget-bulk-fetch-of-all-processes-1-single-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. item.get — bulk fetch of all processes (1 single call)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2a-trendget-bulk-1-call-for-all-processes-pollers-internal" class="md-nav__link">
+    <span class="md-ellipsis">
+      2a. trend.get bulk — 1 call for all processes (pollers + internal)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-historyget-bulk-fallback-for-items-without-trends-max-2-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      2b. history.get bulk — fallback for items without trends (max 2 calls)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#go-functions-responsible_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Go functions responsible
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-3-zabbix-proxies-tab-proxys" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide 3: Zabbix Proxies (tab-proxys)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide 3: Zabbix Proxies (tab-proxys)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tables-displayed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tables displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proxy-processes-keys-and-item-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Proxy Processes — keys and item types
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#version-logic" class="md-nav__link">
@@ -442,7 +638,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is" class="md-nav__link">
+  <a href="#what-it-is_3" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -460,7 +656,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#zabbix-api-calls" class="md-nav__link">
+  <a href="#zabbix-api-calls_3" class="md-nav__link">
     <span class="md-ellipsis">
       Zabbix API calls
     </span>
@@ -478,30 +674,8 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#step-2-itemget-bulk-1-call-all-processes-of-the-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Step 2 — item.get bulk (1 call, all processes of the proxy)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-trendget-bulk-1-call-all-items-of-the-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Step 3 — trend.get bulk (1 call, all items of the proxy)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-4-historyget-fallback-1-call-per-value_type-only-for-items-without-trend-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      Step 4 — history.get fallback (1 call per value_type, only for items without trend data)
-    </span>
-  </a>
+      </ul>
+    </nav>
   
 </li>
         
@@ -511,9 +685,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#go-functions" class="md-nav__link">
+  <a href="#zabbix-api-calls_4" class="md-nav__link">
     <span class="md-ellipsis">
-      Go functions
+      Zabbix API calls
     </span>
   </a>
   
@@ -521,131 +695,6 @@
         
           <li class="md-nav__item">
   <a href="#version-logic_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Version logic
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#status-logic" class="md-nav__link">
-    <span class="md-ellipsis">
-      Status logic
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#how-to-add-a-new-process-to-the-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      How to add a new process to the proxy
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#guide-users-tab-usuarios" class="md-nav__link">
-    <span class="md-ellipsis">
-      Guide: Users (tab-usuarios)
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Guide: Users (tab-usuarios)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#what-it-is_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      What it is
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#table-displayed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Table displayed
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#zabbix-api-calls_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Zabbix API calls
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#recommendations-generated" class="md-nav__link">
-    <span class="md-ellipsis">
-      Recommendations generated
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#guide-4-items-and-llds-tab-items" class="md-nav__link">
-    <span class="md-ellipsis">
-      Guide 4: Items and LLDs (tab-items)
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Guide 4: Items and LLDs (tab-items)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#what-it-is_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      What it is
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tables-displayed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tables displayed
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#zabbix-api-calls_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      Zabbix API calls
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#version-logic_2" class="md-nav__link">
     <span class="md-ellipsis">
       Version logic
     </span>
@@ -678,7 +727,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_3" class="md-nav__link">
+  <a href="#what-it-is_4" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -696,7 +745,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#zabbix-api-calls_3" class="md-nav__link">
+  <a href="#zabbix-api-calls_5" class="md-nav__link">
     <span class="md-ellipsis">
       Zabbix API calls
     </span>
@@ -729,7 +778,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_4" class="md-nav__link">
+  <a href="#what-it-is_5" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -747,9 +796,69 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#zabbix-api-calls_4" class="md-nav__link">
+  <a href="#zabbix-api-calls_6" class="md-nav__link">
     <span class="md-ellipsis">
       Zabbix API calls
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-users-tab-usuarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Users (tab-usuarios)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Users (tab-usuarios)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-enabled-is-detected-best-effort" class="md-nav__link">
+    <span class="md-ellipsis">
+      How "enabled" is detected (best-effort)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#table-displayed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls used
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ui-behavior-and-recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      UI behavior and recommendations
     </span>
   </a>
   
@@ -771,7 +880,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_5" class="md-nav__link">
+  <a href="#what-it-is_7" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1090,7 +1199,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_6" class="md-nav__link">
+  <a href="#what-it-is_8" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1141,7 +1250,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_7" class="md-nav__link">
+  <a href="#what-it-is_9" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1349,23 +1458,8 @@
   
 </li>
         
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#guide-zabbix-server-tab-processos" class="md-nav__link">
-    <span class="md-ellipsis">
-      Guide: Zabbix Server (tab-processos)
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Guide: Zabbix Server (tab-processos)">
-      <ul class="md-nav__list">
-        
           <li class="md-nav__item">
-  <a href="#what-it-is_8" class="md-nav__link">
+  <a href="#what-it-is_10" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1374,7 +1468,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#table-displayed_1" class="md-nav__link">
+  <a href="#table-displayed_3" class="md-nav__link">
     <span class="md-ellipsis">
       Table displayed
     </span>
@@ -1392,7 +1486,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#zabbix-api-calls_5" class="md-nav__link">
+  <a href="#zabbix-api-calls_7" class="md-nav__link">
     <span class="md-ellipsis">
       Zabbix API calls
     </span>
@@ -1453,7 +1547,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#version-logic_3" class="md-nav__link">
+  <a href="#version-logic_2" class="md-nav__link">
     <span class="md-ellipsis">
       Version logic
     </span>
@@ -1462,7 +1556,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#status-logic_1" class="md-nav__link">
+  <a href="#status-logic" class="md-nav__link">
     <span class="md-ellipsis">
       Status logic
     </span>
@@ -1488,102 +1582,6 @@
   <a href="#how-to-add-a-new-process-to-the-list" class="md-nav__link">
     <span class="md-ellipsis">
       How to add a new process to the list
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#zabbix-api-calls-used" class="md-nav__link">
-    <span class="md-ellipsis">
-      Zabbix API calls used
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Zabbix API calls used">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-apiinfoversion" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. apiinfo.version
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-userget" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. user.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-itemget" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. item.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-historyget" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. history.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-trendget" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. trend.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#6-hostget" class="md-nav__link">
-    <span class="md-ellipsis">
-      6. host.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#7-templateget" class="md-nav__link">
-    <span class="md-ellipsis">
-      7. template.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#8-discoveryruleget" class="md-nav__link">
-    <span class="md-ellipsis">
-      8. discoveryrule.get
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#9-proxyget" class="md-nav__link">
-    <span class="md-ellipsis">
-      9. proxy.get
     </span>
   </a>
   
@@ -1682,6 +1680,102 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#zabbix-api-calls-used_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls used
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Zabbix API calls used">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-apiinfoversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. apiinfo.version
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-userget" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. user.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-itemget" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. item.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-historyget" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. history.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-trendget" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. trend.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-hostget" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. host.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-templateget" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. template.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#8-discoveryruleget" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. discoveryrule.get
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#9-proxyget" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. proxy.get
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#diagram-zabbix-api-calls" class="md-nav__link">
     <span class="md-ellipsis">
       Diagram: Zabbix API Calls
@@ -1708,10 +1802,12 @@
   
 
 
-<h1 id="usage">Usage</h1>
+  <h1>Usage</h1>
+
+<h2 id="usage">Usage</h2>
 <ol>
-<li>Access the web interface</li>
-<li>Enter the Zabbix URL and token</li>
+<li>Open the web UI</li>
+<li>Enter the Zabbix API URL and token</li>
 <li>Wait for the report to be generated</li>
 <li>Export or print the report as needed</li>
 </ol>
@@ -1730,7 +1826,7 @@
 <tr>
 <td><code>ZABBIX_SERVER_HOSTID</code></td>
 <td><em>(empty)</em></td>
-<td>ID of the Zabbix Server host. Used to filter item calls by host. If not set, searches run without a host filter.</td>
+<td>ID of the Zabbix Server host. Used to filter item calls by host. If unset, searches are performed without host filter.</td>
 </tr>
 <tr>
 <td><code>CHECKTRENDTIME</code></td>
@@ -1740,51 +1836,418 @@
 <tr>
 <td><code>MAX_CCONCURRENT</code></td>
 <td><code>4</code></td>
-<td>Maximum parallel goroutines for Zabbix API calls. Reduce to <code>2</code>–<code>3</code> if Zabbix is slow or times out.</td>
+<td>Max number of concurrent goroutines making Zabbix API calls. Lower to <code>2</code>–<code>3</code> if the Zabbix server becomes slow or returns timeouts.</td>
 </tr>
 <tr>
 <td><code>API_TIMEOUT_SECONDS</code></td>
 <td><code>60</code></td>
-<td>Per-request timeout in seconds for Zabbix API HTTP calls. Increase to <code>90</code>–<code>120</code> for slow environments.</td>
+<td>HTTP request timeout in seconds for each Zabbix API call. Network timeouts are logged and not retried. Increase to <code>90</code>–<code>120</code> in large environments.</td>
 </tr>
 <tr>
 <td><code>APP_DEBUG</code></td>
 <td><em>(empty)</em></td>
-<td><code>1</code> or <code>true</code> to enable verbose API request/response logs.</td>
+<td><code>1</code> or <code>true</code> to enable detailed logging of each Zabbix API request/response.</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="general-flow">General flow</h2>
+<h2 id="overall-generation-flow">Overall generation flow</h2>
 <p>The main function is <code>generateZabbixReport(url, token string, progressCb func(string))</code> in <code>cmd/app/main.go</code>.</p>
 <ul>
-<li><code>url</code> and <code>token</code> must be non-empty — the function returns an error immediately if either is missing.</li>
-<li><code>url</code> may be provided as <code>http://host/</code> or <code>http://host/api_jsonrpc.php</code> — both are accepted; <code>/api_jsonrpc.php</code> is appended only when necessary.</li>
-<li><code>progressCb</code> is passed as a parameter (not global), keeping concurrent calls isolated.</li>
+<li><code>url</code> and <code>token</code> must be non-empty — the function returns an error immediately if either is empty.</li>
+<li><code>url</code> may be provided as <code>http://host/</code> or <code>http://host/api_jsonrpc.php</code> — both are accepted; the <code>/api_jsonrpc.php</code> suffix is added only when necessary.</li>
+<li><code>progressCb</code> is passed as a function argument (not global), making concurrent runs isolated.</li>
 </ul>
 <pre><code>POST /api/start
-  → validates url and token (returns 400 if empty)
-  → creates an in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
-      → progressCb() updates the progress message (parameter, not global)
-      → returns an HTML fragment
-      → saves to PostgreSQL (if DB_HOST is configured)
+  → validate url and token (returns 400 if empty)
+  → create in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() updates progress messages (argument, not global)
+      → returns HTML fragment
+      → saves to PostgreSQL (if DB_HOST configured)
 
-GET /api/progress/:id      → polling for status + progress message
-GET /api/report/:id        → returns the generated HTML fragment (current session)
-GET /api/reportdb/:id      → returns the report saved in the database
-GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
+GET /api/progress/:id      → poll status + progress message
+GET /api/report/:id        → returns generated HTML fragment (current session)
+GET /api/reportdb/:id      → returns saved DB report
+GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 </code></pre>
-<p>Report generation detects the Zabbix version via <code>apiinfo.version</code> and automatically adjusts API calls and process lists for Zabbix 6 and 7.</p>
+<p>The generator detects Zabbix version via <code>apiinfo.version</code> and adjusts calls and process lists automatically for Zabbix 6 and 7.</p>
 <hr />
-<p>Proxy process detection uses an <code>item.get</code> call that searches for <em>internal items</em> and <em>dependent items</em> (types <code>5</code> and <code>18</code>). This ensures the tool finds keys in both "dot-style" format (e.g. <code>process.*.avg.busy</code>) and the Zabbix function format (<code>zabbix[process,*,avg,busy]</code>), since the match is performed against both the <code>key_</code> and <code>name</code> fields.</p>
+<h2 id="report-guides">Report Guides</h2>
+<p>The report is split into 7 tabs. Below is the full documentation for each.</p>
+<hr />
+<h2 id="guide-1-environment-summary-tab-resumo">Guide 1: Environment Summary (<code>tab-resumo</code>)</h2>
+<h3 id="what-it-is">What it is</h3>
+<p>Consolidated view of the Zabbix environment with key counters. This tab is shown by default when loading a report. Includes two doughnut gauges for quick view of disabled hosts and unsupported items.</p>
+<h3 id="table-displayed">Table displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Number of hosts</td>
+<td>total</td>
+<td>enabled / disabled</td>
+</tr>
+<tr>
+<td>Number of templates</td>
+<td>count</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Number of items</td>
+<td>total</td>
+<td>enabled / disabled / unsupported</td>
+</tr>
+<tr>
+<td>Number of Proxies</td>
+<td>count</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Number of users</td>
+<td>count</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Required server performance (NVPS)</td>
+<td>float</td>
+<td>new values per second</td>
+</tr>
+</tbody>
+</table>
+<p>Gauges:
+- Hosts Disabled — doughnut showing enabled vs disabled
+- Unsupported Items — doughnut showing supported vs unsupported</p>
+<h3 id="zabbix-api-calls">Zabbix API calls</h3>
+<p>Summary calls are executed in parallel (via <code>sync.WaitGroup</code>), reducing initial collection time:</p>
+<table>
+<thead>
+<tr>
+<th>Goroutine</th>
+<th>Calls executed</th>
+<th>Data extracted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>user.get</code></td>
+<td>User counts</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>host.get</code> ×3</td>
+<td>Total, enabled and disabled</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>template.get</code></td>
+<td>Template totals</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>item.get</code> ×3</td>
+<td>Total, enabled and disabled items</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>item.get</code> (unsupported)</td>
+<td>Total unsupported items</td>
+</tr>
+</tbody>
+</table>
+<p>Calls executed outside summary (always serial because other parts depend on them):</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant params</th>
+<th>Data extracted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiinfo.version</code></td>
+<td><em>(no auth)</em></td>
+<td>Zabbix version; determines <code>majorV</code> used across the report</td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>filter:{key_:"zabbix[requiredperformance]"}, hostids:&lt;ZABBIX_SERVER_HOSTID&gt;</code></td>
+<td>Finds NVPS item</td>
+</tr>
+<tr>
+<td><code>history.get</code></td>
+<td><code>itemids:&lt;id&gt;, sortorder:DESC, limit:1</code></td>
+<td>Last NVPS value</td>
+</tr>
+<tr>
+<td><code>proxy.get</code></td>
+<td><code>output:extend</code></td>
+<td>Full proxy list (used by other tabs); count derived from <code>len(proxies)</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="go-functions-responsible">Go functions responsible</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)</code></td>
+<td>Find NVPS item with in-memory cache</td>
+</tr>
+<tr>
+<td><code>getLastHistoryValue(apiUrl, token, itemid, histType)</code></td>
+<td>Fetch last history value for NVPS</td>
+</tr>
+<tr>
+<td><code>getProxies(apiUrl, token)</code></td>
+<td>Returns full proxy list; proxy count derived from <code>len(proxies)</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="guide-2-zabbix-server-tab-processos">Guide 2: Zabbix Server (<code>tab-processos</code>)</h2>
+<h3 id="what-it-is_1">What it is</h3>
+<p>Shows utilization levels of internal Zabbix Server processes, split into two groups:</p>
+<ul>
+<li>Pollers (Data Collectors): processes that actively collect metrics (<code>poller</code>, <code>http poller</code>, <code>icmp pinger</code>, <code>agent poller</code>, <code>snmp poller</code>, etc.)</li>
+<li>Internal Processes: server infrastructure processes (<code>history syncer</code>, <code>housekeeper</code>, <code>escalator</code>, <code>trapper</code>, <code>lld manager</code>, etc.)</li>
+</ul>
+<p>For each process the tab shows <code>min</code>, <code>avg</code> and <code>max</code> utilization (%), plus an OK/Attention visual status (OK if avg &lt; 60%, Attention if avg ≥ 60%).</p>
+<h3 id="table-displayed_1">Table displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poller / Process</td>
+<td>Name with <code>?</code> tooltip describing the <code>zabbix_server.conf</code> parameter</td>
+</tr>
+<tr>
+<td>value_min</td>
+<td>Minimum utilization in the period (<code>CHECKTRENDTIME</code>)</td>
+</tr>
+<tr>
+<td>value_avg</td>
+<td>Average utilization in the period</td>
+</tr>
+<tr>
+<td>value_max</td>
+<td>Peak utilization in the period</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Green OK / Red Attention / Gray not enabled</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_1">Zabbix API calls</h3>
+<h4 id="1-itemget-bulk-fetch-of-all-processes-1-single-call">1. <code>item.get</code> — bulk fetch of all processes (1 single call)</h4>
+<p>Before spawning trend/history goroutines, the code does a single <code>item.get</code> that covers all processes (pollers + internal) at once:</p>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;, &quot;name&quot;, &quot;key_&quot;, &quot;value_type&quot;],
+    &quot;search&quot;: {
+      &quot;key_&quot;: [
+        &quot;*agent*poller*&quot;,
+        &quot;*browser*poller*&quot;,
+        &quot;*configuration*syncer*&quot;,
+        &quot;*history*syncer*&quot;,
+        &quot;*housekeeper*&quot;,
+        &quot;*poller*&quot;,
+        &quot;...&quot;
+      ]
+    },
+    &quot;searchByAny&quot;: true,
+    &quot;searchWildcardsEnabled&quot;: true,
+    &quot;hostids&quot;: &quot;&lt;ZABBIX_SERVER_HOSTID&gt;&quot;
+  }
+}
+</code></pre>
+<ul>
+<li>Each process name is converted to a wildcard pattern by <code>nameToWildcard</code>: <code>"agent poller"</code> → <code>"*agent*poller*"</code>, matching <code>agent poller</code> and <code>agent_poller</code> variants.</li>
+<li><code>searchByAny: true</code> makes Zabbix return any item matching at least one pattern.</li>
+<li>Returned items are mapped back to names via <code>wildcardMatch</code> (client-side), preferring the most specific pattern to avoid collisions between <code>*poller*</code> and <code>*agent*poller*</code>.</li>
+<li>If <code>ZABBIX_SERVER_HOSTID</code> is unset, the <code>hostids</code> parameter is omitted.</li>
+</ul>
+<h4 id="2a-trendget-bulk-1-call-for-all-processes-pollers-internal">2a. <code>trend.get</code> bulk — 1 call for all processes (pollers + internal)</h4>
+<p>After the <code>item.get</code> in step 1, all resolved itemids are grouped and sent in a single <code>trend.get</code> call:</p>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;trend.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;clock&quot;, &quot;value_min&quot;, &quot;value_avg&quot;, &quot;value_max&quot;],
+    &quot;itemids&quot;: [&quot;&lt;id1&gt;&quot;, &quot;&lt;id2&gt;&quot;, &quot;...&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;
+  }
+}
+</code></pre>
+<p>The code aggregates points per itemid: <code>min(value_min)</code>, <code>mean(value_avg)</code>, <code>max(value_max)</code>.</p>
+<h4 id="2b-historyget-bulk-fallback-for-items-without-trends-max-2-calls">2b. <code>history.get</code> bulk — fallback for items without trends (max 2 calls)</h4>
+<p>When an itemid returned no trend records (trends=0 or retention expired), missing ids are grouped by <code>value_type</code> and fetched with at most 2 <code>history.get</code> calls (one per type: float <code>0</code> and integer <code>3</code>):</p>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;history.get&quot;,
+  &quot;params&quot;: {
+    &quot;output&quot;: [&quot;itemid&quot;, &quot;clock&quot;, &quot;value&quot;],
+    &quot;history&quot;: 0,
+    &quot;itemids&quot;: [&quot;&lt;id_missing1&gt;&quot;, &quot;&lt;id_missing2&gt;&quot;, &quot;...&quot;],
+    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
+    &quot;time_till&quot;: &quot;&lt;now&gt;&quot;,
+    &quot;sortorder&quot;: &quot;ASC&quot;,
+    &quot;limit&quot;: 5000
+  }
+}
+</code></pre>
+<p>Min/avg/max are computed client-side from returned values per itemid.</p>
+<p>Result: the entire Zabbix Server section performs at most 3 API calls — 1 <code>item.get</code> + 1 <code>trend.get</code> + 1 <code>history.get</code> — regardless of the number of monitored processes.</p>
+<h3 id="go-functions-responsible_1">Go functions responsible</h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nameToWildcard(name)</code></td>
+<td>Convert <code>"agent poller"</code> → <code>"*agent*poller*"</code> for wildcard search</td>
+</tr>
+<tr>
+<td><code>wildcardMatch(pattern, key)</code></td>
+<td>Simple client-side <code>*</code> match used to map returned items back to names</td>
+</tr>
+<tr>
+<td><code>getProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
+<td>Performs 1 <code>item.get</code> with all patterns. Resolves collisions by specificity. Returns <code>map[nameLowercase]item</code></td>
+</tr>
+<tr>
+<td><code>getTrendsBulkStats(apiUrl, token, itemids)</code></td>
+<td>1 <code>trend.get</code> for all itemids. Aggregates min/avg/max per item. Returns <code>map[itemid]stats</code></td>
+</tr>
+<tr>
+<td><code>getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)</code></td>
+<td>Fallback: groups ids by <code>value_type</code> and performs at most 2 <code>history.get</code> calls. Returns <code>map[itemid]stats</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>Compatibility:</strong> tested and working on Zabbix 6.0, 6.4 and 7.0.</p>
+<ul>
+<li><strong>Internal Process</strong> → add to <code>procNames</code>:</li>
+</ul>
+<pre><code class="language-go">procNames := []string{
+    ...
+    &quot;new process&quot;,
+}
+</code></pre>
+<p><strong>3. Name rule:</strong> use the name exactly as it appears in the Zabbix item key, with space or underscore. The <code>nameToWildcard</code> function converts automatically — <code>"agent poller"</code> → <code>"*agent*poller*"</code> — matching <code>agent poller</code>, <code>agent_poller</code> or any variant.</p>
+<hr />
+<h2 id="guide-3-zabbix-proxies-tab-proxys">Guide 3: Zabbix Proxies (<code>tab-proxys</code>)</h2>
+<h3 id="what-it-is_2">What it is</h3>
+<p>Shows the status and metrics of Zabbix Proxies configured in the environment. Proxies are grouped into: Unknown, Offline, Active, Passive. For each active/communicating proxy it shows total items, unsupported items and the 10-minute queue.</p>
+<h3 id="tables-displayed">Tables displayed</h3>
+<p><strong>Summary:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Description</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Proxies Unknown</td>
+<td>count</td>
+</tr>
+<tr>
+<td>Proxies Offline</td>
+<td>count</td>
+</tr>
+<tr>
+<td>Proxies Active</td>
+<td>count</td>
+</tr>
+<tr>
+<td>Proxies Passive</td>
+<td>count</td>
+</tr>
+<tr>
+<td>Total Proxies</td>
+<td>count + link</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Per-proxy detail</strong> (only proxies with <code>state=2</code>, communicating):</p>
+<table>
+<thead>
+<tr>
+<th>Proxy</th>
+<th>Type</th>
+<th>Total Items</th>
+<th>Unsupported Items</th>
+<th>Queue-10m</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>Active / Passive</td>
+<td>count</td>
+<td>count</td>
+<td>value</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls_2">Zabbix API calls</h3>
+<p>The proxy list is collected at the Summary stage. For each active proxy two parallel calls are made:</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant params</th>
+<th>Extracted data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>item.get</code></td>
+<td><code>search:{key_: ["*queue,10m*","*items_unsupported*", ...]}, proxyids:&lt;id&gt;, monitored:true</code></td>
+<td><code>lastvalue</code> of <code>zabbix[queue,10m]</code> and <code>zabbix[items_unsupported]</code></td>
+</tr>
+<tr>
+<td><code>item.get</code></td>
+<td><code>countOutput:true, templated:false, proxyids:&lt;id&gt;</code></td>
+<td>Total monitored items for the proxy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="proxy-processes-keys-and-item-types">Proxy Processes — keys and item types</h3>
+<p>Process detection for proxies uses an <code>item.get</code> that searches for internal items and dependent items (types <code>5</code> and <code>18</code>). This ensures the tool finds both dot-style keys (e.g. <code>process.*.avg.busy</code>) and function-style keys (<code>zabbix[process,*,avg,busy]</code>) by matching both <code>key_</code> and <code>name</code> fields.</p>
 <p>Key points:</p>
 <ul>
-<li>The filter now includes <code>type: [5, 18]</code> — Internal (5) and Dependent (18). Previously only <code>type=5</code> (internal) items were queried, which caused dependent-item keys to be missed.</li>
-<li>Matching uses wildcards, so patterns like <code>*availability*manager*</code> cover both notations.</li>
+<li>The filter now includes <code>type: [5, 18]</code> — Internal (5) and Dependent (18). Previously only <code>type=5</code> was queried, which missed dependent items.</li>
+<li>Matching uses wildcards. We use patterns like <code>*availability*manager*</code> to cover both notations.</li>
 <li>If the report shows "No process items found", check:</li>
-<li>Whether the template (e.g. <code>Zabbix Proxy Health</code> or <code>Remote Zabbix Proxy Health</code>) is linked to the host/proxy.</li>
-<li>Whether the template uses dependent items — in Zabbix, dependent items depend on a master item; confirm the master item exists and is active.</li>
-<li>For debugging, query the API directly to list the host's items with <code>filter: {"type": [5,18]}</code> and <code>searchWildcardsEnabled:true</code>, for example:</li>
+<li>The host/proxy has the correct Proxy template (e.g. <code>Zabbix Proxy Health</code> or <code>Remote Zabbix Proxy Health</code>).</li>
+<li>The template uses dependent items — in Zabbix dependent items rely on a master item; ensure the master exists and is active.</li>
+<li>For debugging, call the API directly with <code>filter: {"type": [5,18]}</code> and <code>searchWildcardsEnabled:true</code>, for example:</li>
 </ul>
 <pre><code class="language-json">{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;item.get&quot;,&quot;params&quot;:{
   &quot;output&quot;:&quot;extend&quot;,
@@ -1796,8 +2259,8 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
   &quot;monitored&quot;:true
 },&quot;auth&quot;:&quot;&lt;TOKEN&gt;&quot;,&quot;id&quot;:1}
 </code></pre>
-<p>This returns both dot-style <code>key_</code> items and dependent items that use <code>zabbix[...]</code> in their <code>name</code>/<code>key_</code>.</p>
-<p>This change fixes cases where keys such as <code>process.availability_manager.avg.busy</code> were not found because they were returned as dependent items.</p>
+<p>This returns both dot-style <code>key_</code> items and dependent items using <code>zabbix[...]</code> in <code>name</code>/<code>key_</code>.</p>
+<p>This change fixes cases where keys like <code>process.availability_manager.avg.busy</code> were missed because they were returned as dependent items.</p>
 <h3 id="version-logic">Version logic</h3>
 <h4 id="proxy-type-active-passive">Proxy type (Active / Passive)</h4>
 <table>
@@ -1817,7 +2280,7 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
 </tbody>
 </table>
 <h4 id="connectivity-state-online-offline-unknown">Connectivity state (Online / Offline / Unknown)</h4>
-<p>Zabbix 7 returns the <code>state</code> field directly in <code>proxy.get</code>. Zabbix 6 <strong>does not return <code>state</code></strong>, so the state is derived from the <code>lastaccess</code> field (Unix timestamp of the last communication with the server):</p>
+<p>Zabbix 7 returns the <code>state</code> field directly in <code>proxy.get</code>. Zabbix 6 does <strong>not</strong> return <code>state</code>, so the state is derived from <code>lastaccess</code> (Unix timestamp of last contact):</p>
 <table>
 <thead>
 <tr>
@@ -1849,7 +2312,7 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
 </tr>
 <tr>
 <td><code>state</code> absent and <code>now - lastaccess &gt; 300s</code></td>
-<td><strong>Offline</strong> — connection lost</td>
+<td><strong>Offline</strong> — lost connection</td>
 <td>—</td>
 </tr>
 <tr>
@@ -1860,14 +2323,14 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
 </tbody>
 </table>
 <blockquote>
-<p>The 300 s (5 min) threshold is conservative: active proxies report to the server every few seconds by default.</p>
+<p>The 300s (5 min) threshold is conservative: active proxies usually report every few seconds.</p>
 </blockquote>
 <h3 id="how-it-works-in-code">How it works in code</h3>
-<p>Rows per proxy are generated in parallel goroutines controlled by the semaphore <code>sem</code>. Results are re-ordered by their original index to preserve the display order.</p>
+<p>Rows per proxy are generated in parallel goroutines using the semaphore <code>sem</code>. Results are reordered by original index to keep display order.</p>
 <hr />
 <h3 id="proxy-processes-and-threads">Proxy Processes and Threads</h3>
-<h4 id="what-it-is">What it is</h4>
-<p>Displays the utilization of internal processes for each Zabbix Proxy in a per-proxy accordion. For each process, <code>min</code>, <code>avg</code> and <code>max</code> utilization (%) is shown, along with an <strong>OK</strong> or <strong>Warning</strong> badge in the accordion header.</p>
+<h4 id="what-it-is_3">What it is</h4>
+<p>Displays utilization of internal processes of each Zabbix Proxy in an accordion per proxy. For each process it shows <code>min</code>, <code>avg</code> and <code>max</code> utilization (%), plus an <strong>OK</strong> or <strong>Attention</strong> badge in the accordion header.</p>
 <h4 id="table-displayed-one-per-proxy">Table displayed (one per proxy)</h4>
 <table>
 <thead>
@@ -1879,35 +2342,35 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
 <tbody>
 <tr>
 <td>Process</td>
-<td>Name with a <code>?</code> tooltip icon describing the <code>zabbix_proxy.conf</code> parameter</td>
+<td>Name with a <code>?</code> tooltip showing the <code>zabbix_proxy.conf</code> parameter description</td>
 </tr>
 <tr>
 <td>value_min</td>
-<td>Minimum utilization in the period (<code>CHECKTRENDTIME</code>)</td>
+<td>Minimum utilization during <code>CHECKTRENDTIME</code></td>
 </tr>
 <tr>
 <td>value_avg</td>
-<td>Average utilization in the period</td>
+<td>Average utilization during the period</td>
 </tr>
 <tr>
 <td>value_max</td>
-<td>Peak utilization in the period</td>
+<td>Peak utilization during the period</td>
 </tr>
 <tr>
 <td>Status</td>
-<td>Green OK / Red Warning / Gray not enabled / Gray no data</td>
+<td>Green OK / Red Attention / Gray disabled / Gray no data</td>
 </tr>
 </tbody>
 </table>
-<p>Each proxy accordion shows two badges in its header:</p>
+<p>The accordion header shows two badges:</p>
 <ul>
 <li><strong>Online / Offline·Unknown</strong> — current communication state with Zabbix Server</li>
-<li><strong>OK / Warning</strong> — worst <code>value_avg</code> across all processes with data</li>
+<li><strong>OK / Attention</strong> — worst <code>value_avg</code> among all processes with data</li>
 </ul>
-<h4 id="zabbix-api-calls">Zabbix API calls</h4>
-<p>Each active proxy runs an independent goroutine (controlled by the semaphore <code>sem</code>) with the following flow:</p>
+<h4 id="zabbix-api-calls_3">Zabbix API calls</h4>
+<p>Each active proxy executes a goroutine (controlled by <code>sem</code>) with the flow below:</p>
 <h5 id="step-1-proxy-hostid-discovery-3-attempts">Step 1 — Proxy hostid discovery (3 attempts)</h5>
-<p>The hostid of the proxy self-monitoring host may differ from the proxyid starting from Zabbix 7.</p>
+<p>The hostid of the proxy auto-monitoring host can differ from the proxyid starting in Zabbix 7.</p>
 <table>
 <thead>
 <tr>
@@ -1919,257 +2382,13 @@ GET /api/reportdb/:id?raw=1 → returns the bare fragment for inline rendering
 </thead>
 <tbody>
 <tr>
-<td>A</td>
-<td><code>host.get</code></td>
-<td><code>hostids: [proxyid]</code></td>
-<td>Zabbix 6 — proxyid == hostid</td>
-</tr>
-<tr>
-<td>B</td>
-<td><code>host.get</code></td>
-<td><code>filter: {host: proxyName}</code></td>
-<td>Zabbix 7 — lookup by technical name</td>
-</tr>
-<tr>
-<td>C</td>
-<td><code>host.get</code></td>
-<td><code>filter: {name: proxyName}</code></td>
-<td>Zabbix 7 — lookup by display name</td>
-</tr>
-<tr>
-<td>Fallback</td>
-<td>—</td>
-<td>uses <code>proxyid</code> directly</td>
-<td>last resort</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<h5 id="step-2-itemget-bulk-1-call-all-processes-of-the-proxy">Step 2 — <code>item.get</code> bulk (1 call, all processes of the proxy)</h5>
-<pre><code class="language-json">{
-  &quot;method&quot;: &quot;item.get&quot;,
-  &quot;params&quot;: {
-    &quot;output&quot;: [&quot;itemid&quot;, &quot;hostid&quot;, &quot;name&quot;, &quot;key_&quot;, &quot;value_type&quot;],
-    &quot;hostids&quot;: &quot;&lt;hostid resolved in Step 1&gt;&quot;,
-    &quot;filter&quot;: { &quot;type&quot;: 5 }
-  }
-}
-</code></pre>
-<ul>
-<li>Fetches <strong>all</strong> items of type <code>5</code> (Zabbix internal) for the host — no wildcard in the API call.</li>
-<li>Matching is done <strong>client-side</strong>: for each returned item, <code>nameToWildcard</code> is tested against both the item's <strong><code>key_</code> and <code>name</code></strong> fields.</li>
-<li>Checking the <code>name</code> field ensures compatibility between Zabbix 6 and 7, as the <code>name</code> (e.g. "Utilization of data sender processes, in %") is stable even when the <code>key_</code> format changes.</li>
-</ul>
-<h5 id="step-3-trendget-bulk-1-call-all-items-of-the-proxy">Step 3 — <code>trend.get</code> bulk (1 call, all items of the proxy)</h5>
-<pre><code class="language-json">{
-  &quot;method&quot;: &quot;trend.get&quot;,
-  &quot;params&quot;: {
-    &quot;output&quot;: [&quot;itemid&quot;, &quot;value_min&quot;, &quot;value_avg&quot;, &quot;value_max&quot;],
-    &quot;itemids&quot;: [&quot;&lt;iid1&gt;&quot;, &quot;&lt;iid2&gt;&quot;, &quot;...&quot;],
-    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
-    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;
-  }
-}
-</code></pre>
-<ul>
-<li>Aggregates multiple trend records per item: <code>min(value_min)</code>, <code>mean(value_avg)</code>, <code>max(value_max)</code>.</li>
-<li>Items with no data in the result trigger the fallback below.</li>
-</ul>
-<h5 id="step-4-historyget-fallback-1-call-per-value_type-only-for-items-without-trend-data">Step 4 — <code>history.get</code> fallback (1 call per <code>value_type</code>, only for items without trend data)</h5>
-<pre><code class="language-json">{
-  &quot;method&quot;: &quot;history.get&quot;,
-  &quot;params&quot;: {
-    &quot;output&quot;: [&quot;itemid&quot;, &quot;value&quot;],
-    &quot;history&quot;: &quot;&lt;value_type&gt;&quot;,
-    &quot;itemids&quot;: [&quot;&lt;iids without trend&gt;&quot;],
-    &quot;time_from&quot;: &quot;&lt;now - CHECKTRENDTIME&gt;&quot;,
-    &quot;time_to&quot;: &quot;&lt;now&gt;&quot;,
-    &quot;sortfield&quot;: &quot;clock&quot;,
-    &quot;sortorder&quot;: &quot;ASC&quot;,
-    &quot;limit&quot;: 20000
-  }
-}
-</code></pre>
-<ul>
-<li>Groups items by <code>value_type</code> and makes one call per type (up to 20,000 rows per call).</li>
-<li>Calculates <code>min/avg/max</code> manually from raw values.</li>
-</ul>
-<h4 id="go-functions">Go functions</h4>
-<table>
-<thead>
-<tr>
-<th>Function</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>getProxies(apiUrl, token)</code></td>
-<td>Returns the full proxy list with all fields (<code>output:extend</code>)</td>
-</tr>
-<tr>
-<td><code>getProxyProcessItems(apiUrl, token, names, hostid)</code></td>
-<td>Fetches all <code>type=5</code> items for the host; client-side match on <code>key_</code> <strong>and</strong> <code>name</code> using <code>nameToWildcard</code></td>
-</tr>
-<tr>
-<td><code>getTrendsBulkStats(apiUrl, token, itemids)</code></td>
-<td><strong>1 <code>trend.get</code></strong> for all itemids; aggregates <code>min/avg/max</code> per item</td>
-</tr>
-<tr>
-<td><code>getHistoryStatsBulkByType(apiUrl, token, items)</code></td>
-<td>Fallback: <strong>1 <code>history.get</code> per <code>value_type</code></strong>; aggregates <code>min/avg/max</code> from raw history</td>
-</tr>
-<tr>
-<td><code>nameToWildcard(name)</code></td>
-<td>Converts <code>"data*sender"</code> → <code>"*data*sender*"</code> for client-side matching</td>
-</tr>
-<tr>
-<td><code>wildcardMatch(pattern, s)</code></td>
-<td>Simple <code>*</code> wildcard match; used by <code>getProxyProcessItems</code> to test <code>key_</code> and <code>name</code></td>
-</tr>
-</tbody>
-</table>
-<h4 id="version-logic_1">Version logic</h4>
-<table>
-<thead>
-<tr>
-<th>Zabbix</th>
-<th>Extra processes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>≥ 7</td>
-<td>Includes <code>agent poller</code>, <code>browser poller</code>, <code>http agent poller</code>, <code>snmp poller</code></td>
-</tr>
-<tr>
-<td>6</td>
-<td>These four are excluded from the table</td>
-</tr>
-</tbody>
-</table>
-<h4 id="status-logic">Status logic</h4>
-<table>
-<thead>
-<tr>
-<th>Condition</th>
-<th>Display</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Proxy offline / unknown</td>
-<td>Accordion without table; <strong>Offline/Unknown</strong> badge</td>
-</tr>
-<tr>
-<td>No <code>type=5</code> items found</td>
-<td>Note with the hostid used; no table</td>
-</tr>
-<tr>
-<td><code>trend.get</code> and <code>history.get</code> return no data</td>
-<td>Gray — "No data"</td>
-</tr>
-<tr>
-<td>Item not found for the process</td>
-<td>Gray — "Process not enabled"</td>
-</tr>
-<tr>
-<td><code>value_avg &lt; 60%</code></td>
-<td>Green — OK</td>
-</tr>
-<tr>
-<td><code>value_avg ≥ 60%</code></td>
-<td>Red — Warning</td>
-</tr>
-</tbody>
-</table>
-<h4 id="how-to-add-a-new-process-to-the-proxy">How to add a new process to the proxy</h4>
-<p>There are <strong>2 places</strong> in <code>cmd/app/main.go</code>:</p>
-<p><strong>1. <code>procDesc</code></strong> — tooltip <code>?</code> description (key in lowercase, with spaces instead of <code>*</code>):</p>
-<pre><code class="language-go">&quot;new process&quot;: `&quot;StartNewProcess&quot; parameter: description and when to adjust.`,
-</code></pre>
-<p><strong>2. <code>proxyAllProcNames</code></strong> — proxy process list (use <strong>spaces</strong> as word separators, same as <code>pollerNames</code> on the server):</p>
-<pre><code class="language-go">proxyAllProcNames := []string{
-    &quot;data sender&quot;,
-    ...
-    &quot;new process&quot;,  // ← here
-}
-// or exclusive to Zabbix 7+:
-if majorV &gt;= 7 {
-    proxyAllProcNames = append([]string{&quot;new process&quot;}, proxyAllProcNames...)
-}
-</code></pre>
-<p><strong>Why spaces?</strong> <code>nameToWildcard</code> converts spaces to <code>*</code> automatically when building the search pattern (<code>"data sender"</code> → <code>"*data*sender*"</code>). Using spaces allows <code>strings.Fields</code> to count words correctly, ensuring the <strong>"most specific wins"</strong> sort works — without this, <code>"http*agent*poller"</code> and <code>"http*poller"</code> would have the same word-count of 1 and the sort would be unstable, causing <code>"http*poller"</code> to steal the item from <code>"http*agent*poller"</code>.</p>
-<blockquote>
-<p><strong>Note:</strong> the lookup key in <code>itemsMap</code> and in <code>procDesc</code> uses the name in <strong>lowercase with spaces</strong> (e.g. <code>"http agent poller"</code>). Make sure the entry in <code>procDesc</code> also uses spaces.</p>
-</blockquote>
-<hr />
-<h2 id="guide-users-tab-usuarios">Guide: Users (<code>tab-usuarios</code>)</h2>
-<h3 id="what-it-is_1">What it is</h3>
-<p>This tab shows whether the default Zabbix administrative account (<code>Admin</code>) exists and performs a simple test to check whether it still accepts the default password <code>zabbix</code>.</p>
-<p>Important notes:
-- The report does <strong>not</strong> retrieve the full user list — it makes a <code>user.get</code> call filtering only by <code>username = Admin</code>.
-- When the <code>Admin</code> account is found and appears enabled, the report attempts a <code>user.login</code> authentication with credentials <code>Admin</code>/<code>zabbix</code> (best-effort test). The token returned by the API is not stored; it only serves to detect whether the default password still works.
-- If the <code>Admin</code> account is disabled, the default-account KPI/recommendation is considered OK and the password test is not displayed.</p>
-<h3 id="table-displayed">Table displayed</h3>
-<table>
-<thead>
-<tr>
-<th>Column</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>User</td>
-<td>Username (e.g. <code>Admin</code>)</td>
-</tr>
-<tr>
-<td>Full Name</td>
-<td>User's full name</td>
-</tr>
-<tr>
-<td>Default Password</td>
-<td>Whether the account accepts the default password <code>zabbix</code> (Yes/No)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="zabbix-api-calls_1">Zabbix API calls</h3>
-<table>
-<thead>
-<tr>
-<th>Call</th>
-<th>Relevant parameters</th>
-<th>Note</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>user.get</code></td>
-<td><code>filter: { username: "Admin" }, output: ["userid","username","name","surname"]</code></td>
-<td>Fetches only the <code>Admin</code> account, avoiding a full user scan</td>
-</tr>
-<tr>
-<td><code>user.login</code></td>
-<td><code>username: "Admin", password: "zabbix"</code></td>
-<td>Authentication attempt to check whether the default password is valid (best-effort). Returns a token on success, which is immediately discarded</td>
-</tr>
-</tbody>
-</table>
-<h3 id="recommendations-generated">Recommendations generated</h3>
-<p>If the <code>Admin</code> account exists and accepts the default password, the report automatically adds a recommendation in the "Default Zabbix Admin account detected" section with guidance on how to change or disable the account.</p>
-<hr />
-<h2 id="guide-4-items-and-llds-tab-items">Guide 4: Items and LLDs (<code>tab-items</code>)</h2>
-<h3 id="what-it-is_2">What it is</h3>
-<p>Detailed analysis of monitored items and discovery rules (LLD). Divided into five sections:</p>
-<ol>
-<li><strong>Items without Template</strong> — items created directly on a host, outside any template</li>
-<li><strong>Unsupported items</strong> — breakdown by item type (Zabbix Agent, SNMP, HTTP, etc.)</li>
-<li><strong>Collection Interval</strong> — items with a delay of 1s, 10s, 30s, 60s</li>
-<li><strong>LLD Rules — Collection Interval</strong> — discovery rules with a delay of 1s, 10s, 30s, 60s, 300s</li>
-<li><strong>Text Items with History</strong> — items of type Text that retain history and have delay ≤ 300s</li>
-</ol>
-<h3 id="tables-displayed">Tables displayed</h3>
-<p><strong>Items without Template:</strong></p>
 <table>
 <thead>
 <tr>
@@ -2260,7 +2479,7 @@ if majorV &gt;= 7 {
 </tr>
 </tbody>
 </table>
-<h3 id="zabbix-api-calls_2">Zabbix API calls</h3>
+<h3 id="zabbix-api-calls_4">Zabbix API calls</h3>
 <table>
 <thead>
 <tr>
@@ -2312,7 +2531,7 @@ if majorV &gt;= 7 {
 </tr>
 </tbody>
 </table>
-<h3 id="version-logic_2">Version logic</h3>
+<h3 id="version-logic_1">Version logic</h3>
 <ul>
 <li><strong>Browser (type=22):</strong> included in the unsupported table only for Zabbix ≥ 7</li>
 <li><strong>Frontend links:</strong> <code>zabbix.php?action=item.list</code> (Zabbix 7) or <code>items.php</code> (Zabbix 6)</li>
@@ -2322,7 +2541,7 @@ if majorV &gt;= 7 {
 <p>The <code>item.get</code> calls per type (total + unsupported) are executed in parallel goroutines controlled by the semaphore <code>sem</code>. Rows are re-ordered by <code>Unsup desc</code> to place the most problematic types first.</p>
 <hr />
 <h2 id="guide-5-templates-tab-templates">Guide 5: Templates (<code>tab-templates</code>)</h2>
-<h3 id="what-it-is_3">What it is</h3>
+<h3 id="what-it-is_4">What it is</h3>
 <p>Details of the <strong>Top N templates</strong> with the most unsupported items. For each template it lists the problematic items with a direct edit link to the Zabbix frontend.</p>
 <h3 id="table-displayed-one-per-template">Table displayed (one per template)</h3>
 <table>
@@ -2343,7 +2562,7 @@ if majorV &gt;= 7 {
 </tr>
 </tbody>
 </table>
-<h3 id="zabbix-api-calls_3">Zabbix API calls</h3>
+<h3 id="zabbix-api-calls_5">Zabbix API calls</h3>
 <p><strong>No new calls.</strong> All data for this tab is computed from the <code>item.get</code> result with <code>state:1, inherited:true</code> collected in the initial phase (same data used by the Top Hosts/Templates/Items tab).</p>
 <p>The template ranking is built as follows:
 1. For each unsupported item, get <code>tplId = item["templateid"]</code> — this is the <strong>ID of the item inside the template</strong>, not the template ID itself.
@@ -2375,7 +2594,7 @@ if majorV &gt;= 7 {
 </table>
 <hr />
 <h2 id="guide-6-top-hoststemplatesitems-tab-top">Guide 6: Top Hosts/Templates/Items (<code>tab-top</code>)</h2>
-<h3 id="what-it-is_4">What it is</h3>
+<h3 id="what-it-is_5">What it is</h3>
 <p>Displays four rankings based on the unsupported items collected:</p>
 <ol>
 <li><strong>Top Offending Templates</strong> — templates with the most problematic items</li>
@@ -2450,7 +2669,7 @@ if majorV &gt;= 7 {
 </tr>
 </tbody>
 </table>
-<h3 id="zabbix-api-calls_4">Zabbix API calls</h3>
+<h3 id="zabbix-api-calls_6">Zabbix API calls</h3>
 <p><strong>No new calls.</strong> All data comes from groupings performed during the initial phase on the <code>item.get</code> with <code>state:1</code>. The counters are:</p>
 <ul>
 <li><code>templateCounter[realTplId]</code> — errors per template (using the canonical template ID via <code>cacheTemplateHostID</code>)</li>
@@ -2461,8 +2680,82 @@ if majorV &gt;= 7 {
 <p>The <code>realTplId</code> is derived from <code>cacheTemplateHostID[item["templateid"]]</code>, ensuring all items from the same template are grouped under a single key. Without this conversion, the same template could appear multiple times in the rankings with separate counts.</p>
 <p>The Top N is 10 by default (constant <code>topN = 10</code>).</p>
 <hr />
+<h2 id="guide-users-tab-usuarios">Guide: Users (<code>tab-usuarios</code>)</h2>
+<h3 id="what-it-is_6">What it is</h3>
+<p>This tab checks whether the Zabbix default administrative account (<code>Admin</code>) exists and performs a best-effort test to detect if it still accepts the default password <code>zabbix</code>.</p>
+<p>Key points:
+- The report does <strong>not</strong> list all users — it performs a targeted <code>user.get</code> filtered by <code>username = Admin</code> to avoid scanning the entire user table.
+- If the <code>Admin</code> account appears enabled, the report attempts a <code>user.login</code> with <code>Admin</code>/<code>zabbix</code>. The returned token is discarded; the check is only to detect the default-password exposure.
+- If the <code>Admin</code> account is missing or clearly disabled, the password test is skipped and the KPI is considered safe.</p>
+<h3 id="how-enabled-is-detected-best-effort">How "enabled" is detected (best-effort)</h3>
+<p>The code inspects common fields returned by <code>user.get</code> (<code>status</code>, <code>disabled</code>) and accepts several representations (numeric, boolean or string). Concretely, values indicating disabled (examples) are interpreted as:</p>
+<ul>
+<li><code>status != 0</code> (numeric)</li>
+<li><code>disabled == true</code> (boolean) or <code>disabled == "1"</code>/<code>"true"</code> (string)</li>
+</ul>
+<p>If none of those markers indicate the account is disabled and the username equals <code>Admin</code>, the account is considered present and enabled for the default-password test.</p>
+<h3 id="table-displayed_2">Table displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>User</td>
+<td>Username (e.g. <code>Admin</code>)</td>
+</tr>
+<tr>
+<td>Full Name</td>
+<td>User's full name (name + surname)</td>
+</tr>
+<tr>
+<td>Default Password</td>
+<td>Badge: shows whether <code>Admin</code> accepts the default password <code>zabbix</code> (Yes / No)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zabbix-api-calls-used">Zabbix API calls used</h3>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Params</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user.get</code></td>
+<td><code>countOutput:true</code> (summary)</td>
+<td>Counts users shown in the summary table</td>
+</tr>
+<tr>
+<td><code>user.get</code></td>
+<td><code>filter:{username:"Admin"}, output:["userid","username","name","surname"]</code></td>
+<td>Fetches only the <code>Admin</code> account to display the single-row table (avoids fetching full user list)</td>
+</tr>
+<tr>
+<td><code>user.login</code></td>
+<td><code>username:"Admin", password:"zabbix"</code></td>
+<td>Best-effort authentication attempt to determine whether the default password is still valid (token discarded)</td>
+</tr>
+</tbody>
+</table>
+<p>Notes:
+- The password check is non-destructive and only tests authentication; it may fail silently depending on API rate limits, network errors, or insufficient permissions. Failures are logged at debug level.</p>
+<h3 id="ui-behavior-and-recommendations">UI behavior and recommendations</h3>
+<ul>
+<li>If <code>Admin</code> exists and accepts <code>zabbix</code>, the tab displays a critical alert (red) and the table marks the default-password column as <code>Yes</code>.</li>
+<li>If <code>Admin</code> exists but the default password is rejected, a milder warning box is shown and the table shows <code>No</code>.</li>
+<li>If <code>Admin</code> is absent or disabled, the tab shows a localized <code>users.no_data</code> message.</li>
+</ul>
+<p>The report also surfaces a recommendation entry when the default <code>Admin</code> account with default password is detected, advising to change or disable the account.</p>
+<hr />
 <h2 id="guide-7-recommendations-tab-recomendacoes">Guide 7: Recommendations (<code>tab-recomendacoes</code>)</h2>
-<h3 id="what-it-is_5">What it is</h3>
+<h3 id="what-it-is_7">What it is</h3>
 <p>Automatic suggestions generated based on all collected data. All sections and sub-items are <strong>displayed only when there is a recommendation</strong> — if the value is 0, neither the section nor its sub-item appears. KPI cards at the top provide a quick overview.</p>
 <ol>
 <li><strong>Zabbix Server</strong> — processes in Warning + async poller suggestion (Zabbix 7) — only shown if there are processes with avg ≥ 60% or async pollers disabled</li>
@@ -2998,7 +3291,7 @@ if len(missing) &gt; 0 {
 </table>
 <hr />
 <h3 id="item-items-snmp-poller-zabbix-7-section-3-items">Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)</h3>
-<h4 id="what-it-is_6">What it is</h4>
+<h4 id="what-it-is_8">What it is</h4>
 <p>Appears in <strong>Section 3 — Items</strong> of the Recommendations (sub-item <code>3.x)</code>), <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 SNMP item in templates (<code>snmpTplCount &gt; 0</code>). Displays:</p>
 <ul>
 <li>Total SNMP items in templates (<code>snmpTplCount</code>)</li>
@@ -3043,7 +3336,7 @@ if len(missing) &gt; 0 {
 </code></pre>
 <hr />
 <h3 id="sub-section-templates-suitable-for-migration-to-snmp-poller-section-5-templates">Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)</h3>
-<h4 id="what-it-is_7">What it is</h4>
+<h4 id="what-it-is_9">What it is</h4>
 <p>Appears at the end of <strong>Section 5 — Templates</strong> of the Recommendations, <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 legacy template in use (<code>len(snmpMigrationTpls) &gt; 0</code>). Lists alphabetically the names of templates that satisfy <strong>all</strong> of these conditions:</p>
 <ol>
 <li>Have at least one SNMP item (<code>type=20</code>) in templates</li>
@@ -3179,7 +3472,7 @@ Call 3 → template.get(legacyHostSet)
 <p>Every time a report is successfully generated, it is <strong>automatically saved</strong> to PostgreSQL — no extra action is required from the user. This allows accessing previous reports at any time, even after restarting the application.</p>
 <blockquote>
 <p><strong>The database is optional.</strong> The app works normally without PostgreSQL — reports are only available in the current session (in-memory) and are lost when the container restarts.</p>
-<p>To enable persistence, set <code>DB_HOST</code> (and optionally the other <code>DB_*</code> variables) and bring up the <code>postgres</code> service with the <code>db</code> profile (see details in <a href="../docker/">docker.md</a>).</p>
+<p>To enable persistence, set <code>DB_HOST</code> (and optionally the other <code>DB_*</code> variables) and bring up the <code>postgres</code> service with the <code>db</code> profile (see details in <a href="../installation/">Installation</a>).</p>
 </blockquote>
 <p>When <code>DB_HOST</code> is <strong>not</strong> configured:
 - The <strong>Saved Reports</strong> card is <strong>automatically hidden</strong> in the web interface
@@ -3438,15 +3731,14 @@ curl -X DELETE http://localhost:8080/api/reports
 </code></pre>
 <p>The report is divided into tabs. This section documents each one: what it displays, which Zabbix API calls are made, which Go function generates the HTML, and how the data is processed.</p>
 <hr />
-<h2 id="guide-zabbix-server-tab-processos">Guide: Zabbix Server (<code>tab-processos</code>)</h2>
-<h3 id="what-it-is_8">What it is</h3>
+<h3 id="what-it-is_10">What it is</h3>
 <p>Displays the utilization level of internal Zabbix Server processes, divided into two groups:</p>
 <ul>
 <li><strong>Pollers (Data Collectors):</strong> processes responsible for actively collecting metrics from agents (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)</li>
 <li><strong>Internal Processes:</strong> server infrastructure processes (history syncer, housekeeper, escalator, trapper, lld manager, etc.)</li>
 </ul>
 <p>For each process, the <strong>minimum</strong>, <strong>average</strong> and <strong>maximum</strong> utilization (%) is shown, along with a visual status of <strong>OK</strong> (&lt; 50%) or <strong>Warning</strong> (≥ 50%).</p>
-<h3 id="table-displayed_1">Table displayed</h3>
+<h3 id="table-displayed_3">Table displayed</h3>
 <table>
 <thead>
 <tr>
@@ -3504,7 +3796,7 @@ curl -X DELETE http://localhost:8080/api/reports
 </tr>
 </tbody>
 </table>
-<h3 id="zabbix-api-calls_5">Zabbix API calls</h3>
+<h3 id="zabbix-api-calls_7">Zabbix API calls</h3>
 <p>Each process in the list queries the <strong>pre-loaded map</strong> by <code>getProcessItemsBulk</code> (1 call made before the goroutines) and then makes <strong>two parallel calls</strong> to get trend/history data:</p>
 <h4 id="1-itemget-bulk-locate-all-process-items-1-single-call">1. <code>item.get</code> bulk — locate all process items (1 single call)</h4>
 <pre><code class="language-json">{
@@ -3593,13 +3885,13 @@ curl -X DELETE http://localhost:8080/api/reports
 </tr>
 </tbody>
 </table>
-<h4 id="version-logic_3">Version logic</h4>
+<h4 id="version-logic_2">Version logic</h4>
 <p>The poller list varies based on the detected Zabbix version via <code>apiinfo.version</code>:</p>
 <ul>
 <li><strong>Zabbix ≥ 7:</strong> includes <code>agent poller</code>, <code>browser poller</code>, <code>http agent poller</code>, <code>snmp poller</code></li>
 <li><strong>Zabbix 6:</strong> these four are displayed as <strong>"Does not exist in this Zabbix version"</strong></li>
 </ul>
-<h4 id="status-logic_1">Status logic</h4>
+<h4 id="status-logic">Status logic</h4>
 <table>
 <thead>
 <tr>
@@ -3660,104 +3952,6 @@ if majorV &gt;= 7 {
 </code></pre>
 <p><strong>3. Name rule:</strong> use the name exactly as it appears in the Zabbix item key (with space or underscore). The <code>nameToWildcard</code> function converts automatically — <code>"agent poller"</code> → <code>"*agent*poller*"</code> — matching <code>agent poller</code>, <code>agent_poller</code> or any variant.</p>
 <hr />
-<h2 id="zabbix-api-calls-used">Zabbix API calls used</h2>
-<p>Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the <code>/api_jsonrpc.php</code> endpoint of Zabbix.</p>
-<h3 id="1-apiinfoversion">1. apiinfo.version</h3>
-<ul>
-<li><strong>Description:</strong> Gets the Zabbix API version.</li>
-<li><strong>Parameters:</strong> <code>[]</code> (empty)</li>
-<li><strong>Use:</strong> Detect Zabbix version to adjust queries and links.</li>
-</ul>
-<h3 id="2-userget">2. user.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches all registered users.</li>
-<li><strong>Parameters:</strong> <code>{ "output": "userid" }</code></li>
-<li><strong>Use:</strong> Count the number of users.</li>
-</ul>
-<h3 id="3-itemget">3. item.get</h3>
-<ul>
-<li><strong>Description:</strong> Used in various contexts:</li>
-<li><strong>Bulk fetch of all process items</strong> (pollers + internal) in 1 call with wildcard</li>
-<li>Fetch items by key (<code>key_</code>) and hostid</li>
-<li>Count total, enabled, disabled, unsupported items</li>
-<li>List unsupported items and their details</li>
-<li>Fetch items without template</li>
-<li>Fetch items by type (<code>type</code>), state (<code>state</code>), interval (<code>delay</code>)</li>
-<li><strong>Parameter examples:</strong></li>
-<li>Bulk server process fetch (new approach):
-    <code>json
-    {
-      "output": ["itemid", "hostid", "name", "key_", "value_type"],
-      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
-      "searchByAny": true,
-      "searchWildcardsEnabled": true,
-      "hostids": "&lt;ZABBIX_SERVER_HOSTID&gt;"
-    }</code></li>
-<li>Fetch item by exact key:
-    <code>json
-    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "&lt;hostid&gt;", "limit": 1 }</code></li>
-<li>Count unsupported items:
-    <code>json
-    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }</code></li>
-<li>Count items by type:
-    <code>json
-    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }</code></li>
-<li>Fetch items without template:
-    <code>json
-    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }</code></li>
-</ul>
-<h3 id="4-historyget">4. history.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches the last history value of an item.</li>
-<li><strong>Parameters:</strong>
-  <code>json
-  { "output": "extend", "history": &lt;value_type&gt;, "itemids": "&lt;itemid&gt;", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }</code></li>
-<li><strong>Use:</strong> Get the most recent value of an item (e.g. NVPS).</li>
-</ul>
-<h3 id="5-trendget">5. trend.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches trend statistics (minimum, maximum, average) of an item over a time interval.</li>
-<li><strong>Parameters:</strong>
-  <code>json
-  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["&lt;itemid&gt;"], "limit": 1, "time_from": &lt;unix&gt;, "time_to": &lt;unix&gt; }</code></li>
-<li><strong>Use:</strong> Usage statistics for processes/pollers.</li>
-</ul>
-<h3 id="6-hostget">6. host.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches registered hosts, enabled or disabled.</li>
-<li><strong>Parameters:</strong></li>
-<li>All hosts: <code>{ "output": "hostid" }</code></li>
-<li>Enabled: <code>{ "output": "hostid", "filter": { "status": 0 } }</code></li>
-<li>Disabled: <code>{ "output": "hostid", "filter": { "status": 1 } }</code></li>
-</ul>
-<h3 id="7-templateget">7. template.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches registered templates, by id or for counting.</li>
-<li><strong>Parameters:</strong></li>
-<li>Count: <code>{ "countOutput": true }</code></li>
-<li>Fetch by id: <code>{ "output": ["templateid", "name"], "templateids": [&lt;ids&gt;] }</code></li>
-</ul>
-<h3 id="8-discoveryruleget">8. discoveryrule.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches LLD (discovery) rules, by interval, state, etc.</li>
-<li><strong>Parameters:</strong></li>
-<li>By interval:
-    <code>json
-    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }</code></li>
-<li>Unsupported:
-    <code>json
-    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }</code></li>
-</ul>
-<h3 id="9-proxyget">9. proxy.get</h3>
-<ul>
-<li><strong>Description:</strong> Fetches registered proxies, by state (active/passive), status (online/offline), etc.</li>
-<li><strong>Parameters:</strong></li>
-<li>All proxies: <code>{ "output": "proxyid" }</code></li>
-<li>Active: <code>{ "output": "proxyid", "filter": { "state": 2 } }</code></li>
-<li>Passive: <code>{ "output": "proxyid", "filter": { "state": 1 } }</code></li>
-<li>Online: <code>{ "output": "proxyid", "filter": { "status": 0 } }</code></li>
-<li>Offline: <code>{ "output": "proxyid", "filter": { "status": 1 } }</code></li>
-</ul>
 <h2 id="top-errors">Top Errors</h2>
 <p>Checks the top item, trigger and LLD rule errors, ordered by number of failures.</p>
 <p>API call used to collect items with error (unsupported items):</p>
@@ -3959,6 +4153,107 @@ html += `&lt;th data-i18n='table.description'&gt;&lt;/th&gt;`
 html += `&lt;span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5%'&gt;&lt;/span&gt;`
 </code></pre>
 <p>The helpers <code>titleWithInfo()</code> and <code>nextSub()</code> detect the <code>i18n:</code> prefix and automatically generate <code>data-i18n</code> and <code>data-i18n-args</code> attributes.</p>
+<hr />
+<h2 id="zabbix-api-calls-used_1">Zabbix API calls used</h2>
+<p>Below are the main calls made by the Go backend to the Zabbix API to generate the report. Each call is made via JSON-RPC to the <code>/api_jsonrpc.php</code> endpoint of Zabbix.</p>
+<h3 id="1-apiinfoversion">1. apiinfo.version</h3>
+<ul>
+<li><strong>Description:</strong> Gets the Zabbix API version.</li>
+<li><strong>Parameters:</strong> <code>[]</code> (empty)</li>
+<li><strong>Use:</strong> Detect Zabbix version to adjust queries and links.</li>
+</ul>
+<h3 id="2-userget">2. user.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches all registered users.</li>
+<li><strong>Parameters:</strong> <code>{ "output": "userid" }</code></li>
+<li><strong>Use:</strong> Count the number of users.</li>
+</ul>
+<h3 id="3-itemget">3. item.get</h3>
+<ul>
+<li><strong>Description:</strong> Used in various contexts:</li>
+<li><strong>Bulk fetch of all process items</strong> (pollers + internal) in 1 call with wildcard</li>
+<li>Fetch items by key (<code>key_</code>) and hostid</li>
+<li>Count total, enabled, disabled, unsupported items</li>
+<li>List unsupported items and their details</li>
+<li>Fetch items without template</li>
+<li>Fetch items by type (<code>type</code>), state (<code>state</code>), interval (<code>delay</code>)</li>
+<li><strong>Parameter examples:</strong></li>
+<li>Bulk server process fetch (new approach):
+    <code>json
+    {
+      "output": ["itemid", "hostid", "name", "key_", "value_type"],
+      "search": { "key_": ["*agent*poller*", "*history*syncer*", "*housekeeper*", "..."] },
+      "searchByAny": true,
+      "searchWildcardsEnabled": true,
+      "hostids": "&lt;ZABBIX_SERVER_HOSTID&gt;"
+    }</code></li>
+<li>Fetch item by exact key:
+    <code>json
+    { "output": ["itemid", "hostid", "name", "key_", "value_type"], "filter": {"key_": "zabbix[requiredperformance]"}, "hostids": "&lt;hostid&gt;", "limit": 1 }</code></li>
+<li>Count unsupported items:
+    <code>json
+    { "output": "extend", "filter": {"state": 1, "status": 0}, "monitored": true, "countOutput": true }</code></li>
+<li>Count items by type:
+    <code>json
+    { "output": "extend", "filter": {"type": 0}, "templated": false, "countOutput": true, "monitored": true }</code></li>
+<li>Fetch items without template:
+    <code>json
+    { "output": "extend", "filter": {"flags": 0}, "countOutput": true, "templated": false, "inherited": false }</code></li>
+</ul>
+<h3 id="4-historyget">4. history.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches the last history value of an item.</li>
+<li><strong>Parameters:</strong>
+  <code>json
+  { "output": "extend", "history": &lt;value_type&gt;, "itemids": "&lt;itemid&gt;", "sortfield": "clock", "sortorder": "DESC", "limit": 1 }</code></li>
+<li><strong>Use:</strong> Get the most recent value of an item (e.g. NVPS).</li>
+</ul>
+<h3 id="5-trendget">5. trend.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches trend statistics (minimum, maximum, average) of an item over a time interval.</li>
+<li><strong>Parameters:</strong>
+  <code>json
+  { "output": ["itemid", "clock", "value_min", "value_avg", "value_max"], "itemids": ["&lt;itemid&gt;"], "limit": 1, "time_from": &lt;unix&gt;, "time_to": &lt;unix&gt; }</code></li>
+<li><strong>Use:</strong> Usage statistics for processes/pollers.</li>
+</ul>
+<h3 id="6-hostget">6. host.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered hosts, enabled or disabled.</li>
+<li><strong>Parameters:</strong></li>
+<li>All hosts: <code>{ "output": "hostid" }</code></li>
+<li>Enabled: <code>{ "output": "hostid", "filter": { "status": 0 } }</code></li>
+<li>Disabled: <code>{ "output": "hostid", "filter": { "status": 1 } }</code></li>
+</ul>
+<h3 id="7-templateget">7. template.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered templates, by id or for counting.</li>
+<li><strong>Parameters:</strong></li>
+<li>Count: <code>{ "countOutput": true }</code></li>
+<li>Fetch by id: <code>{ "output": ["templateid", "name"], "templateids": [&lt;ids&gt;] }</code></li>
+</ul>
+<h3 id="8-discoveryruleget">8. discoveryrule.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches LLD (discovery) rules, by interval, state, etc.</li>
+<li><strong>Parameters:</strong></li>
+<li>By interval:
+    <code>json
+    { "output": "extend", "filter": {"delay": 60}, "templated": true, "countOutput": true }</code></li>
+<li>Unsupported:
+    <code>json
+    { "output": "extend", "filter": {"state": 1}, "templated": false, "countOutput": true }</code></li>
+</ul>
+<h3 id="9-proxyget">9. proxy.get</h3>
+<ul>
+<li><strong>Description:</strong> Fetches registered proxies, by state (active/passive), status (online/offline), etc.</li>
+<li><strong>Parameters:</strong></li>
+<li>All proxies: <code>{ "output": "proxyid" }</code></li>
+<li>Active: <code>{ "output": "proxyid", "filter": { "state": 2 } }</code></li>
+<li>Passive: <code>{ "output": "proxyid", "filter": { "state": 1 } }</code></li>
+<li>Online: <code>{ "output": "proxyid", "filter": { "status": 0 } }</code></li>
+<li>Offline: <code>{ "output": "proxyid", "filter": { "status": 1 } }</code></li>
+</ul>
+<hr />
+<p>These calls are made dynamically according to the Zabbix version and the environment data. Consult the code for details on optional parameters and fallback logic.</p>
 <hr />
 <h2 id="diagram-zabbix-api-calls">Diagram: Zabbix API Calls</h2>
 <pre><code class="language-mermaid">flowchart TD

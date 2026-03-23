@@ -12,7 +12,7 @@
         <link rel="prev" href="../api/">
       
       
-        <link rel="next" href="../usage/">
+        <link rel="next" href="../contribution/">
       
       
       <link rel="icon" href="../../img/favicon.svg">
@@ -20,7 +20,7 @@
     
     
       
-        <title>Docker - Zabbix Easy Report</title>
+        <title>Screenshots - Zabbix Easy Report</title>
       
     
     
@@ -64,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docker" class="md-skip">
+        <a href="#capturas-de-tela" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Docker
+              Screenshots
             
           </span>
         </div>
@@ -235,11 +235,11 @@
   
   
     <li class="md-nav__item">
-      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Changelog
+    Installation
   </span>
   
 
@@ -255,11 +255,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Installation
+    Usage
   </span>
   
 
@@ -308,7 +308,7 @@
           
   
   <span class="md-ellipsis">
-    Docker
+    Screenshots
   </span>
   
 
@@ -319,7 +319,7 @@
         
   
   <span class="md-ellipsis">
-    Docker
+    Screenshots
   </span>
   
 
@@ -341,129 +341,162 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#modos-de-execucao" class="md-nav__link">
+  <a href="#tela-de-login" class="md-nav__link">
     <span class="md-ellipsis">
-      Modos de execução
+      Tela de login
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#modo-1-sem-banco-de-dados-padrao" class="md-nav__link">
+  <a href="#relatorio-visao-geral-summary" class="md-nav__link">
     <span class="md-ellipsis">
-      Modo 1 — Sem banco de dados (padrão)
+      Relatório: Visão geral (Summary)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#modo-2-com-banco-de-dados-postgresql" class="md-nav__link">
+  <a href="#zabbix-server-pollers" class="md-nav__link">
     <span class="md-ellipsis">
-      Modo 2 — Com banco de dados PostgreSQL
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Modo 2 — Com banco de dados PostgreSQL">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      Passo 1 — Habilitar as variáveis de banco no docker-compose.yml
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#passo-2-subir-com-o-profile-db" class="md-nav__link">
-    <span class="md-ellipsis">
-      Passo 2 — Subir com o profile db
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#o-que-acontece-na-primeira-execucao" class="md-nav__link">
-    <span class="md-ellipsis">
-      O que acontece na primeira execução
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#referencia-de-variaveis-de-ambiente" class="md-nav__link">
-    <span class="md-ellipsis">
-      Referência de variáveis de ambiente
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Referência de variáveis de ambiente">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#variaveis-do-go-app" class="md-nav__link">
-    <span class="md-ellipsis">
-      Variáveis do go-app
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#variaveis-do-postgres" class="md-nav__link">
-    <span class="md-ellipsis">
-      Variáveis do postgres
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#profiles-do-docker-compose" class="md-nav__link">
-    <span class="md-ellipsis">
-      Profiles do Docker Compose
+      Zabbix Server: pollers
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#comandos-uteis" class="md-nav__link">
+  <a href="#zabbix-server-detalhes-internos" class="md-nav__link">
     <span class="md-ellipsis">
-      Comandos úteis
+      Zabbix Server: detalhes internos
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#porta-exposta" class="md-nav__link">
+  <a href="#zabbix-proxy-lista" class="md-nav__link">
     <span class="md-ellipsis">
-      Porta exposta
+      Zabbix Proxy: lista
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#persistencia-de-dados" class="md-nav__link">
+  <a href="#zabbix-proxy-detalhes-do-proxy" class="md-nav__link">
     <span class="md-ellipsis">
-      Persistência de dados
+      Zabbix Proxy: detalhes do proxy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#itens-exemplo-de-descoberta-lld" class="md-nav__link">
+    <span class="md-ellipsis">
+      Itens: exemplo de descoberta (LLD)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-templates-e-associacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Templates e associações
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-principais-itens-top" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Principais itens (Top)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-usuarios-e-permissoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Usuários e permissões
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-recomendacoes-visao-geral" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Recomendações (visão geral)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topicos-de-recomendacao-geral" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópicos de recomendação: geral
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Templates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-seguranca" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Segurança
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-itens-lld-snmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Itens (LLD / SNMP)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#seletor-de-idioma" class="md-nav__link">
+    <span class="md-ellipsis">
+      Seletor de idioma
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#botoes-de-acao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Botões de ação
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorios-do-banco-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatórios do Banco de Dados
     </span>
   </a>
   
@@ -484,11 +517,11 @@
   
   
     <li class="md-nav__item">
-      <a href="../usage/" class="md-nav__link">
+      <a href="https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md" class="md-nav__link">
         
   
   <span class="md-ellipsis">
-    Usage
+    Changelog
   </span>
   
 
@@ -544,129 +577,162 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#modos-de-execucao" class="md-nav__link">
+  <a href="#tela-de-login" class="md-nav__link">
     <span class="md-ellipsis">
-      Modos de execução
+      Tela de login
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#modo-1-sem-banco-de-dados-padrao" class="md-nav__link">
+  <a href="#relatorio-visao-geral-summary" class="md-nav__link">
     <span class="md-ellipsis">
-      Modo 1 — Sem banco de dados (padrão)
+      Relatório: Visão geral (Summary)
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#modo-2-com-banco-de-dados-postgresql" class="md-nav__link">
+  <a href="#zabbix-server-pollers" class="md-nav__link">
     <span class="md-ellipsis">
-      Modo 2 — Com banco de dados PostgreSQL
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Modo 2 — Com banco de dados PostgreSQL">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      Passo 1 — Habilitar as variáveis de banco no docker-compose.yml
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#passo-2-subir-com-o-profile-db" class="md-nav__link">
-    <span class="md-ellipsis">
-      Passo 2 — Subir com o profile db
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#o-que-acontece-na-primeira-execucao" class="md-nav__link">
-    <span class="md-ellipsis">
-      O que acontece na primeira execução
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#referencia-de-variaveis-de-ambiente" class="md-nav__link">
-    <span class="md-ellipsis">
-      Referência de variáveis de ambiente
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Referência de variáveis de ambiente">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#variaveis-do-go-app" class="md-nav__link">
-    <span class="md-ellipsis">
-      Variáveis do go-app
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#variaveis-do-postgres" class="md-nav__link">
-    <span class="md-ellipsis">
-      Variáveis do postgres
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#profiles-do-docker-compose" class="md-nav__link">
-    <span class="md-ellipsis">
-      Profiles do Docker Compose
+      Zabbix Server: pollers
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#comandos-uteis" class="md-nav__link">
+  <a href="#zabbix-server-detalhes-internos" class="md-nav__link">
     <span class="md-ellipsis">
-      Comandos úteis
+      Zabbix Server: detalhes internos
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#porta-exposta" class="md-nav__link">
+  <a href="#zabbix-proxy-lista" class="md-nav__link">
     <span class="md-ellipsis">
-      Porta exposta
+      Zabbix Proxy: lista
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#persistencia-de-dados" class="md-nav__link">
+  <a href="#zabbix-proxy-detalhes-do-proxy" class="md-nav__link">
     <span class="md-ellipsis">
-      Persistência de dados
+      Zabbix Proxy: detalhes do proxy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#itens-exemplo-de-descoberta-lld" class="md-nav__link">
+    <span class="md-ellipsis">
+      Itens: exemplo de descoberta (LLD)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-templates-e-associacoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Templates e associações
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-principais-itens-top" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Principais itens (Top)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-usuarios-e-permissoes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Usuários e permissões
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorio-recomendacoes-visao-geral" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatório: Recomendações (visão geral)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topicos-de-recomendacao-geral" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópicos de recomendação: geral
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Templates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-seguranca" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Segurança
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#topico-itens-lld-snmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tópico: Itens (LLD / SNMP)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#seletor-de-idioma" class="md-nav__link">
+    <span class="md-ellipsis">
+      Seletor de idioma
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#botoes-de-acao" class="md-nav__link">
+    <span class="md-ellipsis">
+      Botões de ação
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relatorios-do-banco-de-dados" class="md-nav__link">
+    <span class="md-ellipsis">
+      Relatórios do Banco de Dados
     </span>
   </a>
   
@@ -690,215 +756,81 @@
   
 
 
-<h1 id="docker">Docker</h1>
-<h2 id="modos-de-execucao">Modos de execução</h2>
-<p>O Zabbix Easy suporta dois modos: <strong>sem banco</strong> (padrão) e <strong>com banco</strong> onde há uma persistência de relatórios em banco os HTML são salvos em banco para fim de comparação e histórico.
-Utilizo a ENV <code>DB_HOST</code> como ponto de controle, onde se estiver vazia, nenhum banco é necessário e o codigo entende que o usuário deseja rodar sem banco, ocultando o card de relatórios salvos e mantendo os relatórios apenas na sessão atual (in-memory).</p>
-<pre><code>var dbEnabled = os.Getenv(&quot;DB_HOST&quot;) != &quot;&quot;
-</code></pre>
+<h1 id="capturas-de-tela">Capturas de tela</h1>
+<p>Algumas capturas de tela.</p>
+<!-- Galeria de capturas -->
+<h3 id="tela-de-login">Tela de login</h3>
+<p>Captura da tela de login onde se informa a URL da API do Zabbix e o token.</p>
+<p><img alt="Tela de login" src="../../img/screenshots/login.jpg" /></p>
 <hr />
-<h2 id="modo-1-sem-banco-de-dados-padrao">Modo 1 — Sem banco de dados (padrão)</h2>
-<p>Ideal para avaliação rápida ou ambientes onde não é necessário guardar histórico de relatórios.</p>
-<pre><code class="language-bash">docker compose up --build -d
-</code></pre>
-<ul>
-<li>Apenas o serviço <code>go-app</code> é iniciado</li>
-<li>Relatórios ficam disponíveis <strong>somente na sessão atual</strong> (in-memory)</li>
-<li>O card <strong>Relatórios Salvos</strong> é <strong>ocultado automaticamente</strong> na interface</li>
-<li>Ao reiniciar o container, relatórios anteriores são perdidos</li>
-</ul>
+<h3 id="relatorio-visao-geral-summary">Relatório: Visão geral (Summary)</h3>
+<p>Aba de resumo do relatório gerado com métricas e indicadores principais.</p>
+<p><img alt="Resumo do relatório" src="../../img/screenshots/report-summary.jpg" /></p>
 <hr />
-<h2 id="modo-2-com-banco-de-dados-postgresql">Modo 2 — Com banco de dados PostgreSQL</h2>
-<p>Persiste todos os relatórios gerados no PostgreSQL. Permite reabrir, comparar e excluir relatórios anteriores.</p>
-<h3 id="passo-1-habilitar-as-variaveis-de-banco-no-docker-composeyml">Passo 1 — Habilitar as variáveis de banco no <code>docker-compose.yml</code></h3>
-<p>Descomente o bloco de variáveis <code>DB_*</code> no serviço <code>go-app</code>:</p>
-<pre><code class="language-yaml">environment:
-  - DB_HOST=postgres
-  - DB_PORT=5432
-  - DB_USER=postgres
-  - DB_PASSWORD=postgres
-  - DB_NAME=zabbix_report
-</code></pre>
-<h3 id="passo-2-subir-com-o-profile-db">Passo 2 — Subir com o profile <code>db</code></h3>
-<pre><code class="language-bash">docker compose --profile db up --build -d
-</code></pre>
-<p>O profile <code>db</code> é necessário porque o serviço <code>postgres</code> <strong>só é iniciado quando explicitamente pedido</strong>.
-Sem <code>--profile db</code>, o postgres não sobe — mesmo com as variáveis <code>DB_*</code> descomentadas.</p>
-<h3 id="o-que-acontece-na-primeira-execucao">O que acontece na primeira execução</h3>
-<ol>
-<li>O <code>go-app</code> tenta conectar ao PostgreSQL (até 15 tentativas, 2 s de intervalo)</li>
-<li>Se a conexão falhar após 15 tentativas → container para com erro <code>[FATAL]</code></li>
-<li>Se conectar com sucesso → cria a tabela <code>reports</code> automaticamente (se não existir)</li>
-<li>Schema antigo com colunas faltando → tabela antiga renomeada para <code>reports_old_&lt;timestamp&gt;</code> e nova tabela criada</li>
-</ol>
+<h3 id="zabbix-server-pollers">Zabbix Server: pollers</h3>
+<p>Métricas internas do Zabbix Server mostrando processos poller e seus estados.</p>
+<p><img alt="Zabbix Server - pollers" src="../../img/screenshots/report-zabbix-server-pollers.jpg" /></p>
 <hr />
-<h2 id="referencia-de-variaveis-de-ambiente">Referência de variáveis de ambiente</h2>
-<h3 id="variaveis-do-go-app">Variáveis do <code>go-app</code></h3>
-<table>
-<thead>
-<tr>
-<th>Variável</th>
-<th>Padrão</th>
-<th>Descrição</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ZABBIX_SERVER_HOSTID</code></td>
-<td>10084 - Default</td>
-<td>HostID do Zabbix Server para coleta de dados de performance.</td>
-</tr>
-<tr>
-<td><code>CHECKTRENDTIME</code></td>
-<td><code>30d</code></td>
-<td>Janela de análise de trends. Aceita <code>d</code>, <code>h</code>, <code>m</code>. Ex: <code>15d</code>, <code>24h</code>.</td>
-</tr>
-<tr>
-<td><code>MAX_CCONCURRENT</code></td>
-<td><code>4</code></td>
-<td>Goroutines paralelas para chamadas à API do Zabbix. Reduzir para <code>2</code>–<code>3</code> se o Zabbix ficar lento ou retornar timeouts.</td>
-</tr>
-<tr>
-<td><code>API_TIMEOUT_SECONDS</code></td>
-<td><code>60</code></td>
-<td>Timeout em segundos de cada requisição HTTP à API do Zabbix. Aumentar para <code>90</code>–<code>120</code> em ambientes com muitos hosts/itens ou latência alta.</td>
-</tr>
-<tr>
-<td><code>APP_DEBUG</code></td>
-<td><em>(vazio)</em></td>
-<td><code>1</code> para logs detalhados de cada requisição à API.</td>
-</tr>
-<tr>
-<td><code>DB_HOST</code></td>
-<td><em>(vazio)</em></td>
-<td>Host do PostgreSQL. <strong>Se vazio, persistência desativada e card DB oculto.</strong></td>
-</tr>
-<tr>
-<td><code>DB_PORT</code></td>
-<td><code>5432</code></td>
-<td>Porta do PostgreSQL.</td>
-</tr>
-<tr>
-<td><code>DB_USER</code></td>
-<td><code>postgres</code></td>
-<td>Usuário do banco.</td>
-</tr>
-<tr>
-<td><code>DB_PASSWORD</code></td>
-<td><code>postgres</code></td>
-<td>Senha do banco.</td>
-</tr>
-<tr>
-<td><code>DB_NAME</code></td>
-<td><code>zabbix_report</code></td>
-<td>Nome do banco de dados.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="variaveis-do-postgres">Variáveis do <code>postgres</code></h3>
-<table>
-<thead>
-<tr>
-<th>Variável</th>
-<th>Valor padrão</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>POSTGRES_DB</code></td>
-<td><code>zabbix_report</code></td>
-</tr>
-<tr>
-<td><code>POSTGRES_USER</code></td>
-<td><code>postgres</code></td>
-</tr>
-<tr>
-<td><code>POSTGRES_PASSWORD</code></td>
-<td><code>postgres</code></td>
-</tr>
-</tbody>
-</table>
+<h3 id="zabbix-server-detalhes-internos">Zabbix Server: detalhes internos</h3>
+<p>Detalhes internos do Zabbix Server utilizados no relatório.</p>
+<p><img alt="Zabbix Server - interno" src="../../img/screenshots/report-zabbix-server-internal.jpg" /></p>
 <hr />
-<h2 id="profiles-do-docker-compose">Profiles do Docker Compose</h2>
-<table>
-<thead>
-<tr>
-<th>Profile</th>
-<th>Serviços iniciados</th>
-<th>Quando usar</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><em>(nenhum)</em></td>
-<td><code>go-app</code></td>
-<td>Uso sem banco — avaliação rápida</td>
-</tr>
-<tr>
-<td><code>db</code></td>
-<td><code>go-app</code> + <code>postgres</code></td>
-<td>Uso com persistência de relatórios</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>Nota:</strong> o serviço <code>go-app</code> também possui <code>profiles: ["app"]</code> no <code>docker-compose.yml</code>.
-Para subir apenas o <code>go-app</code> pelo profile: <code>docker compose --profile app up -d</code>.
-Para subir tudo junto: <code>docker compose --profile app --profile db up --build -d</code>.</p>
-</blockquote>
+<h3 id="zabbix-proxy-lista">Zabbix Proxy: lista</h3>
+<p>Lista de proxies Zabbix configurados exibida no relatório (visão da lista de proxies).</p>
+<p><img alt="Zabbix Proxy - lista" src="../../img/screenshots/report-zabbix-proxy-list.jpg" /></p>
 <hr />
-<h2 id="comandos-uteis">Comandos úteis</h2>
-<pre><code class="language-bash"># Subir sem banco (padrão)
-docker compose up -d
-
-# Subir com banco
-docker compose --profile db up --build -d
-
-# Ver logs do app
-docker logs -f go-zabbix-app
-
-# Ver logs do postgres
-docker logs -f go-zabbix-postgres
-
-# Parar tudo (preserva volume de dados)
-docker compose --profile db down
-
-# Parar e remover volume de dados
-docker compose --profile db down -v
-
-# Acessar o banco diretamente
-docker exec -it go-zabbix-postgres psql -U postgres -d zabbix_report
-</code></pre>
+<h3 id="zabbix-proxy-detalhes-do-proxy">Zabbix Proxy: detalhes do proxy</h3>
+<p>Métricas detalhadas e status para um proxy Zabbix selecionado.</p>
+<p><img alt="Zabbix Proxy - detalhes" src="../../img/screenshots/report-zabbix-proxy-especific.jpg" /></p>
 <hr />
-<h2 id="porta-exposta">Porta exposta</h2>
-<table>
-<thead>
-<tr>
-<th>Serviço</th>
-<th>Porta host</th>
-<th>Porta container</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>go-app</code></td>
-<td><code>8080</code></td>
-<td><code>8080</code></td>
-</tr>
-<tr>
-<td><code>postgres</code></td>
-<td><code>5433</code></td>
-<td><code>5432</code></td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p>O postgres expõe a porta <code>5433</code> no host (evita conflito com um postgres local na <code>5432</code>).</p>
-</blockquote>
+<h3 id="itens-exemplo-de-descoberta-lld">Itens: exemplo de descoberta (LLD)</h3>
+<p>Seção de exemplo mostrando items provenientes de Low-Level Discovery.</p>
+<p><img alt="Itens LLD" src="../../img/screenshots/report-items-lld.jpg" /></p>
 <hr />
-<h2 id="persistencia-de-dados">Persistência de dados</h2>
-<p>O volume <code>go_zabbix_postgres_data</code> é nomeado explicitamente para sobreviver a <code>docker compose down</code>.
-Só é removido com <code>docker compose down -v</code> ou <code>docker volume rm go_zabbix_postgres_data</code>.</p>
+<h3 id="relatorio-templates-e-associacoes">Relatório: Templates e associações</h3>
+<p>Abas de templates mostrando uso e hosts vinculados.</p>
+<p><img alt="Templates do relatório" src="../../img/screenshots/report-templates.jpg" /></p>
+<hr />
+<h3 id="relatorio-principais-itens-top">Relatório: Principais itens (Top)</h3>
+<p>Exibe os itens de maior impacto e suas métricas.</p>
+<p><img alt="Principais itens" src="../../img/screenshots/report-top.jpg" /></p>
+<hr />
+<h3 id="relatorio-usuarios-e-permissoes">Relatório: Usuários e permissões</h3>
+<p>Contagem de usuários e possíveis configurações inseguras (ex.: conta admin padrão).</p>
+<p><img alt="Usuários do relatório" src="../../img/screenshots/report-users.jpg" /></p>
+<hr />
+<h3 id="relatorio-recomendacoes-visao-geral">Relatório: Recomendações (visão geral)</h3>
+<p>Recomendações geradas pela ferramenta, organizadas por tópicos.</p>
+<p><img alt="Recomendações - visão geral" src="../../img/screenshots/report-recommendations.jpg" /></p>
+<hr />
+<h3 id="topicos-de-recomendacao-geral">Tópicos de recomendação: geral</h3>
+<p>Visão expandida dos tópicos de recomendação e itens afetados.</p>
+<p><img alt="Tópicos de recomendação" src="../../img/screenshots/report-recommendations-topics.jpg" /></p>
+<hr />
+<h3 id="topico-templates">Tópico: Templates</h3>
+<p>Recomendações relacionadas ao uso e melhoria de templates.</p>
+<p><img alt="Tópico - templates" src="../../img/screenshots/report-recommendations-topics-templates.jpg" /></p>
+<hr />
+<h3 id="topico-seguranca">Tópico: Segurança</h3>
+<p>Recomendações com foco em segurança, como contas padrão e senhas.</p>
+<p><img alt="Tópico - segurança" src="../../img/screenshots/report-recommendations-topics-security.jpg" /></p>
+<hr />
+<h3 id="topico-itens-lld-snmp">Tópico: Itens (LLD / SNMP)</h3>
+<p>Recomendações ao nível de items, incluindo descoberta (LLD) e parâmetros SNMP.</p>
+<p><img alt="Tópico - items" src="../../img/screenshots/report-recommendations-topics-items.jpg" /></p>
+<hr />
+<h3 id="seletor-de-idioma">Seletor de idioma</h3>
+<p>Mostra o dropdown de seleção de idioma (PT/EN) e variação dos rótulos.</p>
+<p><img alt="Seletor de idioma" src="../../img/screenshots/languages.jpg" /></p>
+<hr />
+<h3 id="botoes-de-acao">Botões de ação</h3>
+<p>Botões principais e controles usados para gerar e exportar relatórios.</p>
+<p><img alt="Botões de ação" src="../../img/screenshots/buttons.jpg" /></p>
+<hr />
+<h3 id="relatorios-do-banco-de-dados">Relatórios do Banco de Dados</h3>
+<p>Carrega relatórios do banco de dados.</p>
+<p><img alt="Relatórios do Banco de Dados" src="../../img/screenshots/database-report.jpg" /></p>
+<hr />
 
 
 
