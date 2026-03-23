@@ -1,56 +1,62 @@
 # Zabbix Easy Report
 
-Zabbix Easy é uma ferramenta open-source que analisa um ambiente Zabbix via API e gera um relatório com recomendações práticas para melhorar desempenho, confiabilidade e manutenção.
+Zabbix Easy is an open-source tool that analyzes a Zabbix environment via the Zabbix API and generates a concise HealthCheck report with actionable recommendations to improve performance, reliability and maintenance.
 
-Resumo rápido
-- Linguagem backend: Go
-- Frontend: HTML/CSS/JS (estático gerado pelo backend)
-- Documentação: MkDocs (em `docs/`)
+Compatibility: tested and working on Zabbix 6.0, 6.4 and 7.0.
 
-Principais componentes
-- `app/cmd/app` — backend em Go que coleta dados via API do Zabbix e gera o HTML do relatório
-- `app/web` — recursos estáticos (templates, i18n, CSS, JS)
-- `docs/` — documentação do projeto (MkDocs)
+Quick summary
+- Backend language: Go
+- Frontend: HTML/CSS/JS (server-generated)
+- Documentation: MkDocs (in the `docs/` folder)
 
-Funcionalidades principais
-- Coleta e agregação de métricas via Zabbix API
-- Análises: itens não suportados, itens sem template, pollers/processos do server e proxys, trends, LLD
-- Recomendações automatizadas com snippets de correção
-- Exportação para HTML/PDF
-- Persistência opcional de relatórios (Postgres)
+Key components
+- `app/cmd/app` — Go backend that collects data via the Zabbix API and renders the HTML report
+- `app/web` — static assets (templates, i18n, CSS, JS)
+- `docs/` — project documentation (MkDocs)
 
-Rápido tutorial — executar localmente
-1) Usando Docker (mais simples):
+Main features
+- Data collection and aggregation via the Zabbix API
+- Analysis: unsupported items, items without templates, server pollers/processes and proxies, trends, LLD
+- Automated recommendations with fix snippets
+- Export to HTML/PDF
+- Optional persistence of reports (Postgres)
+
+Quick start — run locally
+1) Using Docker (easiest):
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
-# abra http://localhost:8080
+docker run -d --name zabbix-easy -p 8080:8080 \
+	-e MAX_CCONCURRENT=10 \
+	-e ZABBIX_SERVER_HOSTID=10084 \
+	-e CHECKTRENDTIME=15d \
+	bernardolankheet/zabbix-easy:latest
+# open http://localhost:8080
 ```
 
-2) Rodando localmente (desenvolvimento):
+2) Running locally (development):
 
 ```bash
-# compilar
+# build
 cd app/cmd/app
 go build -o zbx-easy
-# executar
+# run
 ./zbx-easy
 ```
 
-Documentação (MkDocs)
-- URL EM BREVE: documentação online
-- Para rodar localmente: veja `docs/contribuicao.md`
+Documentation (MkDocs)
+- Online docs: (coming soon)
+- To run docs locally: see `docs/en/contribution.md` (English) or `docs/pt_BR/contribution.md` (Portuguese)
 
-Contribuição
-- Abra issues e PRs. Veja `docs/contribuicao.md` para orientações de i18n, desenvolvimento e como rodar a documentação localmente.
+Contributing
+- Open issues and PRs. See `docs/en/contribution.md` (English) or `docs/pt_BR/contribution.md` (Portuguese) for i18n and development guidelines and how to run the docs locally.
 
-Boas práticas
-- Não comite o ambiente virtual (`.venv`) — já incluímos `.gitignore`.
-- Use um ambiente virtual Python para trabalhar com MkDocs.
+Notes and best practices
+- Do not commit your virtualenv (`.venv`) — a `.gitignore` is included.
+- Use a Python virtual environment to work with MkDocs.
 
-Contato e licença
-- Repositório: https://github.com/bernardolankheet/zabbix-easy
-- Licença: veja `LICENSE`
+Contact and license
+- Repository: https://github.com/bernardolankheet/zabbix-easy
+- License: see `LICENSE`
 
-Notas
-- Para detalhes das novas funcionalidades e mudanças veja `docs/CHANGELOG.md`.
+Changelog
+- See `CHANGELOG.md` for recent changes and upgrade notes.

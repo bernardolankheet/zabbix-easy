@@ -5,7 +5,15 @@ lang: en_US
 
 # Zabbix Easy HealthCheck Report
 
-Modern project to generate Zabbix HealthCheck reports using Go and PostgreSQL.
+Project for a Zabbix HealthCheck using Go and Postgres.
+
+## Compatibility:
+
+Tested and working on Zabbix:
+
+- 6.0
+- 6.4
+- 7.0
 
 ## Components
 - Go backend: API, workers, Zabbix data collection
