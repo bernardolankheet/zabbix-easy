@@ -3,6 +3,9 @@ name: Deploy MkDocs to GitHub Pages
 on:
   push:
     branches: [ dev ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
 
 #Isso é para ter permissão de escrita para o mkdocs gh-deploy fazer push no gh-pages
 permissions:
