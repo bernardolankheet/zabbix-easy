@@ -45,10 +45,10 @@ go build -o zbx-easy
 
 Documentação (MkDocs)
 - Documentação online: (em breve)
-- Para rodar localmente: veja `docs/contribuicao.md`
+- Para rodar localmente: veja `docs/pt_BR/contribution.md`
 
 Contribuição
-- Abra issues e PRs. Veja `docs/contribuicao.md` para orientações de i18n, desenvolvimento e como rodar a documentação localmente.
+- Abra issues e PRs. Veja `docs/pt_BR/contribution.md` para orientações de i18n, desenvolvimento e como rodar a documentação localmente.
 
 Contato e licença
 - Repositório: https://github.com/bernardolankheet/zabbix-easy
