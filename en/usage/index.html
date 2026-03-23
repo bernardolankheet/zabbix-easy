@@ -396,6 +396,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#authentication-zabbix-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Zabbix API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication Zabbix API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auth-field-authentication-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      auth field authentication (Zabbix &lt; 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bearer-authentication-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bearer authentication (Zabbix &gt;= 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#report-guides" class="md-nav__link">
     <span class="md-ellipsis">
       Report Guides
@@ -1872,6 +1905,42 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 </code></pre>
 <p>The generator detects Zabbix version via <code>apiinfo.version</code> and adjusts calls and process lists automatically for Zabbix 6 and 7.</p>
 <hr />
+<h2 id="authentication-zabbix-api">Authentication Zabbix API</h2>
+<p>Starting with Zabbix 7.2 the API authentication uses the token in the HTTP header <code>Authorization: Bearer &lt;token&gt;</code> instead of the <code>auth</code> field in the JSON-RPC body. The application detects the Zabbix version (<code>apiinfo.version</code>) at startup and automatically enables this mode when the version is &gt;= 7.2. Behavior summary:</p>
+<ul>
+<li><code>user.login</code> (username/password test) still uses the login flow and does not require the Bearer header.</li>
+<li>For all other authenticated calls, when Zabbix &gt;= 7.2 the app sends <code>Authorization: Bearer &lt;token&gt;</code> and DOES NOT include <code>auth</code> in the JSON-RPC body.</li>
+</ul>
+<h3 id="auth-field-authentication-zabbix-72"><code>auth</code> field authentication (Zabbix &lt; 7.2)</h3>
+<p>On Zabbix versions prior to 7.2 the API token is passed in the JSON-RPC <code>auth</code> field. Typical flow:</p>
+<ul>
+<li>Call <code>user.login</code> with <code>username</code>/<code>password</code> → receive <code>token</code> in the response.</li>
+<li>Include that token in subsequent requests in the <code>auth</code> field of the JSON-RPC body (e.g. <code>req["auth"] = "&lt;token&gt;"</code>).</li>
+</ul>
+<p>Example (curl) using <code>auth</code> in the body:</p>
+<pre><code>curl --location --request POST 'http://DNS/api_jsonrpc.php' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {&quot;output&quot;: &quot;extend&quot;, &quot;filter&quot;: {&quot;delay&quot;: 60}, &quot;templated&quot;: false, &quot;countOutput&quot;: true},
+  &quot;auth&quot;: &quot;1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4&quot;,
+  &quot;id&quot;: 1
+}'
+</code></pre>
+<h3 id="bearer-authentication-zabbix-72">Bearer authentication (Zabbix &gt;= 7.2)</h3>
+<p>Example request with Bearer (curl):</p>
+<pre><code>curl --location --request GET 'http://DNS/api_jsonrpc.php' \
+  --header 'Authorization: Bearer 1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {&quot;output&quot;: &quot;extend&quot;, &quot;filter&quot;: {&quot;delay&quot;: 60}, &quot;templated&quot;: false, &quot;countOutput&quot;: true},
+  &quot;id&quot;: 1
+}'
+</code></pre>
+<p>The application logs the detected version and a <code>useBearerAuth=true/false</code> flag for troubleshooting. When <code>useBearerAuth=true</code> the <code>auth</code> field is intentionally omitted from the JSON body.</p>
 <h2 id="report-guides">Report Guides</h2>
 <p>The report is split into 7 tabs. Below is the full documentation for each.</p>
 <hr />

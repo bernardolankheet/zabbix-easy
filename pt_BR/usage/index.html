@@ -319,6 +319,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#autenticacao-zabbix-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação Zabbix API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Autenticação Zabbix API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autenticacao-via-campo-auth-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação via campo auth (Zabbix &lt; 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#autenticacao-via-bearer-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação via Bearer (Zabbix &gt;= 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#guias-do-relatorio" class="md-nav__link">
     <span class="md-ellipsis">
       Guias do Relatório
@@ -1798,6 +1831,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#autenticacao-zabbix-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação Zabbix API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Autenticação Zabbix API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#autenticacao-via-campo-auth-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação via campo auth (Zabbix &lt; 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#autenticacao-via-bearer-zabbix-72" class="md-nav__link">
+    <span class="md-ellipsis">
+      Autenticação via Bearer (Zabbix &gt;= 7.2)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#guias-do-relatorio" class="md-nav__link">
     <span class="md-ellipsis">
       Guias do Relatório
@@ -3230,6 +3296,42 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 </code></pre>
 <p>A geração detecta a versão do Zabbix via <code>apiinfo.version</code> e ajusta chamadas e listas de processos automaticamente para Zabbix 6 e 7.</p>
 <hr />
+<h2 id="autenticacao-zabbix-api">Autenticação Zabbix API</h2>
+<p>A partir do Zabbix 7.2 a autenticação da API passou a usar o token no header HTTP <code>Authorization: Bearer &lt;token&gt;</code> em vez do campo <code>auth</code> no corpo JSON-RPC. A aplicação detecta a versão do Zabbix (<code>apiinfo.version</code>) logo no início do processamento e ativa automaticamente esse modo quando a versão é &gt;= 7.2. O comportamento é:</p>
+<ul>
+<li><code>user.login</code> (teste de credenciais) continua usando o fluxo de login com <code>username</code>/<code>password</code> e não exige o header Bearer.</li>
+<li>Para todas as outras chamadas autenticadas, quando a versão do Zabbix é &gt;= 7.2 a aplicação adiciona o header <code>Authorization: Bearer &lt;token&gt;</code> e NÃO inclui o campo <code>auth</code> no JSON-RPC.</li>
+</ul>
+<h3 id="autenticacao-via-campo-auth-zabbix-72">Autenticação via campo <code>auth</code> (Zabbix &lt; 7.2)</h3>
+<p>Nas versões anteriores ao Zabbix 7.2 o token de autenticação era passado no campo <code>auth</code> do corpo JSON-RPC. O fluxo comum é:</p>
+<ul>
+<li>Fazer <code>user.login</code> com <code>username</code>/<code>password</code> → obter <code>result</code> com o <code>token</code>.</li>
+<li>Incluir o token nas chamadas subsequentes no campo <code>auth</code> do JSON-RPC (ex.: <code>req["auth"] = "&lt;token&gt;"</code>).</li>
+</ul>
+<p>Exemplo (curl) usando <code>auth</code> no corpo:</p>
+<pre><code>curl --location --request POST 'http://DNS/api_jsonrpc.php' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {&quot;output&quot;: &quot;extend&quot;, &quot;filter&quot;: {&quot;delay&quot;: 60}, &quot;templated&quot;: false, &quot;countOutput&quot;: true},
+  &quot;auth&quot;: &quot;1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4&quot;,
+  &quot;id&quot;: 1
+}'
+</code></pre>
+<h3 id="autenticacao-via-bearer-zabbix-72">Autenticação via Bearer (Zabbix &gt;= 7.2)</h3>
+<p>Exemplo de requisição com Bearer (curl):</p>
+<pre><code>curl --location --request GET 'http://DNS/api_jsonrpc.php' \
+  --header 'Authorization: Bearer 1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;item.get&quot;,
+  &quot;params&quot;: {&quot;output&quot;: &quot;extend&quot;, &quot;filter&quot;: {&quot;delay&quot;: 60}, &quot;templated&quot;: false, &quot;countOutput&quot;: true},
+  &quot;id&quot;: 1
+}'
+</code></pre>
+<p>A aplicação registra em log a versão detectada e um flag <code>useBearerAuth=true/false</code> para facilitar diagnóstico. Quando <code>useBearerAuth=true</code> o campo <code>auth</code> é deliberadamente omitido do corpo JSON-RPC.</p>
 <h2 id="guias-do-relatorio">Guias do Relatório</h2>
 <p>O relatório é dividido em 7 guias. A seguir a documentação completa de cada uma.</p>
 <hr />
