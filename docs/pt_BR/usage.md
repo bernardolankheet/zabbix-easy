@@ -52,6 +52,53 @@ A geração detecta a versão do Zabbix via `apiinfo.version` e ajusta chamadas 
 
 ---
 
+## Autenticação Zabbix API
+
+A partir do Zabbix 7.2 a autenticação da API passou a usar o token no header HTTP `Authorization: Bearer <token>` em vez do campo `auth` no corpo JSON-RPC. A aplicação detecta a versão do Zabbix (`apiinfo.version`) logo no início do processamento e ativa automaticamente esse modo quando a versão é >= 7.2. O comportamento é:
+
+- `user.login` (teste de credenciais) continua usando o fluxo de login com `username`/`password` e não exige o header Bearer.
+- Para todas as outras chamadas autenticadas, quando a versão do Zabbix é >= 7.2 a aplicação adiciona o header `Authorization: Bearer <token>` e NÃO inclui o campo `auth` no JSON-RPC.
+
+### Autenticação via campo `auth` (Zabbix < 7.2)
+
+Nas versões anteriores ao Zabbix 7.2 o token de autenticação era passado no campo `auth` do corpo JSON-RPC. O fluxo comum é:
+
+- Fazer `user.login` com `username`/`password` → obter `result` com o `token`.
+- Incluir o token nas chamadas subsequentes no campo `auth` do JSON-RPC (ex.: `req["auth"] = "<token>"`).
+
+Exemplo (curl) usando `auth` no corpo:
+
+```
+curl --location --request POST 'http://DNS/api_jsonrpc.php' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "jsonrpc": "2.0",
+  "method": "item.get",
+  "params": {"output": "extend", "filter": {"delay": 60}, "templated": false, "countOutput": true},
+  "auth": "1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4",
+  "id": 1
+}'
+```
+
+### Autenticação via Bearer (Zabbix >= 7.2)
+
+Exemplo de requisição com Bearer (curl):
+
+```
+curl --location --request GET 'http://DNS/api_jsonrpc.php' \
+  --header 'Authorization: Bearer 1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "jsonrpc": "2.0",
+  "method": "item.get",
+  "params": {"output": "extend", "filter": {"delay": 60}, "templated": false, "countOutput": true},
+  "id": 1
+}'
+```
+
+A aplicação registra em log a versão detectada e um flag `useBearerAuth=true/false` para facilitar diagnóstico. Quando `useBearerAuth=true` o campo `auth` é deliberadamente omitido do corpo JSON-RPC.
+
+
 ## Guias do Relatório
 
 O relatório é dividido em 7 guias. A seguir a documentação completa de cada uma.

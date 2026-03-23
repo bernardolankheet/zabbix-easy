@@ -22,6 +22,10 @@ import (
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
 var debugApi bool = false
+// useBearerAuth is set to true when the detected Zabbix version is >= 7.2.
+// In that case all API calls (except user.login) must authenticate via
+// "Authorization: Bearer <token>" HTTP header instead of the JSON-RPC "auth" field.
+var useBearerAuth bool = false
 // CHECKTRENDTIME controls how far back getLastTrend queries trends.
 // Format examples: 15d, 1d, 12h, 10m (days/hours/minutes). Defaults to 15d.
 var checkTrendDurationSeconds int64 = 15 * 24 * 60 * 60
@@ -201,7 +205,10 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 		"params":  params,
 		"id":      1,
 	}
-	if token != "" {
+	// Zabbix < 7.2: token vai no campo "auth" do JSON-RPC.
+	// Zabbix >= 7.2: token vai no header HTTP "Authorization: Bearer <token>".
+	// user.login passa token vazio, então nenhum dos dois ramos se aplica.
+	if token != "" && !useBearerAuth {
 		req["auth"] = token
 	}
 	reqBytes, _ := json.Marshal(req)
@@ -223,6 +230,9 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 		req, reqErr := http.NewRequest("POST", apiUrl, strings.NewReader(string(reqBytes)))
 		if reqErr != nil { err = reqErr; break }
 		req.Header.Set("Content-Type", "application/json")
+		if useBearerAuth && token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 		if attempt > 1 {
 			req.Header.Set("Connection", "close")
 		}
@@ -952,12 +962,20 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
+	minorV := 0
 	if zabbixVersion != "" {
 		parts := strings.SplitN(zabbixVersion, ".", 3)
 		if len(parts) > 0 {
 			if v, err := strconv.Atoi(parts[0]); err == nil { majorV = v }
 		}
+		if len(parts) > 1 {
+			if v, err := strconv.Atoi(parts[1]); err == nil { minorV = v }
+		}
 	}
+	// A partir do Zabbix 7.2 a autenticação é via Bearer token no header HTTP.
+	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
+	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
+	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
 	formatInt := func(n int) string {

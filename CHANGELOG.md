@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [0.0.4] - 23/03/2026
+
+## Authentication changes
+
+  - Support for Zabbix >= 7.2 Bearer-token authentication: the application now detects `apiinfo.version` and, for Zabbix 7.2 and above, sends the token via the HTTP header `Authorization: Bearer <token>` instead of the JSON-RPC `auth` field.
+  - `user.login` remains unchanged and is still used for the Admin/password check; all other authenticated calls use Bearer for Zabbix >= 7.2.
+  - `app/cmd/app/main.go` now sets a runtime flag `useBearerAuth` and logs the detected version and chosen auth mode.
+
+### Affected files
+
+  - `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
+
 ## [0.0.3] - 22/03/2026
 
 ### Documentation updates (22/03/2026)

@@ -14,6 +14,9 @@ Testado e funcionando no Zabbix:
 - 6.0
 - 6.4
 - 7.0
+- 7.2
+- 7.4
+- 8.0 (experimental)
 
 ## Componentes
 - Go Backend: API, workers, coleta Zabbix
