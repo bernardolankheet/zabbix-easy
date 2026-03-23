@@ -59,4 +59,4 @@ Contact and license
 - License: see `LICENSE`
 
 Changelog
-- See `docs/CHANGELOG.md` for recent changes and upgrade notes.
+- See `CHANGELOG.md` for recent changes and upgrade notes.
