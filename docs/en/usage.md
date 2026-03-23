@@ -52,6 +52,53 @@ The generator detects Zabbix version via `apiinfo.version` and adjusts calls and
 
 ---
 
+## Authentication Zabbix API
+
+Starting with Zabbix 7.2 the API authentication uses the token in the HTTP header `Authorization: Bearer <token>` instead of the `auth` field in the JSON-RPC body. The application detects the Zabbix version (`apiinfo.version`) at startup and automatically enables this mode when the version is >= 7.2. Behavior summary:
+
+- `user.login` (username/password test) still uses the login flow and does not require the Bearer header.
+- For all other authenticated calls, when Zabbix >= 7.2 the app sends `Authorization: Bearer <token>` and DOES NOT include `auth` in the JSON-RPC body.
+
+### `auth` field authentication (Zabbix < 7.2)
+
+On Zabbix versions prior to 7.2 the API token is passed in the JSON-RPC `auth` field. Typical flow:
+
+- Call `user.login` with `username`/`password` → receive `token` in the response.
+- Include that token in subsequent requests in the `auth` field of the JSON-RPC body (e.g. `req["auth"] = "<token>"`).
+
+Example (curl) using `auth` in the body:
+
+```
+curl --location --request POST 'http://DNS/api_jsonrpc.php' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "jsonrpc": "2.0",
+  "method": "item.get",
+  "params": {"output": "extend", "filter": {"delay": 60}, "templated": false, "countOutput": true},
+  "auth": "1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4",
+  "id": 1
+}'
+```
+
+### Bearer authentication (Zabbix >= 7.2)
+
+Example request with Bearer (curl):
+
+```
+curl --location --request GET 'http://DNS/api_jsonrpc.php' \
+  --header 'Authorization: Bearer 1a0e00749668dff30b86279804989c7160831d61819d5b44f27d54ec4e07f6d4' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "jsonrpc": "2.0",
+  "method": "item.get",
+  "params": {"output": "extend", "filter": {"delay": 60}, "templated": false, "countOutput": true},
+  "id": 1
+}'
+```
+
+The application logs the detected version and a `useBearerAuth=true/false` flag for troubleshooting. When `useBearerAuth=true` the `auth` field is intentionally omitted from the JSON body.
+
+
 ## Report Guides
 
 The report is split into 7 tabs. Below is the full documentation for each.
