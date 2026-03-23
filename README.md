@@ -45,10 +45,10 @@ go build -o zbx-easy
 
 Documentation (MkDocs)
 - Online docs: (coming soon)
-- To run docs locally: see `docs/contribuicao.md`
+- To run docs locally: see `docs/en/contribution.md` (English) or `docs/pt_BR/contribution.md` (Portuguese)
 
 Contributing
-- Open issues and PRs. See `docs/contribuicao.md` for i18n and development guidelines and how to run the docs locally.
+- Open issues and PRs. See `docs/en/contribution.md` (English) or `docs/pt_BR/contribution.md` (Portuguese) for i18n and development guidelines and how to run the docs locally.
 
 Notes and best practices
 - Do not commit your virtualenv (`.venv`) — a `.gitignore` is included.

@@ -12,7 +12,7 @@ Algumas capturas de tela.
 
 Captura da tela de login onde se informa a URL da API do Zabbix e o token.
 
-![Tela de login](/img/screenshots/login.jpg)
+![Tela de login](../img/screenshots/login.jpg)
 
 ---
 
@@ -20,7 +20,7 @@ Captura da tela de login onde se informa a URL da API do Zabbix e o token.
 
 Aba de resumo do relatório gerado com métricas e indicadores principais.
 
-![Resumo do relatório](/img/screenshots/report-summary.jpg)
+![Resumo do relatório](../img/screenshots/report-summary.jpg)
 
 ---
 
@@ -28,7 +28,7 @@ Aba de resumo do relatório gerado com métricas e indicadores principais.
 
 Métricas internas do Zabbix Server mostrando processos poller e seus estados.
 
-![Zabbix Server - pollers](/img/screenshots/report-zabbix-server-pollers.jpg)
+![Zabbix Server - pollers](../img/screenshots/report-zabbix-server-pollers.jpg)
 
 ---
 
@@ -36,7 +36,7 @@ Métricas internas do Zabbix Server mostrando processos poller e seus estados.
 
 Detalhes internos do Zabbix Server utilizados no relatório.
 
-![Zabbix Server - interno](/img/screenshots/report-zabbix-server-internal.jpg)
+![Zabbix Server - interno](../img/screenshots/report-zabbix-server-internal.jpg)
 
 ---
 
@@ -44,7 +44,7 @@ Detalhes internos do Zabbix Server utilizados no relatório.
 
 Lista de proxies Zabbix configurados exibida no relatório (visão da lista de proxies).
 
-![Zabbix Proxy - lista](/img/screenshots/report-zabbix-proxy-list.jpg)
+![Zabbix Proxy - lista](../img/screenshots/report-zabbix-proxy-list.jpg)
 
 ---
 
@@ -52,7 +52,7 @@ Lista de proxies Zabbix configurados exibida no relatório (visão da lista de p
 
 Métricas detalhadas e status para um proxy Zabbix selecionado.
 
-![Zabbix Proxy - detalhes](/img/screenshots/report-zabbix-proxy-especific.jpg)
+![Zabbix Proxy - detalhes](../img/screenshots/report-zabbix-proxy-especific.jpg)
 
 ---
 
@@ -60,7 +60,7 @@ Métricas detalhadas e status para um proxy Zabbix selecionado.
 
 Seção de exemplo mostrando items provenientes de Low-Level Discovery.
 
-![Itens LLD](/img/screenshots/report-items-lld.jpg)
+![Itens LLD](../img/screenshots/report-items-lld.jpg)
 
 ---
 
@@ -68,7 +68,7 @@ Seção de exemplo mostrando items provenientes de Low-Level Discovery.
 
 Abas de templates mostrando uso e hosts vinculados.
 
-![Templates do relatório](/img/screenshots/report-templates.jpg)
+![Templates do relatório](../img/screenshots/report-templates.jpg)
 
 ---
 
@@ -76,7 +76,7 @@ Abas de templates mostrando uso e hosts vinculados.
 
 Exibe os itens de maior impacto e suas métricas.
 
-![Principais itens](/img/screenshots/report-top.jpg)
+![Principais itens](../img/screenshots/report-top.jpg)
 
 ---
 
@@ -84,7 +84,7 @@ Exibe os itens de maior impacto e suas métricas.
 
 Contagem de usuários e possíveis configurações inseguras (ex.: conta admin padrão).
 
-![Usuários do relatório](/img/screenshots/report-users.jpg)
+![Usuários do relatório](../img/screenshots/report-users.jpg)
 
 ---
 
@@ -92,7 +92,7 @@ Contagem de usuários e possíveis configurações inseguras (ex.: conta admin p
 
 Recomendações geradas pela ferramenta, organizadas por tópicos.
 
-![Recomendações - visão geral](/img/screenshots/report-recommendations.jpg)
+![Recomendações - visão geral](../img/screenshots/report-recommendations.jpg)
 
 ---
 
@@ -100,7 +100,7 @@ Recomendações geradas pela ferramenta, organizadas por tópicos.
 
 Visão expandida dos tópicos de recomendação e itens afetados.
 
-![Tópicos de recomendação](/img/screenshots/report-recommendations-topics.jpg)
+![Tópicos de recomendação](../img/screenshots/report-recommendations-topics.jpg)
 
 ---
 
@@ -108,7 +108,7 @@ Visão expandida dos tópicos de recomendação e itens afetados.
 
 Recomendações relacionadas ao uso e melhoria de templates.
 
-![Tópico - templates](/img/screenshots/report-recommendations-topics-templates.jpg)
+![Tópico - templates](../img/screenshots/report-recommendations-topics-templates.jpg)
 
 ---
 
@@ -116,7 +116,7 @@ Recomendações relacionadas ao uso e melhoria de templates.
 
 Recomendações com foco em segurança, como contas padrão e senhas.
 
-![Tópico - segurança](/img/screenshots/report-recommendations-topics-security.jpg)
+![Tópico - segurança](../img/screenshots/report-recommendations-topics-security.jpg)
 
 ---
 
@@ -124,7 +124,7 @@ Recomendações com foco em segurança, como contas padrão e senhas.
 
 Recomendações ao nível de items, incluindo descoberta (LLD) e parâmetros SNMP.
 
-![Tópico - items](/img/screenshots/report-recommendations-topics-items.jpg)
+![Tópico - items](../img/screenshots/report-recommendations-topics-items.jpg)
 
 ---
 
@@ -132,7 +132,7 @@ Recomendações ao nível de items, incluindo descoberta (LLD) e parâmetros SNM
 
 Mostra o dropdown de seleção de idioma (PT/EN) e variação dos rótulos.
 
-![Seletor de idioma](/img/screenshots/languages.jpg)
+![Seletor de idioma](../img/screenshots/languages.jpg)
 
 ---
 
@@ -140,7 +140,7 @@ Mostra o dropdown de seleção de idioma (PT/EN) e variação dos rótulos.
 
 Botoões principais e controles usados para gerar e exportar relatórios.
 
-![Botões de ação](/img/screenshots/buttons.jpg)
+![Botões de ação](../img/screenshots/buttons.jpg)
 
 ---
 
@@ -148,7 +148,7 @@ Botoões principais e controles usados para gerar e exportar relatórios.
 
 Carrega relatórios do banco de dados.
 
-![Relatórios do Banco de Dados](/img/screenshots/database-report.jpg)
+![Relatórios do Banco de Dados](../img/screenshots/database-report.jpg)
 
 ---
 
