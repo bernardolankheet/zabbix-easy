@@ -13,7 +13,7 @@ lang: pt_BR
 
 ## Opção 1 — Docker Run (mais simples)
 
-Ideal para uso rápido, sem precisar clonar o repositório.
+Ideal para uso rápido, e sem necessidade de utilizar banco de dados.
 
 ```bash
 docker run -d \
@@ -28,6 +28,12 @@ docker run -d \
 > **Como encontrar o `ZABBIX_SERVER_HOSTID`:** Acesse o frontend do Zabbix → **Data Collection** → pesquise pelo host "Zabbix Server" → abra o host e verifique o ID na URL. O valor padrão é `10084`.
 
 Acesse a interface em `http://localhost:8080`.
+
+UI: ![UI form](/img/screenshots/ui-form.svg)
+
+Sample report: ![Report sample](/img/screenshots/report-sample.svg)
+
+Helm deploy: ![Helm install](/img/screenshots/helm-install.svg)
 
 ---
 

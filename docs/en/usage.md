@@ -2,7 +2,220 @@
 title: "Usage"
 lang: en_US
 ---
+
+## Usage
+
+1. Open the web UI
+2. Enter the Zabbix API URL and token
+3. Wait for the report to be generated
+4. Export or print the report as needed
+
 ---
+
+## Global environment variables
+
+These variables affect the behavior of the entire report generation:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZABBIX_SERVER_HOSTID` | _(empty)_ | ID of the Zabbix Server host. Used to filter item calls by host. If unset, searches are performed without host filter. |
+| `CHECKTRENDTIME` | `30d` | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
+| `MAX_CCONCURRENT` | `4` | Max number of concurrent goroutines making Zabbix API calls. Lower to `2`–`3` if the Zabbix server becomes slow or returns timeouts. |
+| `API_TIMEOUT_SECONDS` | `60` | HTTP request timeout in seconds for each Zabbix API call. Network timeouts are logged and not retried. Increase to `90`–`120` in large environments. |
+| `APP_DEBUG` | _(empty)_ | `1` or `true` to enable detailed logging of each Zabbix API request/response. |
+
+---
+
+## Overall generation flow
+
+The main function is `generateZabbixReport(url, token string, progressCb func(string))` in `cmd/app/main.go`.
+
+- `url` and `token` must be non-empty — the function returns an error immediately if either is empty.
+- `url` may be provided as `http://host/` or `http://host/api_jsonrpc.php` — both are accepted; the `/api_jsonrpc.php` suffix is added only when necessary.
+- `progressCb` is passed as a function argument (not global), making concurrent runs isolated.
+
+```
+POST /api/start
+  → validate url and token (returns 400 if empty)
+  → create in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
+      → progressCb() updates progress messages (argument, not global)
+      → returns HTML fragment
+      → saves to PostgreSQL (if DB_HOST configured)
+
+GET /api/progress/:id      → poll status + progress message
+GET /api/report/:id        → returns generated HTML fragment (current session)
+GET /api/reportdb/:id      → returns saved DB report
+GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
+```
+
+The generator detects Zabbix version via `apiinfo.version` and adjusts calls and process lists automatically for Zabbix 6 and 7.
+
+---
+
+## Report Guides
+
+The report is split into 7 tabs. Below is the full documentation for each.
+
+---
+
+## Guide 1: Environment Summary (`tab-resumo`)
+
+### What it is
+
+Consolidated view of the Zabbix environment with key counters. This tab is shown by default when loading a report. Includes two doughnut gauges for quick view of disabled hosts and unsupported items.
+
+### Table displayed
+
+| Parameter | Value | Details |
+|-----------|-------|---------|
+| Number of hosts | total | enabled / disabled |
+| Number of templates | count | — |
+| Number of items | total | enabled / disabled / unsupported |
+| Number of Proxies | count | — |
+| Number of users | count | — |
+| Required server performance (NVPS) | float | new values per second |
+
+Gauges:
+- Hosts Disabled — doughnut showing enabled vs disabled
+- Unsupported Items — doughnut showing supported vs unsupported
+
+### Zabbix API calls
+
+Summary calls are executed in parallel (via `sync.WaitGroup`), reducing initial collection time:
+
+| Goroutine | Calls executed | Data extracted |
+|-----------|----------------|----------------|
+| 1 | `user.get` | User counts |
+| 2 | `host.get` ×3 | Total, enabled and disabled |
+| 3 | `template.get` | Template totals |
+| 4 | `item.get` ×3 | Total, enabled and disabled items |
+| 5 | `item.get` (unsupported) | Total unsupported items |
+
+Calls executed outside summary (always serial because other parts depend on them):
+
+| Call | Relevant params | Data extracted |
+|------|-----------------|----------------|
+| `apiinfo.version` | _(no auth)_ | Zabbix version; determines `majorV` used across the report |
+| `item.get` | `filter:{key_:"zabbix[requiredperformance]"}, hostids:<ZABBIX_SERVER_HOSTID>` | Finds NVPS item |
+| `history.get` | `itemids:<id>, sortorder:DESC, limit:1` | Last NVPS value |
+| `proxy.get` | `output:extend` | Full proxy list (used by other tabs); count derived from `len(proxies)` |
+
+### Go functions responsible
+
+| Function | Description |
+|----------|-------------|
+| `getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)` | Find NVPS item with in-memory cache |
+| `getLastHistoryValue(apiUrl, token, itemid, histType)` | Fetch last history value for NVPS |
+| `getProxies(apiUrl, token)` | Returns full proxy list; proxy count derived from `len(proxies)` |
+
+---
+
+## Guide 2: Zabbix Server (`tab-processos`)
+
+### What it is
+
+Shows utilization levels of internal Zabbix Server processes, split into two groups:
+
+- Pollers (Data Collectors): processes that actively collect metrics (`poller`, `http poller`, `icmp pinger`, `agent poller`, `snmp poller`, etc.)
+- Internal Processes: server infrastructure processes (`history syncer`, `housekeeper`, `escalator`, `trapper`, `lld manager`, etc.)
+
+For each process the tab shows `min`, `avg` and `max` utilization (%), plus an OK/Attention visual status (OK if avg < 60%, Attention if avg ≥ 60%).
+
+### Table displayed
+
+| Column | Description |
+|--------|-------------|
+| Poller / Process | Name with `?` tooltip describing the `zabbix_server.conf` parameter |
+| value_min | Minimum utilization in the period (`CHECKTRENDTIME`) |
+| value_avg | Average utilization in the period |
+| value_max | Peak utilization in the period |
+| Status | Green OK / Red Attention / Gray not enabled |
+
+### Zabbix API calls
+
+#### 1. `item.get` — bulk fetch of all processes (1 single call)
+
+Before spawning trend/history goroutines, the code does a single `item.get` that covers all processes (pollers + internal) at once:
+
+```json
+{
+  "method": "item.get",
+  "params": {
+    "output": ["itemid", "hostid", "name", "key_", "value_type"],
+    "search": {
+      "key_": [
+        "*agent*poller*",
+        "*browser*poller*",
+        "*configuration*syncer*",
+        "*history*syncer*",
+        "*housekeeper*",
+        "*poller*",
+        "..."
+      ]
+    },
+    "searchByAny": true,
+    "searchWildcardsEnabled": true,
+    "hostids": "<ZABBIX_SERVER_HOSTID>"
+  }
+}
+```
+
+- Each process name is converted to a wildcard pattern by `nameToWildcard`: `"agent poller"` → `"*agent*poller*"`, matching `agent poller` and `agent_poller` variants.
+- `searchByAny: true` makes Zabbix return any item matching at least one pattern.
+- Returned items are mapped back to names via `wildcardMatch` (client-side), preferring the most specific pattern to avoid collisions between `*poller*` and `*agent*poller*`.
+- If `ZABBIX_SERVER_HOSTID` is unset, the `hostids` parameter is omitted.
+
+#### 2a. `trend.get` bulk — 1 call for all processes (pollers + internal)
+
+After the `item.get` in step 1, all resolved itemids are grouped and sent in a single `trend.get` call:
+
+```json
+{
+  "method": "trend.get",
+  "params": {
+    "output": ["itemid", "clock", "value_min", "value_avg", "value_max"],
+    "itemids": ["<id1>", "<id2>", "..."],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_to": "<now>"
+  }
+}
+```
+
+The code aggregates points per itemid: `min(value_min)`, `mean(value_avg)`, `max(value_max)`.
+
+#### 2b. `history.get` bulk — fallback for items without trends (max 2 calls)
+
+When an itemid returned no trend records (trends=0 or retention expired), missing ids are grouped by `value_type` and fetched with at most 2 `history.get` calls (one per type: float `0` and integer `3`):
+
+```json
+{
+  "method": "history.get",
+  "params": {
+    "output": ["itemid", "clock", "value"],
+    "history": 0,
+    "itemids": ["<id_missing1>", "<id_missing2>", "..."],
+    "time_from": "<now - CHECKTRENDTIME>",
+    "time_till": "<now>",
+    "sortorder": "ASC",
+    "limit": 5000
+  }
+}
+```
+
+Min/avg/max are computed client-side from returned values per itemid.
+
+Result: the entire Zabbix Server section performs at most 3 API calls — 1 `item.get` + 1 `trend.get` + 1 `history.get` — regardless of the number of monitored processes.
+
+### Go functions responsible
+
+| Function | Description |
+|----------|-------------|
+| `nameToWildcard(name)` | Convert `"agent poller"` → `"*agent*poller*"` for wildcard search |
+| `wildcardMatch(pattern, key)` | Simple client-side `*` match used to map returned items back to names |
+| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Performs 1 `item.get` with all patterns. Resolves collisions by specificity. Returns `map[nameLowercase]item` |
+| `getTrendsBulkStats(apiUrl, token, itemids)` | 1 `trend.get` for all itemids. Aggregates min/avg/max per item. Returns `map[itemid]stats` |
+| `getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)` | Fallback: groups ids by `value_type` and performs at most 2 `history.get` calls. Returns `map[itemid]stats` |
+
 ---
 
 **Compatibility:** tested and working on Zabbix 6.0, 6.4 and 7.0.
