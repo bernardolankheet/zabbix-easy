@@ -145,8 +145,8 @@ Primary buttons and controls used to generate or export reports.
 
 ---
 
-### DataBase Reports
+### Database reports
 
-Load DataBase reports.
+Load database reports.
 
-![DataBase reports](/img/screenshots/database-report.jpg)
+![Database reports](/img/screenshots/database-report.jpg)
