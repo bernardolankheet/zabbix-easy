@@ -138,7 +138,7 @@ Mostra o dropdown de seleção de idioma (PT/EN) e variação dos rótulos.
 
 ### Botões de ação
 
-Botoões principais e controles usados para gerar e exportar relatórios.
+Botões principais e controles usados para gerar e exportar relatórios.
 
 ![Botões de ação](../img/screenshots/buttons.jpg)
 
