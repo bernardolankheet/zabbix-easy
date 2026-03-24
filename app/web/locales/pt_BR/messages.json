@@ -307,6 +307,7 @@
   ,"types.browser": "Browser"
   ,"table.item": "Item"
   ,"table.error": "Erro"
+  ,"table.errors": "Erros"
   ,"table.host": "Host"
   ,"table.error_count": "Quantidade de Erros"
   ,"table.error_message": "Mensagem de Erro"
@@ -396,9 +397,12 @@
   ,"section.triggers": "Triggers"
   ,"section.triggers_unknown_by_host": "Triggers — Unknown por Host"
   ,"tip.triggers": "Exibe triggers no estado 'Unknown', agrupados por host. Útil para identificar hosts com descoberta ou métricas ausentes/atrasadas."
+  ,"rec.triggers_summary_env": "Há %d triggers, %s do ambiente, com status Unknown em %d Templates, vinculados a %d hosts"
+  ,"section.triggers_unknown_by_template": "Triggers — Unknown por Template"
   ,"kpi.triggers_unknown": "Triggers Unknown"
   ,"rec.triggers_review": "Triggers Unknown"
   ,"rec.desc.triggers_unknown": "%d hosts com Triggers Unknown"
+  
   ,"rec.triggers_summary": "Há %d triggers com status Unknown em %d hosts."
   ,"rec.triggers_see_tab": "Verifique na aba Triggers"
   ,"triggers.no_data": "Nenhum trigger em estado 'Unknown' encontrado."
@@ -414,6 +418,6 @@
   ,"fix.default_admin_disable": "Se não utilizada, desative ou remova a conta Admin padrão e utilize uma conta administrativa própria"
   ,"fix.default_admin_password_in_use": "A conta 'Admin' aceita a senha padrão 'zabbix' — altere a senha imediatamente"
   ,"fix.open_users_list": "Abrir lista de usuários no Zabbix →"
-  ,"fix.triggers_unknown_hint": "Verifique os items de cada host listado: itens com erros de coleta colocam triggers que dependem deles em estado Unknown. Corrija os items não suportados ou com falha de coleta."
+  ,"fix.triggers_unknown_hint": "Triggers com Status Unknown, não são gatilhadas.... Verifique Itens com erros de coleta que possam colocar triggers em estado Unknown, condicao da trigger ou macros configuradas."
   ,"fix.triggers_items_hint": "Acesse a aba 'Items e LLDs' e verifique itens não suportados para os hosts com triggers Unknown. Corrija chaves inválidas, credenciais ou dependências ausentes."
 }

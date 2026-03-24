@@ -1416,12 +1416,29 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	var triggerUnknownRows []triggerHostRow
 	totalTriggersUnknown := 0
+	// additional maps to aggregate triggers by template
+	hostTrigCountByID := map[string]int{}
+	hostErrorsByID := map[string][]string{}
+	hostIDToName := map[string]string{}
 	trigResp, trigErr := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
 		"output":      []string{"triggerid", "description", "error"},
 		"selectHosts": []string{"hostid", "name"},
 		"filter":      map[string]interface{}{"state": 1},
 		"monitored":   true,
 	})
+
+	// helper: extract a short, human-friendly error from long trigger error texts.
+	// Strategy: take the substring after the last ": " (common pattern in Zabbix
+	// errors like "...): item is not supported.") and trim whitespace. If not
+	// found, return the original trimmed string.
+	shortError := func(s string) string {
+		s = strings.TrimSpace(s)
+		if s == "" || s == "<nil>" { return "" }
+		if idx := strings.LastIndex(s, ": "); idx != -1 && idx+2 < len(s) {
+			return strings.TrimSpace(s[idx+2:])
+		}
+		return s
+	}
 	if trigErr == nil {
 		if arr, ok := trigResp["result"].([]interface{}); ok {
 			hostTrigCount := map[string]int{}
@@ -1442,12 +1459,24 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 				if hostName == "" { continue }
 				hostTrigCount[hostName]++
 				hostIDMap[hostName] = hostID
-				errMsg := fmt.Sprintf("%v", trig["error"])
-				if errMsg == "" || errMsg == "<nil>" {
-					errMsg = fmt.Sprintf("%v", trig["description"])
+				// populate by-id maps for template aggregation
+				if hostID != "" {
+					hostTrigCountByID[hostID]++
+					hostIDToName[hostID] = hostName
 				}
-				if errMsg != "" && errMsg != "<nil>" {
-					hostErrors[hostName] = append(hostErrors[hostName], errMsg)
+				// Use only the explicit error field from the trigger. Do NOT
+				// fallback to the trigger description because it often contains
+				// the item/metric name; we want only the error text (for counts).
+				errMsg := strings.TrimSpace(fmt.Sprintf("%v", trig["error"]))
+				if errMsg == "" || errMsg == "<nil>" { errMsg = "" }
+				if errMsg != "" {
+					se := shortError(errMsg)
+					if se != "" {
+						hostErrors[hostName] = append(hostErrors[hostName], se)
+						if hostID != "" {
+							hostErrorsByID[hostID] = append(hostErrorsByID[hostID], se)
+						}
+					}
 				}
 			}
 			type trigKV struct{ Host string; Count int }
@@ -1459,21 +1488,89 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			sort.Slice(trigKVList, func(i, j int) bool { return trigKVList[i].Count > trigKVList[j].Count })
 			for _, tkv := range trigKVList {
 				errs := hostErrors[tkv.Host]
-				seen := map[string]struct{}{}
-				uniq := []string{}
-				for _, e := range errs {
-					if _, exists := seen[e]; !exists {
-						seen[e] = struct{}{}
-						uniq = append(uniq, e)
-						if len(uniq) >= 3 { break }
-					}
-				}
-				topErr := strings.Join(uniq, "; ")
+				// count occurrences per error message
+				errCount := map[string]int{}
+				for _, e := range errs { errCount[e]++ }
+				// build sorted list of errors by count
+				type ec struct{ Msg string; C int }
+				ecs := []ec{}
+				for m, c := range errCount { ecs = append(ecs, ec{m, c}) }
+				sort.Slice(ecs, func(i, j int) bool { return ecs[i].C > ecs[j].C })
+				maxHostErrs := 3
+				if len(ecs) > maxHostErrs { ecs = ecs[:maxHostErrs] }
+				topParts := []string{}
+				for _, e := range ecs { topParts = append(topParts, fmt.Sprintf("%s:%d", e.Msg, e.C)) }
+				topErr := ""
+				if len(topParts) > 0 { topErr = strings.Join(topParts, ", ") }
 				triggerUnknownRows = append(triggerUnknownRows, triggerHostRow{tkv.Host, hostIDMap[tkv.Host], tkv.Count, topErr})
 			}
 		}
 	}
 	_ = totalTriggersUnknown // used in recommendations section
+
+	// ── Agrupar Triggers Unknown por TEMPLATE (reaproveitando coletas) ───────
+	// Build per-template counts and top errors using a single host.get to fetch parent templates
+	templateTriggerCounts := map[string]int{}
+	templateErrorCounts := map[string]map[string]int{}
+	if len(hostTrigCountByID) > 0 {
+		hostIds := []string{}
+		for hid := range hostTrigCountByID { hostIds = append(hostIds, hid) }
+		// call host.get to fetch parent templates for these hosts
+		if resp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{
+			"output": []string{"hostid", "name"},
+			"hostids": hostIds,
+			"selectParentTemplates": []string{"templateid", "name"},
+		}); err == nil {
+			if arr, ok := resp["result"].([]interface{}); ok {
+				hostTemplates := map[string][]string{} // hostid -> []template names
+				for _, hraw := range arr {
+					h, _ := hraw.(map[string]interface{})
+					hid := fmt.Sprintf("%v", h["hostid"])
+					pt := []string{}
+					if parents, ok2 := h["parentTemplates"].([]interface{}); ok2 {
+						for _, p := range parents {
+							if pm, ok3 := p.(map[string]interface{}); ok3 {
+								if name := fmt.Sprintf("%v", pm["name"]); name != "" {
+									pt = append(pt, name)
+								}
+							}
+						}
+					}
+					hostTemplates[hid] = pt
+				}
+				// aggregate counts
+				for hid, cnt := range hostTrigCountByID {
+					tpls := hostTemplates[hid]
+					if len(tpls) == 0 {
+						// fallback: use host name as a pseudo-template
+						name := hostIDToName[hid]
+						templateTriggerCounts[name] += cnt
+						if errs := hostErrorsByID[hid]; len(errs) > 0 {
+							if templateErrorCounts[name] == nil { templateErrorCounts[name] = map[string]int{} }
+							for _, e := range errs { templateErrorCounts[name][e]++ }
+						}
+						continue
+					}
+					for _, tname := range tpls {
+						templateTriggerCounts[tname] += cnt
+						if errs := hostErrorsByID[hid]; len(errs) > 0 {
+							if templateErrorCounts[tname] == nil { templateErrorCounts[tname] = map[string]int{} }
+							for _, e := range errs { templateErrorCounts[tname][e]++ }
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Compute how many templates will be shown in the Template table (we cap the display)
+	maxTemplatesDisplayed := 20
+	templatesShownCount := 0
+	if len(templateTriggerCounts) > 0 {
+		tp := sortMap(templateTriggerCounts)
+		templatesShownCount = len(tp)
+		if templatesShownCount > maxTemplatesDisplayed { templatesShownCount = maxTemplatesDisplayed }
+	}
 
 	// Descrições moved to i18n locale files
 
@@ -3358,16 +3455,53 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// ── Tab: Triggers Unknown ─────────────────────────────────────────────────
 	html += `<div id='tab-triggers' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title' data-i18n='tabs.triggers'></h2>`
-	html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_host", "i18n:tip.triggers")
 
 	if len(triggerUnknownRows) == 0 {
 		html += `<p data-i18n='triggers.no_data'></p>`
 	} else {
+		// Render aggregated table: Triggers Unknown grouped by TEMPLATE
+		if len(templateTriggerCounts) > 0 {
+			// Title with info-icon for the Template table
+			html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_template", "i18n:tip.triggers")
+			topTemplates := sortMap(templateTriggerCounts)
+			maxTemplates := 20
+			if len(topTemplates) > maxTemplates { topTemplates = topTemplates[:maxTemplates] }
+			html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
+				` <th data-i18n='table.template'></th>` +
+				` <th data-i18n='kpi.triggers_unknown'></th>` +
+				` <th data-i18n='table.errors'></th>` +
+				`</tr></thead><tbody>`
+			for _, kv := range topTemplates {
+				// collect top errors for this template
+				errMap := templateErrorCounts[kv.Key]
+				type ekv struct{ Key string; Value int }
+				errArr := []ekv{}
+				for e, c := range errMap { errArr = append(errArr, ekv{e, c}) }
+				if len(errArr) > 0 {
+					sort.Slice(errArr, func(i, j int) bool { return errArr[i].Value > errArr[j].Value })
+				}
+				topErrs := 5
+				if len(errArr) > topErrs { errArr = errArr[:topErrs] }
+				errParts := []string{}
+				for _, e := range errArr { errParts = append(errParts, fmt.Sprintf("%s:%d", e.Key, e.Value)) }
+				errsCell := "<no error>"
+				if len(errParts) > 0 { errsCell = strings.Join(errParts, ", ") }
+				html += `<tr>` +
+					`<td>` + htmlpkg.EscapeString(kv.Key) + `</td>` +
+					`<td>` + formatInt(kv.Value) + `</td>` +
+					`<td>` + htmlpkg.EscapeString(errsCell) + `</td>` +
+					`</tr>`
+			}
+			html += `</tbody></table></div>`
+		}
+
+		// add a per-table title for the Host table as well (info-icon)
+		html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_host", "i18n:tip.triggers")
 		html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
-			`<th data-i18n='table.host'></th>` +
-			`<th data-i18n='kpi.triggers_unknown'></th>` +
-			`<th data-i18n='table.error'></th>` +
-			`<th data-i18n='table.link'></th>` +
+			` <th data-i18n='table.host'></th>` +
+			` <th data-i18n='kpi.triggers_unknown'></th>` +
+			` <th data-i18n='table.errors'></th>` +
+			` <th data-i18n='table.link'></th>` +
 			`</tr></thead><tbody>`
 		for _, row := range triggerUnknownRows {
 			var trigHostLink string
@@ -4054,16 +4188,32 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		trigAllLink := ""
+
+		// try to get total triggers count in the environment (lightweight countOutput)
+		totalTriggersAll := 0
+		if respAll, errAll := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{"countOutput": true}); errAll == nil {
+			if nAll, perr := parseCountResult(respAll); perr == nil {
+				totalTriggersAll = nAll
+			}
+		}
+		pct := 0.0
+		if totalTriggersAll > 0 {
+			pct = (float64(totalTriggersUnknown) / float64(totalTriggersAll)) * 100.0
+		}
+		// use the number of templates actually shown in the Template table
+		templatesAffected := templatesShownCount
 		if majorV >= 7 {
 			trigAllLink = ambienteUrl + "/zabbix.php?action=trigger.list&context=host&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1"
 		} else {
 			trigAllLink = ambienteUrl + "/triggers.php?filter_state=1&filter_set=1"
 		}
-		html += fmt.Sprintf(`<p style='font-size:0.92em;margin-bottom:10px;'>`+
-			`<span data-i18n='rec.triggers_summary' data-i18n-args='%d|%d'></span> `+
-			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. `+
-			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>`+
-			`</p>`, totalTriggersUnknown, len(triggerUnknownRows))
+		// use i18n key with args: totalUnknown|pct_str|templates|hosts
+		pctStr := fmt.Sprintf("%.1f%%", pct)
+		args := fmt.Sprintf("%d|%s|%d|%d", totalTriggersUnknown, pctStr, templatesAffected, len(triggerUnknownRows))
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><span data-i18n='rec.triggers_summary_env' data-i18n-args='` + args + `'></span> ` +
+			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. ` +
+			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>` +
+			`</p>`
 		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
 			`<ul>` +
 			`<li><span data-i18n='fix.triggers_unknown_hint'></span></li>` +
