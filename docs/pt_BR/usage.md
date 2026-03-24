@@ -731,6 +731,57 @@ O relatório também inclui uma recomendação automática quando detecta a cont
 
 ---
 
+## Guia: Triggers (`tab-triggers`)
+
+### O que é
+
+Esta guia exibe todos os triggers que se encontram no estado **Unknown**, agrupados por host. Um trigger entra em estado Unknown quando o Zabbix não consegue avaliar a expressão do trigger — geralmente porque algum item do qual o trigger depende está com falha de coleta (não suportado, timeout, credencial inválida, etc.).
+
+O estado Unknown **não gera alerta**, mas silencia a detecção de incidentes: o Zabbix não consegue dizer se a condição do trigger é `Problem` ou `OK`. Hosts com muitos triggers Unknown podem estar efetivamente sem monitoramento mesmo que pareçam normais.
+
+### O que é exibido
+
+| Coluna | Descrição |
+|--------|-----------|
+| Host | Nome do host no Zabbix |
+| Triggers Unknown | Quantidade de triggers em estado Unknown naquele host |
+| Erro | Mensagem de erro (até 3 erros únicos, separados por `;`) |
+
+A tabela é gerada com a classe `modern-table` e herda automaticamente os recursos de busca, ordenação por coluna e paginação do JavaScript global.
+
+### Chamada à API do Zabbix
+
+| Chamada | Parâmetros relevantes | Finalidade |
+|---------|-----------------------|-----------|
+| `trigger.get` | `filter:{state:1}, monitored:true, selectHosts:["hostid","name"], output:["triggerid","description","error"]` | Lista triggers em estado Unknown em hosts monitorados |
+
+> **state = 1** corresponde ao estado **Unknown** na API do Zabbix. O estado **Normal** seria `state = 0`.
+
+### Lógica de agrupamento
+
+Após receber a resposta de `trigger.get`,  o código:
+
+1. Percorre todos os triggers retornados.
+2. Para cada trigger, extrai o nome do primeiro host da lista `hosts`.
+3. Incrementa o contador de triggers Unknown para aquele host.
+4. Coleta até 3 mensagens de erro únicas por host (`error` ou, se vazio, `description`).
+5. Ordena os hosts por contagem decrescente.
+
+### KPI e Recomendação automática
+
+- Um KPI card **Triggers Unknown** aparece na guia Recomendações mostrando **a quantidade de hosts** (não de triggers) com pelo menos um trigger Unknown.
+  - 🟢 `kpi-ok` → 0 hosts com triggers Unknown
+  - 🔴 `kpi-crit` → 1 ou mais hosts com triggers Unknown
+- Se houver hosts com triggers Unknown, uma seção de recomendação `#card-triggers` é gerada com a tabela e orientações de correção.
+
+### Como corrigir
+
+1. Identifique os itens com erro nos hosts listados (use a aba **Items e LLDs** ou a lista de itens não suportados).
+2. Corrija a causa raiz: chave inválida, credencial expirada, dispositivo inacessível, dependência ausente.
+3. Após corrigir o item, o Zabbix avalia o trigger novamente na próxima coleta e o estado Unknown é resolvido automaticamente.
+
+---
+
 ## Guia 7: Recomendações (`tab-recomendacoes`)
 
 ### O que é

@@ -583,6 +583,57 @@ The report also surfaces a recommendation entry when the default `Admin` account
 
 ---
 
+## Guide: Triggers (`tab-triggers`)
+
+### What it is
+
+This tab displays all triggers that are in the **Unknown** state, grouped by host. A trigger enters the Unknown state when Zabbix cannot evaluate the trigger expression — usually because an item the trigger depends on is failing to collect data (unsupported, timeout, invalid credentials, etc.).
+
+The Unknown state **does not generate an alert**, but it silences incident detection: Zabbix cannot determine whether the trigger condition is `Problem` or `OK`. Hosts with many Unknown triggers may effectively be unmonitored even though they appear normal.
+
+### What is displayed
+
+| Column | Description |
+|--------|-------------|
+| Host | Host name in Zabbix |
+| Triggers Unknown | Number of triggers in Unknown state for that host |
+| Error | Error message (up to 3 unique errors, separated by `;`) |
+
+The table uses the `modern-table` class and automatically inherits global search, column sorting and pagination from the JavaScript.
+
+### Zabbix API call
+
+| Call | Relevant parameters | Purpose |
+|------|---------------------|---------|
+| `trigger.get` | `filter:{state:1}, monitored:true, selectHosts:["hostid","name"], output:["triggerid","description","error"]` | Lists triggers in Unknown state on monitored hosts |
+
+> **state = 1** corresponds to the **Unknown** state in the Zabbix API. The **Normal** state would be `state = 0`.
+
+### Grouping logic
+
+After receiving the `trigger.get` response, the code:
+
+1. Iterates through all returned triggers.
+2. For each trigger, extracts the name of the first host from the `hosts` array.
+3. Increments the Unknown trigger counter for that host.
+4. Collects up to 3 unique error messages per host (`error` field or, if empty, `description`).
+5. Sorts hosts by count descending.
+
+### KPI and automatic recommendation
+
+- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the number of hosts** (not triggers) with at least one Unknown trigger.
+  - 🟢 `kpi-ok` → 0 hosts with Unknown triggers
+  - 🔴 `kpi-crit` → 1 or more hosts with Unknown triggers
+- If there are hosts with Unknown triggers, a recommendation section `#card-triggers` is shown with the table and fix guidance.
+
+### How to fix
+
+1. Identify the failing items on the listed hosts (use the **Items & LLDs** tab or the unsupported items list).
+2. Fix the root cause: invalid key, expired credentials, unreachable device, missing dependency.
+3. After fixing the item, Zabbix re-evaluates the trigger on the next collection cycle and the Unknown state resolves automatically.
+
+---
+
 ## Guide 7: Recommendations (`tab-recomendacoes`)
 
 ### What it is

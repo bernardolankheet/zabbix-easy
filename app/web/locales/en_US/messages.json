@@ -63,6 +63,7 @@
   "progress.collecting_pollers_processes": "Collecting pollers and internal processes...",
   "progress.collecting_proxy_processes": "Collecting proxy processes and threads...",
   "progress.collecting_items_without_template_and_unsupported": "Collecting items without template and unsupported items...",
+  "progress.collecting_triggers": "Collecting triggers with Unknown status...",
   "progress.report_generated": "Report generated."
   ,"stats.no_history": "No history"
   ,"error.read_history": "Error reading history"
@@ -400,4 +401,18 @@
   ,"fix.default_admin_disable": "If unused, disable or delete the default Admin account and use a dedicated administrative account"
   ,"fix.default_admin_password_in_use": "The 'Admin' account accepts the default password 'zabbix' — change the password immediately"
   ,"fix.open_users_list": "Open users list in Zabbix →"
+
+  ,"tabs.triggers": "Triggers"
+  ,"section.triggers": "Triggers"
+  ,"section.triggers_unknown_by_host": "Triggers — Unknown by Host"
+  ,"tip.triggers": "Shows triggers in 'Unknown' state, grouped by host. Useful to identify hosts with missing or delayed metric collection."
+  ,"kpi.triggers_unknown": "Triggers Unknown"
+  ,"rec.triggers_review": "Triggers Unknown"
+  ,"rec.desc.triggers_unknown": "%d hosts with Unknown Triggers"
+  ,"rec.triggers_summary": "There are %d triggers in Unknown state across %d hosts."
+  ,"rec.triggers_see_tab": "Check the Triggers tab"
+  ,"triggers.no_data": "No triggers in 'Unknown' state found."
+  ,"table.trigger": "Trigger"
+  ,"fix.triggers_unknown_hint": "Check the items on each listed host: items with collection errors cause dependent triggers to enter Unknown state. Fix unsupported or failing items."
+  ,"fix.triggers_items_hint": "Go to the 'Items & LLDs' tab and review unsupported items for hosts with Unknown triggers. Fix invalid keys, credentials or missing dependencies."
 }

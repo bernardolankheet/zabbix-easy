@@ -1406,6 +1406,75 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	topErrors := sortMap(errorCounter)
 	if len(topErrors) > topN { topErrors = topErrors[:topN] }
 
+	// ── Coletar Triggers em estado Unknown (state=1) ─────────────────────────
+	if progressCb != nil { progressCb("progress.collecting_triggers") }
+	type triggerHostRow struct {
+		HostName  string
+		HostID    string
+		Count     int
+		TopErrors string
+	}
+	var triggerUnknownRows []triggerHostRow
+	totalTriggersUnknown := 0
+	trigResp, trigErr := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
+		"output":      []string{"triggerid", "description", "error"},
+		"selectHosts": []string{"hostid", "name"},
+		"filter":      map[string]interface{}{"state": 1},
+		"monitored":   true,
+	})
+	if trigErr == nil {
+		if arr, ok := trigResp["result"].([]interface{}); ok {
+			hostTrigCount := map[string]int{}
+			hostErrors := map[string][]string{}
+			hostIDMap := map[string]string{} // hostName -> hostid
+			for _, raw := range arr {
+				trig, ok2 := raw.(map[string]interface{})
+				if !ok2 { continue }
+				hostsArr, _ := trig["hosts"].([]interface{})
+				hostName := ""
+				hostID := ""
+				if len(hostsArr) > 0 {
+					if hm, ok3 := hostsArr[0].(map[string]interface{}); ok3 {
+						hostName = fmt.Sprintf("%v", hm["name"])
+						hostID = fmt.Sprintf("%v", hm["hostid"])
+					}
+				}
+				if hostName == "" { continue }
+				hostTrigCount[hostName]++
+				hostIDMap[hostName] = hostID
+				errMsg := fmt.Sprintf("%v", trig["error"])
+				if errMsg == "" || errMsg == "<nil>" {
+					errMsg = fmt.Sprintf("%v", trig["description"])
+				}
+				if errMsg != "" && errMsg != "<nil>" {
+					hostErrors[hostName] = append(hostErrors[hostName], errMsg)
+				}
+			}
+			type trigKV struct{ Host string; Count int }
+			trigKVList := []trigKV{}
+			for h, c := range hostTrigCount {
+				trigKVList = append(trigKVList, trigKV{h, c})
+				totalTriggersUnknown += c
+			}
+			sort.Slice(trigKVList, func(i, j int) bool { return trigKVList[i].Count > trigKVList[j].Count })
+			for _, tkv := range trigKVList {
+				errs := hostErrors[tkv.Host]
+				seen := map[string]struct{}{}
+				uniq := []string{}
+				for _, e := range errs {
+					if _, exists := seen[e]; !exists {
+						seen[e] = struct{}{}
+						uniq = append(uniq, e)
+						if len(uniq) >= 3 { break }
+					}
+				}
+				topErr := strings.Join(uniq, "; ")
+				triggerUnknownRows = append(triggerUnknownRows, triggerHostRow{tkv.Host, hostIDMap[tkv.Host], tkv.Count, topErr})
+			}
+		}
+	}
+	_ = totalTriggersUnknown // used in recommendations section
+
 	// Descrições moved to i18n locale files
 
 	// --- HTML moderno ---
@@ -1502,6 +1571,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<button class='tab-btn' data-tab='tab-proxys' data-i18n='tabs.proxys'></button>`
 	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
 	html += `<button class='tab-btn' data-tab='tab-templates' data-i18n='tabs.templates'></button>`
+	html += `<button class='tab-btn' data-tab='tab-triggers' data-i18n='tabs.triggers'></button>`
 	html += `<button class='tab-btn' data-tab='tab-top' data-i18n='tabs.top'></button>`
 	html += `<button class='tab-btn' data-tab='tab-usuarios' data-i18n='tabs.users'></button>`
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
@@ -3285,6 +3355,39 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	html += `</div>` // end tab-usuarios
 
+	// ── Tab: Triggers Unknown ─────────────────────────────────────────────────
+	html += `<div id='tab-triggers' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.triggers'></h2>`
+	html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_host", "i18n:tip.triggers")
+
+	if len(triggerUnknownRows) == 0 {
+		html += `<p data-i18n='triggers.no_data'></p>`
+	} else {
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
+			`<th data-i18n='table.host'></th>` +
+			`<th data-i18n='kpi.triggers_unknown'></th>` +
+			`<th data-i18n='table.error'></th>` +
+			`<th data-i18n='table.link'></th>` +
+			`</tr></thead><tbody>`
+		for _, row := range triggerUnknownRows {
+			var trigHostLink string
+			if majorV >= 7 {
+				trigHostPath := fmt.Sprintf("zabbix.php?action=trigger.list&context=host&filter_hostids%%5B%%5D=%s&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1", row.HostID)
+				trigHostLink = ambienteUrl + "/" + trigHostPath
+			} else {
+				trigHostLink = ambienteUrl + "/triggers.php?filter_hostids%%5B%%5D=" + row.HostID + "&filter_state=1&filter_set=1"
+			}
+			html += `<tr>` +
+				`<td>` + htmlpkg.EscapeString(row.HostName) + `</td>` +
+				`<td>` + formatInt(row.Count) + `</td>` +
+				`<td>` + htmlpkg.EscapeString(row.TopErrors) + `</td>` +
+				`<td><a href='` + htmlpkg.EscapeString(trigHostLink) + `' target='_blank' rel='noopener' data-i18n='open'></a></td>` +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
+	html += `</div>` // end tab-triggers
+
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title' data-i18n='tabs.recommendations'></h2>`
@@ -3522,6 +3625,12 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 		adminKpiIcon = "🟡"
 		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	}
+	// KPI: Triggers Unknown
+	triggersUnknownHostsCount := len(triggerUnknownRows)
+	triggersKpiClass := "kpi-ok"; if triggersUnknownHostsCount > 0 { triggersKpiClass = "kpi-crit" }
+	html += `<div class='kpi ` + triggersKpiClass + `' data-target='#card-triggers' data-i18n-title='kpi.triggers_unknown' title=''>` +
+		`<div class='kpi-num'>` + formatInt(triggersUnknownHostsCount) + `</div>` +
+		`<div class='kpi-label' data-i18n='kpi.triggers_unknown'></div></div>`
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.default_admin'></div></div>`
@@ -3931,6 +4040,36 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		}
 		html += `</ul></div>`
 		html += `</div></details>` // rec-sec-body + accordion
+	}
+
+	// --- Seção: Triggers Unknown (só aparece quando há triggers em unknown) ---
+	if len(triggerUnknownRows) > 0 {
+		secNum++
+		html += `<details class='rec-section' id='card-triggers'>` +
+			`<summary><span class='rec-sec-icon'>⚠️</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='rec.triggers_review'></span></div>` +
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.triggers_unknown' data-i18n-args='` + fmt.Sprintf("%d", len(triggerUnknownRows)) + `'></span></div>` +
+			`</div><span class='status-badge crit'>🔴</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
+		trigAllLink := ""
+		if majorV >= 7 {
+			trigAllLink = ambienteUrl + "/zabbix.php?action=trigger.list&context=host&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1"
+		} else {
+			trigAllLink = ambienteUrl + "/triggers.php?filter_state=1&filter_set=1"
+		}
+		html += fmt.Sprintf(`<p style='font-size:0.92em;margin-bottom:10px;'>`+
+			`<span data-i18n='rec.triggers_summary' data-i18n-args='%d|%d'></span> `+
+			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. `+
+			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>`+
+			`</p>`, totalTriggersUnknown, len(triggerUnknownRows))
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.triggers_unknown_hint'></span></li>` +
+			`<li><span data-i18n='fix.triggers_items_hint'></span></li>` +
+			`</ul></div>`
+		html += `</div></details>`
 	}
 
 	// --- Seção: Regras de LLD (só aparece quando há dado) ---
