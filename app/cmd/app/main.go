@@ -3778,7 +3778,13 @@ triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
 	}
 	// KPI: Triggers Unknown (show percentage of triggers Unknown)
 	triggersUnknownHostsCount := len(triggerUnknownRows)
-	triggersKpiClass := "kpi-ok"; if triggersUnknownHostsCount > 0 { triggersKpiClass = "kpi-crit" }
+	// Red (critical) when percent >0 and below 3%; warn when there are hosts with Unknown triggers; ok otherwise
+	triggersKpiClass := "kpi-ok"
+	if pctTriggers > 0.0 && pctTriggers < 3.0 {
+		triggersKpiClass = "kpi-crit"
+	} else if triggersUnknownHostsCount > 0 {
+		triggersKpiClass = "kpi-warn"
+	}
 	html += `<div class='kpi ` + triggersKpiClass + `' data-target='#card-triggers' data-i18n-title='kpi.triggers_unknown' title=''>` +
 		`<div class='kpi-num'>` + triggersPctStr + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.triggers_unknown'></div></div>`

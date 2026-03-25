@@ -776,7 +776,8 @@ Após receber a resposta de `trigger.get`,  o código:
 
 - Um KPI card **Triggers Unknown** aparece na guia Recomendações mostrando **a quantidade de hosts** (não de triggers) com pelo menos um trigger Unknown.
   - 🟢 `kpi-ok` → 0 hosts com triggers Unknown
-  - 🔴 `kpi-crit` → 1 ou mais hosts com triggers Unknown
+  - 🔴 `kpi-crit` → quando a percentagem de triggers Unknown for maior que 0 e menor que 3.0% (indica baixo volume relativo, mas possivelmente generalizado)
+  - 🟡 `kpi-warn` → quando houver hosts com triggers Unknown e a percentagem de Unknown for maior ou igual a 3.0%
 - Se houver hosts com triggers Unknown, uma seção de recomendação `#card-triggers` é gerada com a tabela e orientações de correção.
 
 Além disso, a recomendação principal inclui um resumo ambiental agregado com a chave i18n `rec.triggers_summary_env`, por exemplo:
