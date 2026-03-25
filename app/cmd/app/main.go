@@ -4173,7 +4173,15 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + formatInt(itemsLe60) + `'></span></p>`
 			}
 			if textCount > 0 {
-				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_text_with_history") + `</strong> <span data-i18n='items.text_with_history_paragraph' data-i18n-args='` + formatInt(textCount) + `'></span> <a href='#' data-i18n='open_full_listing'></a></p>`
+				// Build version-aware link to open the full listing in Zabbix frontend
+				var textItemsFullLink string
+				if majorV >= 7 {
+					textItemsFullLink = ambienteUrl + "/zabbix.php?action=item.list&context=host&filter_name=&filter_type=-1&filter_key=&filter_snmp_oid=&filter_value_type=4&filter_delay=300&filter_history=1w&filter_trends=&filter_status=-1&filter_state=-1&filter_inherited=-1&filter_with_triggers=-1&filter_discovered=-1&filter_evaltype=0&filter_profile=web.hosts.items.list.filter&filter_tab=1&sort=name&sortorder=ASC"
+				} else {
+					// Legacy frontend path for Zabbix < 7 — keep filters similar to modern listing
+					textItemsFullLink = ambienteUrl + "/items.php?filter_value_type=4&filter_delay=300&filter_history=1w&filter_status=-1&sort=name&sortorder=ASC"
+				}
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_text_with_history") + `</strong> <span data-i18n='items.text_with_history_paragraph' data-i18n-args='` + formatInt(textCount) + `'></span> <a href='` + htmlpkg.EscapeString(textItemsFullLink) + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 			}
 		if majorV >= 7 && snmpTplCount > 0 {
 			snmpIcon := `<span class='info-icon' tabindex='0' style='display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;cursor:pointer;margin-left:4px;position:relative;vertical-align:middle;'>` +
