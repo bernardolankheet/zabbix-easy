@@ -624,8 +624,9 @@ After receiving the `trigger.get` response, the code:
 
 ### KPI and automatic recommendation
 
-- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the number of hosts** (not triggers) with at least one Unknown trigger.
-  - 🟢 `kpi-ok` → 0 hosts with Unknown triggers
+- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the percentage of triggers** in Unknown state across the environment.
+  - The KPI value is formatted as `x.y%` and represents the share of all triggers that are currently Unknown.
+  - 🟢 `kpi-ok` → 0.0% Unknown triggers
   - 🔴 `kpi-crit` → when the percentage of triggers Unknown is greater than 0 and less than 3.0% (critical — low relative volume but possibly widespread)
   - 🟡 `kpi-warn` → when there are hosts with Unknown triggers and the Unknown percentage is greater than or equal to 3.0%
 - If there are hosts with Unknown triggers, a recommendation section `#card-triggers` is shown with the table and fix guidance.
