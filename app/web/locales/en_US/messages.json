@@ -408,6 +408,7 @@
   ,"section.triggers_unknown_by_host": "Triggers — Unknown by Host"
   ,"tip.triggers": "Shows triggers in 'Unknown' state, grouped by host. Useful to identify hosts with missing or delayed metric collection."
   ,"section.triggers_unknown_by_template": "Triggers — Unknown by Template"
+  ,"tip.triggers_by_template": "Shows triggers in 'Unknown' state, grouped by template. Useful to identify templates that cause missing or delayed metric collection."
   ,"kpi.triggers_unknown": "Triggers Unknown"
   ,"rec.triggers_review": "Triggers Unknown"
   ,"rec.desc.triggers_unknown": "%d hosts with Unknown Triggers"

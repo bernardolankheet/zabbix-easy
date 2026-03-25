@@ -399,6 +399,7 @@
   ,"tip.triggers": "Exibe triggers no estado 'Unknown', agrupados por host. Útil para identificar hosts com descoberta ou métricas ausentes/atrasadas."
   ,"rec.triggers_summary_env": "Há %d triggers, %s do ambiente, com status Unknown em %d Templates, vinculados a %d hosts"
   ,"section.triggers_unknown_by_template": "Triggers — Unknown por Template"
+  ,"tip.triggers_by_template": "Exibe triggers no estado 'Unknown', agrupados por template. Útil para identificar templates com descoberta ou métricas ausentes/atrasadas."
   ,"kpi.triggers_unknown": "Triggers Unknown"
   ,"rec.triggers_review": "Triggers Unknown"
   ,"rec.desc.triggers_unknown": "%d hosts com Triggers Unknown"

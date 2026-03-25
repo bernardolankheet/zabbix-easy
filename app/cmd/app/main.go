@@ -3464,7 +3464,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		// Render aggregated table: Triggers Unknown grouped by TEMPLATE
 		if len(templateTriggerCounts) > 0 {
 			// Title with info-icon for the Template table
-			html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_template", "i18n:tip.triggers")
+			html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_template", "i18n:tip.triggers_by_template")
 			topTemplates := sortMap(templateTriggerCounts)
 			maxTemplates := 20
 			if len(topTemplates) > maxTemplates { topTemplates = topTemplates[:maxTemplates] }
