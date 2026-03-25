@@ -91,7 +91,7 @@
   ,"no_proxy_process_data": "Proxy offline ou unknown — dados de processos não disponíveis."
   ,"items.no_template": "Items sem Template"
   ,"open": "Abrir"
-  ,"open_full_listing": "Abrir listagem completa"
+  ,"open_full_listing": "Abrir no Zabbix"
   ,"lld.error_rules": "Regras de descoberta com status de erro"
   ,"strong.total": "Total"
   ,"tabs.server": "Zabbix Server"
@@ -404,7 +404,13 @@
   ,"rec.desc.triggers_unknown": "%d hosts com Triggers Unknown"
   
   ,"rec.triggers_summary": "Há %d triggers com status Unknown em %d hosts."
-  ,"rec.triggers_see_tab": "Verifique na aba Triggers"
+  ,"rec.triggers_see_tab": "Verificar na aba Triggers"
+  ,"rec.server_see_tab": "Verificar na aba Server"
+  ,"rec.proxys_see_tab": "Verificar na aba Proxys"
+  ,"rec.items_see_tab": "Verificar na aba Items"
+  ,"rec.templates_see_tab": "Verificar na aba Templates"
+  ,"rec.lld_see_tab": "Verificar na aba Items"
+  ,"rec.users_see_tab": "Verificar na aba Usuários"
   ,"triggers.no_data": "Nenhum trigger em estado 'Unknown' encontrado."
   ,"table.trigger": "Trigger"
 
