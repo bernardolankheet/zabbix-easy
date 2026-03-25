@@ -423,6 +423,6 @@
   ,"rec.users_see_tab": "Open the Users tab"
   ,"triggers.no_data": "No triggers in 'Unknown' state found."
   ,"table.trigger": "Trigger"
-  ,"fix.triggers_unknown_hint": "Triggers with an Unknown Status are not triggered and not generating action events.... Check for items with collection errors that may put triggers in an Unknown state, trigger condition, or adjusted macros."
+  ,"fix.triggers_unknown_hint": "Triggers with an Unknown Status are not triggered and not generating action events. Check for items with collection errors that may put triggers in an Unknown state, trigger condition, or adjusted macros."
   ,"fix.triggers_items_hint": "Go to the 'Items & LLDs' tab and review unsupported items for hosts with Unknown triggers. Fix invalid keys, credentials or missing dependencies."
 }
