@@ -91,7 +91,7 @@
   ,"no_proxy_process_data": "Proxy offline or unknown — process data not available."
   ,"items.no_template": "Items without Template"
   ,"open": "Open"
-  ,"open_full_listing": "Open full listing"
+  ,"open_full_listing": "Open in Zabbix"
   ,"lld.error_rules": "Discovery rules with error status"
   ,"strong.total": "Total"
   ,"tabs.server": "Zabbix Server"

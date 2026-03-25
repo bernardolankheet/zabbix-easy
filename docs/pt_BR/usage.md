@@ -743,11 +743,15 @@ O estado Unknown **não gera alerta**, mas silencia a detecção de incidentes: 
 
 | Coluna | Descrição |
 |--------|-----------|
-| Host | Nome do host no Zabbix |
-| Triggers Unknown | Quantidade de triggers em estado Unknown naquele host |
-| Erro | Mensagem de erro (até 3 erros únicos, separados por `;`) |
+| Coluna / Tabela | Descrição |
+|--------|-----------|
+| Template (tabela agregada) | Lista os principais *Templates* ordenados por quantidade de Triggers em estado Unknown; cada linha mostra: Template, quantidade de triggers Unknown e um resumo de erros. Esta tabela é exibida antes da tabela por Host e reutiliza os resultados de `trigger.get` para evitar chamadas adicionais pesadas à API.
+| Triggers Unknown (por Host) | Quantidade de triggers em estado Unknown naquele host (tabela detalhada por host, exibida após a tabela por Template)
+| Erros | Coluna que mostra os erros mais comuns agregados — formato `mensagem_curta:quantidade` (ex.: `item is not supported.:5`) — sem incluir nomes de itens. Para hosts mostra os top 3 erros; para templates mostra os top 5.
 
 A tabela é gerada com a classe `modern-table` e herda automaticamente os recursos de busca, ordenação por coluna e paginação do JavaScript global.
+
+> Observação técnica: para construir a tabela por Template o relatório faz apenas uma chamada adicional leve (`host.get` com `selectParentTemplates`) usando os hostids já coletados pelo `trigger.get`, agregando os resultados por Template sem fazer múltiplas consultas por template.
 
 ### Chamada à API do Zabbix
 
@@ -764,8 +768,9 @@ Após receber a resposta de `trigger.get`,  o código:
 1. Percorre todos os triggers retornados.
 2. Para cada trigger, extrai o nome do primeiro host da lista `hosts`.
 3. Incrementa o contador de triggers Unknown para aquele host.
-4. Coleta até 3 mensagens de erro únicas por host (`error` ou, se vazio, `description`).
-5. Ordena os hosts por contagem decrescente.
+4. Armazena as mensagens de erro em formato curto: o código extrai apenas a parte concisa da mensagem (removendo caminhos/nomes de item) e conta ocorrências por mensagem curta.
+5. Para cada host também armazena a lista de erros (curtos) usada tanto na tabela por Host quanto para agregar por Template.
+6. Ordena os hosts e templates por contagem decrescente.
 
 ### KPI e Recomendação automática
 
@@ -773,6 +778,16 @@ Após receber a resposta de `trigger.get`,  o código:
   - 🟢 `kpi-ok` → 0 hosts com triggers Unknown
   - 🔴 `kpi-crit` → 1 ou mais hosts com triggers Unknown
 - Se houver hosts com triggers Unknown, uma seção de recomendação `#card-triggers` é gerada com a tabela e orientações de correção.
+
+Além disso, a recomendação principal inclui um resumo ambiental agregado com a chave i18n `rec.triggers_summary_env`, por exemplo:
+
+`Há 41039 triggers (3.9% do total) com status Unknown em 20 Templates, vinculados a 1957 hosts.`
+
+Os valores usados são:
+- total de triggers no ambiente (consulta leve com `countOutput:true` em `trigger.get`)
+- percentagem de triggers Unknown em relação ao total (formatada como `x.y%`)
+- número de templates exibidos (cap de exibição aplicado)
+- número de hosts com triggers Unknown
 
 ### Como corrigir
 

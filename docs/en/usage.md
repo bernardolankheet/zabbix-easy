@@ -595,11 +595,15 @@ The Unknown state **does not generate an alert**, but it silences incident detec
 
 | Column | Description |
 |--------|-------------|
-| Host | Host name in Zabbix |
-| Triggers Unknown | Number of triggers in Unknown state for that host |
-| Error | Error message (up to 3 unique errors, separated by `;`) |
+| Column / Table | Description |
+|--------|-------------|
+| Template (aggregated table) | Lists top Templates ordered by number of Triggers in Unknown state; each row shows Template, count of Unknown triggers and a short errors summary. This table is shown before the Host table and reuses `trigger.get` results to avoid heavy extra API calls.
+| Triggers Unknown (by Host) | Number of triggers in Unknown state for that host (detailed host table shown after the Template table)
+| Errors | Column showing aggregated short errors in the format `short_message:count` (e.g. `item is not supported.:5`) — item names are omitted. Hosts show top 3 errors; templates show top 5.
 
 The table uses the `modern-table` class and automatically inherits global search, column sorting and pagination from the JavaScript.
+
+Note: to build the Template table the report issues a single lightweight `host.get` with `selectParentTemplates` for the hostids already collected from `trigger.get`, aggregating by Template without iterating templates with multiple API calls.
 
 ### Zabbix API call
 
@@ -616,8 +620,9 @@ After receiving the `trigger.get` response, the code:
 1. Iterates through all returned triggers.
 2. For each trigger, extracts the name of the first host from the `hosts` array.
 3. Increments the Unknown trigger counter for that host.
-4. Collects up to 3 unique error messages per host (`error` field or, if empty, `description`).
-5. Sorts hosts by count descending.
+4. Stores error messages in a shortened form: the code extracts a concise message (stripping item/key prefixes) and counts occurrences by that short message.
+5. For each host it also stores the short-error list used for both the Host table and for aggregation by Template.
+6. Sorts hosts and templates by count descending.
 
 ### KPI and automatic recommendation
 
@@ -625,6 +630,16 @@ After receiving the `trigger.get` response, the code:
   - 🟢 `kpi-ok` → 0 hosts with Unknown triggers
   - 🔴 `kpi-crit` → 1 or more hosts with Unknown triggers
 - If there are hosts with Unknown triggers, a recommendation section `#card-triggers` is shown with the table and fix guidance.
+
+In addition, the main recommendation shows an aggregated environment summary using the i18n key `rec.triggers_summary_env`, for example:
+
+`There are 41039 triggers (3.9% of total) in Unknown state in 20 templates, linked to 1957 hosts.`
+
+The values used are:
+- total triggers in the environment (lightweight `trigger.get` with `countOutput:true`)
+- percentage of triggers Unknown relative to the total (formatted as `x.y%`)
+- number of templates displayed (display cap applied)
+- number of hosts with Unknown triggers
 
 ### How to fix
 

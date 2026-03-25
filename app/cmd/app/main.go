@@ -3714,6 +3714,20 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 .fix-box li{font-size:12px;color:#475569;margin-bottom:3px}
 </style>`
 
+
+// Compute total triggers in the environment and percentage Unknown (used by KPI and Recommendations)
+totalTriggersAll := 0
+if respAll, errAll := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{"countOutput": true}); errAll == nil {
+	if nAll, perr := parseCountResult(respAll); perr == nil {
+		totalTriggersAll = nAll
+	}
+}
+pctTriggers := 0.0
+if totalTriggersAll > 0 {
+	pctTriggers = (float64(totalTriggersUnknown) / float64(totalTriggersAll)) * 100.0
+}
+triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
+
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
@@ -3759,11 +3773,11 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 		adminKpiIcon = "🟡"
 		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	}
-	// KPI: Triggers Unknown
+	// KPI: Triggers Unknown (show percentage of triggers Unknown)
 	triggersUnknownHostsCount := len(triggerUnknownRows)
 	triggersKpiClass := "kpi-ok"; if triggersUnknownHostsCount > 0 { triggersKpiClass = "kpi-crit" }
 	html += `<div class='kpi ` + triggersKpiClass + `' data-target='#card-triggers' data-i18n-title='kpi.triggers_unknown' title=''>` +
-		`<div class='kpi-num'>` + formatInt(triggersUnknownHostsCount) + `</div>` +
+		`<div class='kpi-num'>` + triggersPctStr + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.triggers_unknown'></div></div>`
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
@@ -4189,18 +4203,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<div class='rec-sec-body'>`
 		trigAllLink := ""
 
-		// try to get total triggers count in the environment (lightweight countOutput)
-		totalTriggersAll := 0
-		if respAll, errAll := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{"countOutput": true}); errAll == nil {
-			if nAll, perr := parseCountResult(respAll); perr == nil {
-				totalTriggersAll = nAll
-			}
-		}
-		pct := 0.0
-		if totalTriggersAll > 0 {
-			pct = (float64(totalTriggersUnknown) / float64(totalTriggersAll)) * 100.0
-		}
-		// use the number of templates actually shown in the Template table
+		// totalTriggersAll and pctTriggers were computed earlier for the KPI; reuse them here
 		templatesAffected := templatesShownCount
 		if majorV >= 7 {
 			trigAllLink = ambienteUrl + "/zabbix.php?action=trigger.list&context=host&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1"
@@ -4208,8 +4211,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			trigAllLink = ambienteUrl + "/triggers.php?filter_state=1&filter_set=1"
 		}
 		// use i18n key with args: totalUnknown|pct_str|templates|hosts
-		pctStr := fmt.Sprintf("%.1f%%", pct)
-		args := fmt.Sprintf("%d|%s|%d|%d", totalTriggersUnknown, pctStr, templatesAffected, len(triggerUnknownRows))
+		args := fmt.Sprintf("%d|%s|%d|%d", totalTriggersUnknown, triggersPctStr, templatesAffected, len(triggerUnknownRows))
 		html += `<p style='font-size:0.92em;margin-bottom:10px;'><span data-i18n='rec.triggers_summary_env' data-i18n-args='` + args + `'></span> ` +
 			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. ` +
 			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>` +
