@@ -593,10 +593,8 @@ The Unknown state **does not generate an alert**, but it silences incident detec
 
 ### What is displayed
 
-| Column | Description |
-|--------|-------------|
 | Column / Table | Description |
-|--------|-------------|
+|----------------|-------------|
 | Template (aggregated table) | Lists top Templates ordered by number of Triggers in Unknown state; each row shows Template, count of Unknown triggers and a short errors summary. This table is shown before the Host table and reuses `trigger.get` results to avoid heavy extra API calls.
 | Triggers Unknown (by Host) | Number of triggers in Unknown state for that host (detailed host table shown after the Template table)
 | Errors | Column showing aggregated short errors in the format `short_message:count` (e.g. `item is not supported.:5`) — item names are omitted. Hosts show top 3 errors; templates show top 5.
