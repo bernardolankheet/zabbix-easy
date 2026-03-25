@@ -63,6 +63,7 @@
   "progress.collecting_pollers_processes": "Collecting pollers and internal processes...",
   "progress.collecting_proxy_processes": "Collecting proxy processes and threads...",
   "progress.collecting_items_without_template_and_unsupported": "Collecting items without template and unsupported items...",
+  "progress.collecting_triggers": "Collecting triggers with Unknown status...",
   "progress.report_generated": "Report generated."
   ,"stats.no_history": "No history"
   ,"error.read_history": "Error reading history"
@@ -90,7 +91,7 @@
   ,"no_proxy_process_data": "Proxy offline or unknown — process data not available."
   ,"items.no_template": "Items without Template"
   ,"open": "Open"
-  ,"open_full_listing": "Open full listing"
+  ,"open_full_listing": "Open in Zabbix"
   ,"lld.error_rules": "Discovery rules with error status"
   ,"strong.total": "Total"
   ,"tabs.server": "Zabbix Server"
@@ -306,6 +307,7 @@
   ,"types.browser": "Browser"
   ,"table.item": "Item"
   ,"table.error": "Error"
+  ,"table.errors": "Errors"
   ,"table.host": "Host"
   ,"table.error_count": "Error Count"
   ,"table.error_message": "Error Message"
@@ -400,4 +402,27 @@
   ,"fix.default_admin_disable": "If unused, disable or delete the default Admin account and use a dedicated administrative account"
   ,"fix.default_admin_password_in_use": "The 'Admin' account accepts the default password 'zabbix' — change the password immediately"
   ,"fix.open_users_list": "Open users list in Zabbix →"
+
+  ,"tabs.triggers": "Triggers"
+  ,"section.triggers": "Triggers"
+  ,"section.triggers_unknown_by_host": "Triggers — Unknown by Host"
+  ,"tip.triggers": "Shows triggers in 'Unknown' state, grouped by host. Useful to identify hosts with missing or delayed metric collection."
+  ,"section.triggers_unknown_by_template": "Triggers — Unknown by Template"
+  ,"tip.triggers_by_template": "Shows triggers in 'Unknown' state, grouped by template. Useful to identify templates that cause missing or delayed metric collection."
+  ,"kpi.triggers_unknown": "Triggers Unknown"
+  ,"rec.triggers_review": "Triggers Unknown"
+  ,"rec.desc.triggers_unknown": "%d hosts with Unknown Triggers"
+  ,"rec.triggers_summary": "There are %d triggers in Unknown state across %d hosts."
+  ,"rec.triggers_summary_env": "There are %d triggers (%s of total) in Unknown state in %d templates, linked to %d hosts."
+  ,"rec.triggers_see_tab": "Open the Triggers tab"
+  ,"rec.server_see_tab": "Open the Server tab"
+  ,"rec.proxys_see_tab": "Open the Proxies tab"
+  ,"rec.items_see_tab": "Open the Items tab"
+  ,"rec.templates_see_tab": "Open the Templates tab"
+  ,"rec.lld_see_tab": "Open the Items tab"
+  ,"rec.users_see_tab": "Open the Users tab"
+  ,"triggers.no_data": "No triggers in 'Unknown' state found."
+  ,"table.trigger": "Trigger"
+  ,"fix.triggers_unknown_hint": "Triggers with an Unknown Status are not triggered and not generating action events. Check for items with collection errors that may put triggers in an Unknown state, trigger condition, or adjusted macros."
+  ,"fix.triggers_items_hint": "Go to the 'Items & LLDs' tab and review unsupported items for hosts with Unknown triggers. Fix invalid keys, credentials or missing dependencies."
 }

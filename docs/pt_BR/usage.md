@@ -731,6 +731,73 @@ O relatório também inclui uma recomendação automática quando detecta a cont
 
 ---
 
+## Guia: Triggers (`tab-triggers`)
+
+### O que é
+
+Esta guia exibe todos os triggers que se encontram no estado **Unknown**, agrupados por host. Um trigger entra em estado Unknown quando o Zabbix não consegue avaliar a expressão do trigger — geralmente porque algum item do qual o trigger depende está com falha de coleta (não suportado, timeout, credencial inválida, etc.).
+
+O estado Unknown **não gera alerta**, mas silencia a detecção de incidentes: o Zabbix não consegue dizer se a condição do trigger é `Problem` ou `OK`. Hosts com muitos triggers Unknown podem estar efetivamente sem monitoramento mesmo que pareçam normais.
+
+### O que é exibido
+
+| Coluna | Descrição |
+|--------|-----------|
+| Coluna / Tabela | Descrição |
+|--------|-----------|
+| Template (tabela agregada) | Lista os principais *Templates* ordenados por quantidade de Triggers em estado Unknown; cada linha mostra: Template, quantidade de triggers Unknown e um resumo de erros. Esta tabela é exibida antes da tabela por Host e reutiliza os resultados de `trigger.get` para evitar chamadas adicionais pesadas à API.
+| Triggers Unknown (por Host) | Quantidade de triggers em estado Unknown naquele host (tabela detalhada por host, exibida após a tabela por Template)
+| Erros | Coluna que mostra os erros mais comuns agregados — formato `mensagem_curta:quantidade` (ex.: `item is not supported.:5`) — sem incluir nomes de itens. Para hosts mostra os top 3 erros; para templates mostra os top 5.
+
+A tabela é gerada com a classe `modern-table` e herda automaticamente os recursos de busca, ordenação por coluna e paginação do JavaScript global.
+
+> Observação técnica: para construir a tabela por Template o relatório faz apenas uma chamada adicional leve (`host.get` com `selectParentTemplates`) usando os hostids já coletados pelo `trigger.get`, agregando os resultados por Template sem fazer múltiplas consultas por template.
+
+### Chamada à API do Zabbix
+
+| Chamada | Parâmetros relevantes | Finalidade |
+|---------|-----------------------|-----------|
+| `trigger.get` | `filter:{state:1}, monitored:true, selectHosts:["hostid","name"], output:["triggerid","description","error"]` | Lista triggers em estado Unknown em hosts monitorados |
+
+> **state = 1** corresponde ao estado **Unknown** na API do Zabbix. O estado **Normal** seria `state = 0`.
+
+### Lógica de agrupamento
+
+Após receber a resposta de `trigger.get`,  o código:
+
+1. Percorre todos os triggers retornados.
+2. Para cada trigger, extrai o nome do primeiro host da lista `hosts`.
+3. Incrementa o contador de triggers Unknown para aquele host.
+4. Armazena as mensagens de erro em formato curto: o código extrai apenas a parte concisa da mensagem (removendo caminhos/nomes de item) e conta ocorrências por mensagem curta.
+5. Para cada host também armazena a lista de erros (curtos) usada tanto na tabela por Host quanto para agregar por Template.
+6. Ordena os hosts e templates por contagem decrescente.
+
+### KPI e Recomendação automática
+
+- Um KPI card **Triggers Unknown** aparece na guia Recomendações mostrando **a quantidade de hosts** (não de triggers) com pelo menos um trigger Unknown.
+  - 🟢 `kpi-ok` → 0 hosts com triggers Unknown
+  - 🔴 `kpi-crit` → quando a percentagem de triggers Unknown for maior que 0 e menor que 3.0% (indica baixo volume relativo, mas possivelmente generalizado)
+  - 🟡 `kpi-warn` → quando houver hosts com triggers Unknown e a percentagem de Unknown for maior ou igual a 3.0%
+- Se houver hosts com triggers Unknown, uma seção de recomendação `#card-triggers` é gerada com a tabela e orientações de correção.
+
+Além disso, a recomendação principal inclui um resumo ambiental agregado com a chave i18n `rec.triggers_summary_env`, por exemplo:
+
+`Há 41039 triggers (3.9% do total) com status Unknown em 20 Templates, vinculados a 1957 hosts.`
+
+Os valores usados são:
+- total de triggers no ambiente (consulta leve com `countOutput:true` em `trigger.get`)
+- percentagem de triggers Unknown em relação ao total (formatada como `x.y%`)
+- número de templates exibidos (cap de exibição aplicado)
+- número de hosts com triggers Unknown
+
+### Como corrigir
+
+1. Identifique os itens com erro nos hosts listados (use a aba **Items e LLDs** ou a lista de itens não suportados).
+2. Corrija a causa raiz: chave inválida, credencial expirada, dispositivo inacessível, dependência ausente.
+3. Após corrigir o item, o Zabbix avalia o trigger novamente na próxima coleta e o estado Unknown é resolvido automaticamente.
+
+---
+
 ## Guia 7: Recomendações (`tab-recomendacoes`)
 
 ### O que é

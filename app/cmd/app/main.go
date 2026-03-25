@@ -927,8 +927,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
 
-	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
+	// restore apiUrl and html builder variables
 	apiUrl := url
+	html := ""
+	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
 	// compute frontend base URL (ambienteUrl) early so links can be built
 	ambienteUrl := url
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
@@ -1406,10 +1408,176 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	topErrors := sortMap(errorCounter)
 	if len(topErrors) > topN { topErrors = topErrors[:topN] }
 
+	// ── Coletar Triggers em estado Unknown (state=1) ─────────────────────────
+	if progressCb != nil { progressCb("progress.collecting_triggers") }
+	type triggerHostRow struct {
+		HostName  string
+		HostID    string
+		Count     int
+		TopErrors string
+	}
+	var triggerUnknownRows []triggerHostRow
+	totalTriggersUnknown := 0
+	// additional maps to aggregate triggers by template
+	hostTrigCountByID := map[string]int{}
+	hostErrorsByID := map[string][]string{}
+	hostIDToName := map[string]string{}
+	trigResp, trigErr := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{
+		"output":      []string{"triggerid", "description", "error"},
+		"selectHosts": []string{"hostid", "name"},
+		"filter":      map[string]interface{}{"state": 1},
+		"monitored":   true,
+	})
+
+	// helper: extract a short, human-friendly error from long trigger error texts.
+	// Strategy: take the substring after the last ": " (common pattern in Zabbix
+	// errors like "...): item is not supported.") and trim whitespace. If not
+	// found, return the original trimmed string.
+	shortError := func(s string) string {
+		s = strings.TrimSpace(s)
+		if s == "" || s == "<nil>" { return "" }
+		if idx := strings.LastIndex(s, ": "); idx != -1 && idx+2 < len(s) {
+			return strings.TrimSpace(s[idx+2:])
+		}
+		return s
+	}
+	if trigErr == nil {
+		if arr, ok := trigResp["result"].([]interface{}); ok {
+			hostTrigCount := map[string]int{}
+			hostErrors := map[string][]string{}
+			hostIDMap := map[string]string{} // hostName -> hostid
+			for _, raw := range arr {
+				trig, ok2 := raw.(map[string]interface{})
+				if !ok2 { continue }
+				hostsArr, _ := trig["hosts"].([]interface{})
+				hostName := ""
+				hostID := ""
+				if len(hostsArr) > 0 {
+					if hm, ok3 := hostsArr[0].(map[string]interface{}); ok3 {
+						hostName = fmt.Sprintf("%v", hm["name"])
+						hostID = fmt.Sprintf("%v", hm["hostid"])
+					}
+				}
+				if hostName == "" { continue }
+				hostTrigCount[hostName]++
+				hostIDMap[hostName] = hostID
+				// populate by-id maps for template aggregation
+				if hostID != "" {
+					hostTrigCountByID[hostID]++
+					hostIDToName[hostID] = hostName
+				}
+				// Use only the explicit error field from the trigger. Do NOT
+				// fallback to the trigger description because it often contains
+				// the item/metric name; we want only the error text (for counts).
+				errMsg := strings.TrimSpace(fmt.Sprintf("%v", trig["error"]))
+				if errMsg == "" || errMsg == "<nil>" { errMsg = "" }
+				if errMsg != "" {
+					se := shortError(errMsg)
+					if se != "" {
+						hostErrors[hostName] = append(hostErrors[hostName], se)
+						if hostID != "" {
+							hostErrorsByID[hostID] = append(hostErrorsByID[hostID], se)
+						}
+					}
+				}
+			}
+			type trigKV struct{ Host string; Count int }
+			trigKVList := []trigKV{}
+			for h, c := range hostTrigCount {
+				trigKVList = append(trigKVList, trigKV{h, c})
+				totalTriggersUnknown += c
+			}
+			sort.Slice(trigKVList, func(i, j int) bool { return trigKVList[i].Count > trigKVList[j].Count })
+			for _, tkv := range trigKVList {
+				errs := hostErrors[tkv.Host]
+				// count occurrences per error message
+				errCount := map[string]int{}
+				for _, e := range errs { errCount[e]++ }
+				// build sorted list of errors by count
+				type ec struct{ Msg string; C int }
+				ecs := []ec{}
+				for m, c := range errCount { ecs = append(ecs, ec{m, c}) }
+				sort.Slice(ecs, func(i, j int) bool { return ecs[i].C > ecs[j].C })
+				maxHostErrs := 3
+				if len(ecs) > maxHostErrs { ecs = ecs[:maxHostErrs] }
+				topParts := []string{}
+				for _, e := range ecs { topParts = append(topParts, fmt.Sprintf("%s:%d", e.Msg, e.C)) }
+				topErr := ""
+				if len(topParts) > 0 { topErr = strings.Join(topParts, ", ") }
+				triggerUnknownRows = append(triggerUnknownRows, triggerHostRow{tkv.Host, hostIDMap[tkv.Host], tkv.Count, topErr})
+			}
+		}
+	}
+	_ = totalTriggersUnknown // used in recommendations section
+
+	// ── Agrupar Triggers Unknown por TEMPLATE (reaproveitando coletas) ───────
+	// Build per-template counts and top errors using a single host.get to fetch parent templates
+	templateTriggerCounts := map[string]int{}
+	templateErrorCounts := map[string]map[string]int{}
+	if len(hostTrigCountByID) > 0 {
+		hostIds := []string{}
+		for hid := range hostTrigCountByID { hostIds = append(hostIds, hid) }
+		// call host.get to fetch parent templates for these hosts
+		if resp, err := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{
+			"output": []string{"hostid", "name"},
+			"hostids": hostIds,
+			"selectParentTemplates": []string{"templateid", "name"},
+		}); err == nil {
+			if arr, ok := resp["result"].([]interface{}); ok {
+				hostTemplates := map[string][]string{} // hostid -> []template names
+				for _, hraw := range arr {
+					h, _ := hraw.(map[string]interface{})
+					hid := fmt.Sprintf("%v", h["hostid"])
+					pt := []string{}
+					if parents, ok2 := h["parentTemplates"].([]interface{}); ok2 {
+						for _, p := range parents {
+							if pm, ok3 := p.(map[string]interface{}); ok3 {
+								if name := fmt.Sprintf("%v", pm["name"]); name != "" {
+									pt = append(pt, name)
+								}
+							}
+						}
+					}
+					hostTemplates[hid] = pt
+				}
+				// aggregate counts
+				for hid, cnt := range hostTrigCountByID {
+					tpls := hostTemplates[hid]
+					if len(tpls) == 0 {
+						// fallback: use host name as a pseudo-template
+						name := hostIDToName[hid]
+						templateTriggerCounts[name] += cnt
+						if errs := hostErrorsByID[hid]; len(errs) > 0 {
+							if templateErrorCounts[name] == nil { templateErrorCounts[name] = map[string]int{} }
+							for _, e := range errs { templateErrorCounts[name][e]++ }
+						}
+						continue
+					}
+					for _, tname := range tpls {
+						templateTriggerCounts[tname] += cnt
+						if errs := hostErrorsByID[hid]; len(errs) > 0 {
+							if templateErrorCounts[tname] == nil { templateErrorCounts[tname] = map[string]int{} }
+							for _, e := range errs { templateErrorCounts[tname][e]++ }
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Compute how many templates will be shown in the Template table (we cap the display)
+	maxTemplatesDisplayed := 20
+	templatesShownCount := 0
+	if len(templateTriggerCounts) > 0 {
+		tp := sortMap(templateTriggerCounts)
+		templatesShownCount = len(tp)
+		if templatesShownCount > maxTemplatesDisplayed { templatesShownCount = maxTemplatesDisplayed }
+	}
+
 	// Descrições moved to i18n locale files
 
-	// --- HTML moderno ---
-	html := `<div class='zabbix-report-modern'>`
+	// --- HTML ---
+	html += `<div class='zabbix-report-modern'>`
 		// Global tooltip CSS/JS (single copy) - info-icon + info-tooltip
 		html += `<style>
 		.info-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;cursor:pointer;margin-left:6px;position:relative}
@@ -1502,6 +1670,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<button class='tab-btn' data-tab='tab-proxys' data-i18n='tabs.proxys'></button>`
 	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
 	html += `<button class='tab-btn' data-tab='tab-templates' data-i18n='tabs.templates'></button>`
+	html += `<button class='tab-btn' data-tab='tab-triggers' data-i18n='tabs.triggers'></button>`
 	html += `<button class='tab-btn' data-tab='tab-top' data-i18n='tabs.top'></button>`
 	html += `<button class='tab-btn' data-tab='tab-usuarios' data-i18n='tabs.users'></button>`
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
@@ -3285,6 +3454,76 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	html += `</div>` // end tab-usuarios
 
+	// ── Tab: Triggers Unknown ─────────────────────────────────────────────────
+	html += `<div id='tab-triggers' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.triggers'></h2>`
+
+	if len(triggerUnknownRows) == 0 {
+		html += `<p data-i18n='triggers.no_data'></p>`
+	} else {
+		// Render aggregated table: Triggers Unknown grouped by TEMPLATE
+		if len(templateTriggerCounts) > 0 {
+			// Title with info-icon for the Template table
+			html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_template", "i18n:tip.triggers_by_template")
+			topTemplates := sortMap(templateTriggerCounts)
+			maxTemplates := 20
+			if len(topTemplates) > maxTemplates { topTemplates = topTemplates[:maxTemplates] }
+			html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
+				` <th data-i18n='table.template'></th>` +
+				` <th data-i18n='kpi.triggers_unknown'></th>` +
+				` <th data-i18n='table.errors'></th>` +
+				`</tr></thead><tbody>`
+			for _, kv := range topTemplates {
+				// collect top errors for this template
+				errMap := templateErrorCounts[kv.Key]
+				type ekv struct{ Key string; Value int }
+				errArr := []ekv{}
+				for e, c := range errMap { errArr = append(errArr, ekv{e, c}) }
+				if len(errArr) > 0 {
+					sort.Slice(errArr, func(i, j int) bool { return errArr[i].Value > errArr[j].Value })
+				}
+				topErrs := 5
+				if len(errArr) > topErrs { errArr = errArr[:topErrs] }
+				errParts := []string{}
+				for _, e := range errArr { errParts = append(errParts, fmt.Sprintf("%s:%d", e.Key, e.Value)) }
+				errsCell := "<no error>"
+				if len(errParts) > 0 { errsCell = strings.Join(errParts, ", ") }
+				html += `<tr>` +
+					`<td>` + htmlpkg.EscapeString(kv.Key) + `</td>` +
+					`<td>` + formatInt(kv.Value) + `</td>` +
+					`<td>` + htmlpkg.EscapeString(errsCell) + `</td>` +
+					`</tr>`
+			}
+			html += `</tbody></table></div>`
+		}
+
+		// add a per-table title for the Host table as well (info-icon)
+		html += titleWithInfo("h3", "i18n:section.triggers_unknown_by_host", "i18n:tip.triggers")
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr>` +
+			` <th data-i18n='table.host'></th>` +
+			` <th data-i18n='kpi.triggers_unknown'></th>` +
+			` <th data-i18n='table.errors'></th>` +
+			` <th data-i18n='table.link'></th>` +
+			`</tr></thead><tbody>`
+		for _, row := range triggerUnknownRows {
+			var trigHostLink string
+			if majorV >= 7 {
+				trigHostPath := fmt.Sprintf("zabbix.php?action=trigger.list&context=host&filter_hostids%%5B%%5D=%s&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1", row.HostID)
+				trigHostLink = ambienteUrl + "/" + trigHostPath
+			} else {
+				trigHostLink = ambienteUrl + "/triggers.php?filter_hostids%%5B%%5D=" + row.HostID + "&filter_state=1&filter_set=1"
+			}
+			html += `<tr>` +
+				`<td>` + htmlpkg.EscapeString(row.HostName) + `</td>` +
+				`<td>` + formatInt(row.Count) + `</td>` +
+				`<td>` + htmlpkg.EscapeString(row.TopErrors) + `</td>` +
+				`<td><a href='` + htmlpkg.EscapeString(trigHostLink) + `' target='_blank' rel='noopener' data-i18n='open'></a></td>` +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
+	html += `</div>` // end tab-triggers
+
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title' data-i18n='tabs.recommendations'></h2>`
@@ -3477,6 +3716,20 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 .fix-box li{font-size:12px;color:#475569;margin-bottom:3px}
 </style>`
 
+
+// Compute total triggers in the environment and percentage Unknown (used by KPI and Recommendations)
+totalTriggersAll := 0
+if respAll, errAll := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{"countOutput": true}); errAll == nil {
+	if nAll, perr := parseCountResult(respAll); perr == nil {
+		totalTriggersAll = nAll
+	}
+}
+pctTriggers := 0.0
+if totalTriggersAll > 0 {
+	pctTriggers = (float64(totalTriggersUnknown) / float64(totalTriggersAll)) * 100.0
+}
+triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
+
 	// SNMP-POLLER KPI (porcentagem)
 	snmpPct := 0.0
 	if snmpTplCount > 0 { snmpPct = (float64(snmpGetWalkCount) * 100.0) / float64(snmpTplCount) }
@@ -3522,6 +3775,18 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 		adminKpiIcon = "🟡"
 		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	}
+	// KPI: Triggers Unknown (show percentage of triggers Unknown)
+	triggersUnknownHostsCount := len(triggerUnknownRows)
+	// Red (critical) when percent >0 and below 3%; warn when there are hosts with Unknown triggers; ok otherwise
+	triggersKpiClass := "kpi-ok"
+	if pctTriggers > 0.0 && pctTriggers < 3.0 {
+		triggersKpiClass = "kpi-crit"
+	} else if triggersUnknownHostsCount > 0 {
+		triggersKpiClass = "kpi-warn"
+	}
+	html += `<div class='kpi ` + triggersKpiClass + `' data-target='#card-triggers' data-i18n-title='kpi.triggers_unknown' title=''>` +
+		`<div class='kpi-num'>` + triggersPctStr + `</div>` +
+		`<div class='kpi-label' data-i18n='kpi.triggers_unknown'></div></div>`
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.default_admin'></div></div>`
@@ -3585,9 +3850,11 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + serverBadge + `'>` + serverBadgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
+		// single quick link to open corresponding tab
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-processos");' data-i18n='rec.server_see_tab'></a></p>`
 		if len(attention) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "i18n:sub.server_suggestions"))
-			html += `<p>` + titleWithInfo("strong", "i18n:sub.customize_processes_threads", "i18n:tip.internal_process|"+checkTrendDisplay) + `</p>`
+			html += `<p><span data-i18n='sub.customize_processes_threads'></span></p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			serverParams = make([]string, 0)
 			for _, a := range attention {
@@ -3687,6 +3954,8 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + proxyBadge + `'>` + proxyBadgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
+		// single quick link to open corresponding tab
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-proxys");' data-i18n='rec.proxys_see_tab'></a></p>`
 			if len(proxyProcAttnList) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.customize_processes_threads"))
 			html += `<p data-i18n='tip.proxy_processes' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
@@ -3888,6 +4157,8 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + itemsBadge + `'>` + itemsBadgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
+		// single quick link to open corresponding tab (Items)
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.items_see_tab'></a></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 			if itemsNoTplCount > 0 {
 				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + formatInt(itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
@@ -3933,6 +4204,40 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		html += `</div></details>` // rec-sec-body + accordion
 	}
 
+	// --- Seção: Triggers Unknown (só aparece quando há triggers em unknown) ---
+	if len(triggerUnknownRows) > 0 {
+		secNum++
+		html += `<details class='rec-section' id='card-triggers'>` +
+			`<summary><span class='rec-sec-icon'>⚠️</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='rec.triggers_review'></span></div>` +
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.triggers_unknown' data-i18n-args='` + fmt.Sprintf("%d", len(triggerUnknownRows)) + `'></span></div>` +
+			`</div><span class='status-badge crit'>🔴</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
+		trigAllLink := ""
+
+		// totalTriggersAll and pctTriggers were computed earlier for the KPI; reuse them here
+		templatesAffected := templatesShownCount
+		if majorV >= 7 {
+			trigAllLink = ambienteUrl + "/zabbix.php?action=trigger.list&context=host&filter_name=&filter_state=1&filter_status=-1&filter_value=-1&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_inherited=-1&filter_discovered=-1&filter_dependent=-1&filter_set=1"
+		} else {
+			trigAllLink = ambienteUrl + "/triggers.php?filter_state=1&filter_set=1"
+		}
+		// use i18n key with args: totalUnknown|pct_str|templates|hosts
+		args := fmt.Sprintf("%d|%s|%d|%d", totalTriggersUnknown, triggersPctStr, templatesAffected, len(triggerUnknownRows))
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><span data-i18n='rec.triggers_summary_env' data-i18n-args='` + args + `'></span> ` +
+			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. ` +
+			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>` +
+			`</p>`
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>` +
+			`<li><span data-i18n='fix.triggers_unknown_hint'></span></li>` +
+			`<li><span data-i18n='fix.triggers_items_hint'></span></li>` +
+			`</ul></div>`
+		html += `</div></details>`
+	}
+
 	// --- Seção: Regras de LLD (só aparece quando há dado) ---
 	if lldLe300 > 0 || lldNotSupCnt > 0 {
 		lldSub := 0
@@ -3950,6 +4255,8 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge ` + lldBadge + `'>` + lldBadgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
+		// single quick link to open corresponding tab (LLD uses Items tab)
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.lld_see_tab'></a></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
 				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
@@ -3990,6 +4297,8 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div><span class='status-badge warn'>` + tplBadgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
+		// single quick link to open corresponding tab (Templates)
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-templates");' data-i18n='rec.templates_see_tab'></a></p>`
 		html += `<p data-i18n='tip.templates_more' style='font-size:0.88em;margin:0 0 8px 0;'></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if len(topTemplates) > 0 {
@@ -4066,7 +4375,9 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`</div>` +
 			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
-			`<div class='rec-sec-body'>` +
+			`<div class='rec-sec-body'>`
+		// single quick link to open the Users tab
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-usuarios");' data-i18n='rec.users_see_tab'></a></p>` +
 			`<h5>` + nextSub(&securitySub, "i18n:sub.default_admin_account") + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
 			`<p data-i18n='tip.default_admin'></p>` +
 			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +

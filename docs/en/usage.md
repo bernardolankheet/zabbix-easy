@@ -583,6 +583,72 @@ The report also surfaces a recommendation entry when the default `Admin` account
 
 ---
 
+## Guide: Triggers (`tab-triggers`)
+
+### What it is
+
+This tab displays all triggers that are in the **Unknown** state, grouped by host. A trigger enters the Unknown state when Zabbix cannot evaluate the trigger expression — usually because an item the trigger depends on is failing to collect data (unsupported, timeout, invalid credentials, etc.).
+
+The Unknown state **does not generate an alert**, but it silences incident detection: Zabbix cannot determine whether the trigger condition is `Problem` or `OK`. Hosts with many Unknown triggers may effectively be unmonitored even though they appear normal.
+
+### What is displayed
+
+| Column / Table | Description |
+|----------------|-------------|
+| Template (aggregated table) | Lists top Templates ordered by number of Triggers in Unknown state; each row shows Template, count of Unknown triggers and a short errors summary. This table is shown before the Host table and reuses `trigger.get` results to avoid heavy extra API calls.
+| Triggers Unknown (by Host) | Number of triggers in Unknown state for that host (detailed host table shown after the Template table)
+| Errors | Column showing aggregated short errors in the format `short_message:count` (e.g. `item is not supported.:5`) — item names are omitted. Hosts show top 3 errors; templates show top 5.
+
+The table uses the `modern-table` class and automatically inherits global search, column sorting and pagination from the JavaScript.
+
+Note: to build the Template table the report issues a single lightweight `host.get` with `selectParentTemplates` for the hostids already collected from `trigger.get`, aggregating by Template without iterating templates with multiple API calls.
+
+### Zabbix API call
+
+| Call | Relevant parameters | Purpose |
+|------|---------------------|---------|
+| `trigger.get` | `filter:{state:1}, monitored:true, selectHosts:["hostid","name"], output:["triggerid","description","error"]` | Lists triggers in Unknown state on monitored hosts |
+
+> **state = 1** corresponds to the **Unknown** state in the Zabbix API. The **Normal** state would be `state = 0`.
+
+### Grouping logic
+
+After receiving the `trigger.get` response, the code:
+
+1. Iterates through all returned triggers.
+2. For each trigger, extracts the name of the first host from the `hosts` array.
+3. Increments the Unknown trigger counter for that host.
+4. Stores error messages in a shortened form: the code extracts a concise message (stripping item/key prefixes) and counts occurrences by that short message.
+5. For each host it also stores the short-error list used for both the Host table and for aggregation by Template.
+6. Sorts hosts and templates by count descending.
+
+### KPI and automatic recommendation
+
+- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the percentage of triggers** in Unknown state across the environment.
+  - The KPI value is formatted as `x.y%` and represents the share of all triggers that are currently Unknown.
+  - 🟢 `kpi-ok` → 0.0% Unknown triggers
+  - 🔴 `kpi-crit` → when the percentage of triggers Unknown is greater than 0 and less than 3.0% (critical — low relative volume but possibly widespread)
+  - 🟡 `kpi-warn` → when there are hosts with Unknown triggers and the Unknown percentage is greater than or equal to 3.0%
+- If there are hosts with Unknown triggers, a recommendation section `#card-triggers` is shown with the table and fix guidance.
+
+In addition, the main recommendation shows an aggregated environment summary using the i18n key `rec.triggers_summary_env`, for example:
+
+`There are 41039 triggers (3.9% of total) in Unknown state in 20 templates, linked to 1957 hosts.`
+
+The values used are:
+- total triggers in the environment (lightweight `trigger.get` with `countOutput:true`)
+- percentage of triggers Unknown relative to the total (formatted as `x.y%`)
+- number of templates displayed (display cap applied)
+- number of hosts with Unknown triggers
+
+### How to fix
+
+1. Identify the failing items on the listed hosts (use the **Items & LLDs** tab or the unsupported items list).
+2. Fix the root cause: invalid key, expired credentials, unreachable device, missing dependency.
+3. After fixing the item, Zabbix re-evaluates the trigger on the next collection cycle and the Unknown state resolves automatically.
+
+---
+
 ## Guide 7: Recommendations (`tab-recomendacoes`)
 
 ### What it is
