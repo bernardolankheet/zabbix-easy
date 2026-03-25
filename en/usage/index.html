@@ -903,6 +903,75 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guide-triggers-tab-triggers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Triggers (tab-triggers)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Triggers (tab-triggers)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-displayed" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is displayed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-call" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API call
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grouping-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grouping logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kpi-and-automatic-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      KPI and automatic recommendation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to fix
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#guide-7-recommendations-tab-recomendacoes" class="md-nav__link">
     <span class="md-ellipsis">
       Guide 7: Recommendations (tab-recomendacoes)
@@ -913,7 +982,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_7" class="md-nav__link">
+  <a href="#what-it-is_8" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1232,7 +1301,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_8" class="md-nav__link">
+  <a href="#what-it-is_9" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1283,7 +1352,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_9" class="md-nav__link">
+  <a href="#what-it-is_10" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1492,7 +1561,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#what-it-is_10" class="md-nav__link">
+  <a href="#what-it-is_11" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -2823,8 +2892,90 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 </ul>
 <p>The report also surfaces a recommendation entry when the default <code>Admin</code> account with default password is detected, advising to change or disable the account.</p>
 <hr />
-<h2 id="guide-7-recommendations-tab-recomendacoes">Guide 7: Recommendations (<code>tab-recomendacoes</code>)</h2>
+<h2 id="guide-triggers-tab-triggers">Guide: Triggers (<code>tab-triggers</code>)</h2>
 <h3 id="what-it-is_7">What it is</h3>
+<p>This tab displays all triggers that are in the <strong>Unknown</strong> state, grouped by host. A trigger enters the Unknown state when Zabbix cannot evaluate the trigger expression — usually because an item the trigger depends on is failing to collect data (unsupported, timeout, invalid credentials, etc.).</p>
+<p>The Unknown state <strong>does not generate an alert</strong>, but it silences incident detection: Zabbix cannot determine whether the trigger condition is <code>Problem</code> or <code>OK</code>. Hosts with many Unknown triggers may effectively be unmonitored even though they appear normal.</p>
+<h3 id="what-is-displayed">What is displayed</h3>
+<table>
+<thead>
+<tr>
+<th>Column / Table</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Template (aggregated table)</td>
+<td>Lists top Templates ordered by number of Triggers in Unknown state; each row shows Template, count of Unknown triggers and a short errors summary. This table is shown before the Host table and reuses <code>trigger.get</code> results to avoid heavy extra API calls.</td>
+</tr>
+<tr>
+<td>Triggers Unknown (by Host)</td>
+<td>Number of triggers in Unknown state for that host (detailed host table shown after the Template table)</td>
+</tr>
+<tr>
+<td>Errors</td>
+<td>Column showing aggregated short errors in the format <code>short_message:count</code> (e.g. <code>item is not supported.:5</code>) — item names are omitted. Hosts show top 3 errors; templates show top 5.</td>
+</tr>
+</tbody>
+</table>
+<p>The table uses the <code>modern-table</code> class and automatically inherits global search, column sorting and pagination from the JavaScript.</p>
+<p>Note: to build the Template table the report issues a single lightweight <code>host.get</code> with <code>selectParentTemplates</code> for the hostids already collected from <code>trigger.get</code>, aggregating by Template without iterating templates with multiple API calls.</p>
+<h3 id="zabbix-api-call">Zabbix API call</h3>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>Relevant parameters</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trigger.get</code></td>
+<td><code>filter:{state:1}, monitored:true, selectHosts:["hostid","name"], output:["triggerid","description","error"]</code></td>
+<td>Lists triggers in Unknown state on monitored hosts</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>state = 1</strong> corresponds to the <strong>Unknown</strong> state in the Zabbix API. The <strong>Normal</strong> state would be <code>state = 0</code>.</p>
+</blockquote>
+<h3 id="grouping-logic">Grouping logic</h3>
+<p>After receiving the <code>trigger.get</code> response, the code:</p>
+<ol>
+<li>Iterates through all returned triggers.</li>
+<li>For each trigger, extracts the name of the first host from the <code>hosts</code> array.</li>
+<li>Increments the Unknown trigger counter for that host.</li>
+<li>Stores error messages in a shortened form: the code extracts a concise message (stripping item/key prefixes) and counts occurrences by that short message.</li>
+<li>For each host it also stores the short-error list used for both the Host table and for aggregation by Template.</li>
+<li>Sorts hosts and templates by count descending.</li>
+</ol>
+<h3 id="kpi-and-automatic-recommendation">KPI and automatic recommendation</h3>
+<ul>
+<li>A <strong>Triggers Unknown</strong> KPI card appears in the Recommendations tab showing <strong>the percentage of triggers</strong> in Unknown state across the environment.</li>
+<li>The KPI value is formatted as <code>x.y%</code> and represents the share of all triggers that are currently Unknown.</li>
+<li>🟢 <code>kpi-ok</code> → 0.0% Unknown triggers</li>
+<li>🔴 <code>kpi-crit</code> → when the percentage of triggers Unknown is greater than 0 and less than 3.0% (critical — low relative volume but possibly widespread)</li>
+<li>🟡 <code>kpi-warn</code> → when there are hosts with Unknown triggers and the Unknown percentage is greater than or equal to 3.0%</li>
+<li>If there are hosts with Unknown triggers, a recommendation section <code>#card-triggers</code> is shown with the table and fix guidance.</li>
+</ul>
+<p>In addition, the main recommendation shows an aggregated environment summary using the i18n key <code>rec.triggers_summary_env</code>, for example:</p>
+<p><code>There are 41039 triggers (3.9% of total) in Unknown state in 20 templates, linked to 1957 hosts.</code></p>
+<p>The values used are:
+- total triggers in the environment (lightweight <code>trigger.get</code> with <code>countOutput:true</code>)
+- percentage of triggers Unknown relative to the total (formatted as <code>x.y%</code>)
+- number of templates displayed (display cap applied)
+- number of hosts with Unknown triggers</p>
+<h3 id="how-to-fix">How to fix</h3>
+<ol>
+<li>Identify the failing items on the listed hosts (use the <strong>Items &amp; LLDs</strong> tab or the unsupported items list).</li>
+<li>Fix the root cause: invalid key, expired credentials, unreachable device, missing dependency.</li>
+<li>After fixing the item, Zabbix re-evaluates the trigger on the next collection cycle and the Unknown state resolves automatically.</li>
+</ol>
+<hr />
+<h2 id="guide-7-recommendations-tab-recomendacoes">Guide 7: Recommendations (<code>tab-recomendacoes</code>)</h2>
+<h3 id="what-it-is_8">What it is</h3>
 <p>Automatic suggestions generated based on all collected data. All sections and sub-items are <strong>displayed only when there is a recommendation</strong> — if the value is 0, neither the section nor its sub-item appears. KPI cards at the top provide a quick overview.</p>
 <ol>
 <li><strong>Zabbix Server</strong> — processes in Warning + async poller suggestion (Zabbix 7) — only shown if there are processes with avg ≥ 60% or async pollers disabled</li>
@@ -3360,7 +3511,7 @@ if len(missing) &gt; 0 {
 </table>
 <hr />
 <h3 id="item-items-snmp-poller-zabbix-7-section-3-items">Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)</h3>
-<h4 id="what-it-is_8">What it is</h4>
+<h4 id="what-it-is_9">What it is</h4>
 <p>Appears in <strong>Section 3 — Items</strong> of the Recommendations (sub-item <code>3.x)</code>), <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 SNMP item in templates (<code>snmpTplCount &gt; 0</code>). Displays:</p>
 <ul>
 <li>Total SNMP items in templates (<code>snmpTplCount</code>)</li>
@@ -3405,7 +3556,7 @@ if len(missing) &gt; 0 {
 </code></pre>
 <hr />
 <h3 id="sub-section-templates-suitable-for-migration-to-snmp-poller-section-5-templates">Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)</h3>
-<h4 id="what-it-is_9">What it is</h4>
+<h4 id="what-it-is_10">What it is</h4>
 <p>Appears at the end of <strong>Section 5 — Templates</strong> of the Recommendations, <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 legacy template in use (<code>len(snmpMigrationTpls) &gt; 0</code>). Lists alphabetically the names of templates that satisfy <strong>all</strong> of these conditions:</p>
 <ol>
 <li>Have at least one SNMP item (<code>type=20</code>) in templates</li>
@@ -3800,7 +3951,7 @@ curl -X DELETE http://localhost:8080/api/reports
 </code></pre>
 <p>The report is divided into tabs. This section documents each one: what it displays, which Zabbix API calls are made, which Go function generates the HTML, and how the data is processed.</p>
 <hr />
-<h3 id="what-it-is_10">What it is</h3>
+<h3 id="what-it-is_11">What it is</h3>
 <p>Displays the utilization level of internal Zabbix Server processes, divided into two groups:</p>
 <ul>
 <li><strong>Pollers (Data Collectors):</strong> processes responsible for actively collecting metrics from agents (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)</li>
