@@ -424,6 +424,6 @@
   ,"fix.default_admin_disable": "Se não utilizada, desative ou remova a conta Admin padrão e utilize uma conta administrativa própria"
   ,"fix.default_admin_password_in_use": "A conta 'Admin' aceita a senha padrão 'zabbix' — altere a senha imediatamente"
   ,"fix.open_users_list": "Abrir lista de usuários no Zabbix →"
-  ,"fix.triggers_unknown_hint": "Triggers com Status Unknown, não são gatilhadas.... Verifique Itens com erros de coleta que possam colocar triggers em estado Unknown, condicao da trigger ou macros configuradas."
+  ,"fix.triggers_unknown_hint": "Triggers com Status Unknown, não são gatilhadas e não geram eventos de ação. Verifique Itens com erros de coleta que possam colocar triggers em estado Unknown, condição da trigger ou macros configuradas."
   ,"fix.triggers_items_hint": "Acesse a aba 'Items e LLDs' e verifique itens não suportados para os hosts com triggers Unknown. Corrija chaves inválidas, credenciais ou dependências ausentes."
 }

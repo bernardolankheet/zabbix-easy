@@ -927,8 +927,11 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
 
-	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
+	// restore apiUrl and html builder variables
 	apiUrl := url
+	html := ""
+	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
+	html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-processos");' data-i18n='rec.server_see_tab'></a></p>`
 	// compute frontend base URL (ambienteUrl) early so links can be built
 	ambienteUrl := url
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
@@ -1574,8 +1577,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// Descrições moved to i18n locale files
 
-	// --- HTML moderno ---
-	html := `<div class='zabbix-report-modern'>`
+	// --- HTML ---
+	html += `<div class='zabbix-report-modern'>`
 		// Global tooltip CSS/JS (single copy) - info-icon + info-tooltip
 		html += `<style>
 		.info-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;cursor:pointer;margin-left:6px;position:relative}
@@ -3843,10 +3846,10 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open corresponding tab
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-processos");' data-i18n='rec.server_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-processos");' data-i18n='rec.server_see_tab'></a></p>`
 		if len(attention) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&serverSub, "i18n:sub.server_suggestions"))
-			html += `<p>` + titleWithInfo("strong", "i18n:sub.customize_processes_threads", "i18n:tip.internal_process|"+checkTrendDisplay) + `</p>`
+			html += `<p><span data-i18n='sub.customize_processes_threads'></span></p>`
 			html += `<ol style='margin-left:18px;font-size:0.88em;'>`
 			serverParams = make([]string, 0)
 			for _, a := range attention {
@@ -3947,7 +3950,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open corresponding tab
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-proxys");' data-i18n='rec.proxys_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-proxys");' data-i18n='rec.proxys_see_tab'></a></p>`
 			if len(proxyProcAttnList) > 0 {
 			html += fmt.Sprintf("<h5>%s</h5>", nextSub(&proxySub, "i18n:sub.customize_processes_threads"))
 			html += `<p data-i18n='tip.proxy_processes' data-i18n-args='` + htmlpkg.EscapeString(checkTrendDisplay) + `'></p>`
@@ -4150,7 +4153,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open corresponding tab (Items)
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.items_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.items_see_tab'></a></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 			if itemsNoTplCount > 0 {
 				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_no_template") + `</strong> <span data-i18n='items.no_template_paragraph' data-i18n-args='` + formatInt(itemsNoTplCount) + `'></span> <a href='` + itemsNoTplLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
@@ -4248,7 +4251,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open corresponding tab (LLD uses Items tab)
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.lld_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.lld_see_tab'></a></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
 				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
@@ -4290,7 +4293,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open corresponding tab (Templates)
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-templates");' data-i18n='rec.templates_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-templates");' data-i18n='rec.templates_see_tab'></a></p>`
 		html += `<p data-i18n='tip.templates_more' style='font-size:0.88em;margin:0 0 8px 0;'></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if len(topTemplates) > 0 {
@@ -4369,7 +4372,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			`<span class='rec-sec-arrow'>▶</span></summary>` +
 			`<div class='rec-sec-body'>`
 		// single quick link to open the Users tab
-		html += `<p style='margin-bottom:8px;'><a href='#' onclick='event.preventDefault();showTab("tab-usuarios");' data-i18n='rec.users_see_tab'></a></p>` +
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-usuarios");' data-i18n='rec.users_see_tab'></a></p>` +
 			`<h5>` + nextSub(&securitySub, "i18n:sub.default_admin_account") + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
 			`<p data-i18n='tip.default_admin'></p>` +
 			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +

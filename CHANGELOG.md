@@ -1,6 +1,28 @@
+# Changelog
+
+## [0.0.4] - 2026-03-25
+
+### Added
+- Adicionada navegação rápida nas recomendações: links que abrem as abas correspondentes (`Server`, `Proxys`, `Items`, `Templates`, `Triggers`, `Usuários`). (código: `app/cmd/app/main.go`, i18n: `app/web/locales/*/messages.json`)
+- Nova aba/relatório: **Triggers** — inclui tabela agregada por *Template* (`Triggers — Unknown por Template`) exibida antes da lista por Host. (código: `app/cmd/app/main.go`, docs: `docs/pt_BR/usage.md`)
+
+### Changed
+- KPI `Triggers Unknown` agora mostra a porcentagem de triggers em `Unknown` (reaproveita o cálculo usado na recomendação). (`app/cmd/app/main.go`)
+- Recomendações: resumo ambiente de triggers passou a incluir total de triggers e percentagem formatada (i18n atualizado). (`app/web/locales/pt_BR/messages.json`, `app/web/locales/en_US/messages.json`)
+
+### Behavior / UI
+- Erros apresentados na tabela de Triggers foram encurtados e agregados por mensagem curta no formato `mensagem_curta:quantidade` (hosts mostram top 3; templates top 5). (`app/cmd/app/main.go`)
+
+### Docs
+- Atualizada documentação em Português explicando a nova tabela por Template e o formato de erros: `docs/pt_BR/usage.md`.
+- Documento em Inglês parcialmente atualizado: `docs/en/usage.md` (pendente: revisar exemplos finais).
+
+### Notes
+- Evitei chamadas API extras por template: a agregação por template reaproveita os `hostids` retornados por `trigger.get` e faz um único `host.get` com `selectParentTemplates`.
+- Recomenda-se rodar um `go build` local para validar compilação no ambiente do usuário após as alterações.
 # CHANGELOG
 
-## [0.0.4] - 23/03/2026
+## [0.0.4] - 2026-03-25
 
 ## Authentication changes
 
@@ -12,9 +34,9 @@
 
   - `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
 
-## [0.0.3] - 22/03/2026
+## [0.0.3] - 2026-03-22
 
-### Documentation updates (22/03/2026)
+### Documentation updates
 
 - Reordered and consolidated documentation sections in both English and Portuguese (`docs/en/usage.md`, `docs/pt_BR/usage.md`): canonicalized the "Zabbix API calls" block and moved it to appear immediately before the API diagram; removed duplicate blocks.
 - Added expanded documentation for the `Users` tab (based on `app/cmd/app/main.go`) in both `docs/en/usage.md` and `docs/pt_BR/usage.md`.
@@ -24,7 +46,7 @@
 
 These documentation edits were applied to improve clarity, remove duplicate content, and align docs with the app's UI and code.
 
-## [0.0.2] - 21/03/2026
+## [0.0.2] - 2026-03-21
 
 ## New Features and Improvements
 
@@ -54,10 +76,8 @@ These documentation edits were applied to improve clarity, remove duplicate cont
 - Test `user.login` only in the staging environment before using it in production (account lockout policies may occur).
 - To serve the documentation locally, use a `venv` and run `python -m mkdocs serve`.
 
-## [0.0.1] - 15/03/2026
+## [0.0.1] - 2026-03-15
 # What's New / Updates
-
-Date: 16/03/2026
 
 Summary of recent changes:
 
