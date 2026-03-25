@@ -593,10 +593,8 @@ The Unknown state **does not generate an alert**, but it silences incident detec
 
 ### What is displayed
 
-| Column | Description |
-|--------|-------------|
 | Column / Table | Description |
-|--------|-------------|
+|----------------|-------------|
 | Template (aggregated table) | Lists top Templates ordered by number of Triggers in Unknown state; each row shows Template, count of Unknown triggers and a short errors summary. This table is shown before the Host table and reuses `trigger.get` results to avoid heavy extra API calls.
 | Triggers Unknown (by Host) | Number of triggers in Unknown state for that host (detailed host table shown after the Template table)
 | Errors | Column showing aggregated short errors in the format `short_message:count` (e.g. `item is not supported.:5`) — item names are omitted. Hosts show top 3 errors; templates show top 5.
@@ -626,8 +624,9 @@ After receiving the `trigger.get` response, the code:
 
 ### KPI and automatic recommendation
 
-- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the number of hosts** (not triggers) with at least one Unknown trigger.
-  - 🟢 `kpi-ok` → 0 hosts with Unknown triggers
+- A **Triggers Unknown** KPI card appears in the Recommendations tab showing **the percentage of triggers** in Unknown state across the environment.
+  - The KPI value is formatted as `x.y%` and represents the share of all triggers that are currently Unknown.
+  - 🟢 `kpi-ok` → 0.0% Unknown triggers
   - 🔴 `kpi-crit` → when the percentage of triggers Unknown is greater than 0 and less than 3.0% (critical — low relative volume but possibly widespread)
   - 🟡 `kpi-warn` → when there are hosts with Unknown triggers and the Unknown percentage is greater than or equal to 3.0%
 - If there are hosts with Unknown triggers, a recommendation section `#card-triggers` is shown with the table and fix guidance.

@@ -17,11 +17,14 @@
 - Updated documentation in Portuguese explaining the new table by Template and the error format: `docs/pt_BR/usage.md`.
 - English documentation partially updated: `docs/en/usage.md` (pending: review final examples).
 
+### Affected files
+- `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
+
 ### Notes
 -  Avoided extra API calls per template: the aggregation by template reuses the `hostids` returned by `trigger.get` and performs a single `host.get` with `selectParentTemplates`.
 - It is recommended to run a local `go build` to validate compilation in the user's environment after the changes.
 
-## [0.0.4] - 2026-03-25
+## [0.0.4] - 2026-03-24
 
 ## Authentication changes
 
