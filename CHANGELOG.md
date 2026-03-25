@@ -1,31 +1,40 @@
-# Changelog
+# CHANGELOG
 
 ## [0.0.4] - 2026-03-25
 
 ### Added
-- Adicionada navegação rápida nas recomendações: links que abrem as abas correspondentes (`Server`, `Proxys`, `Items`, `Templates`, `Triggers`, `Usuários`). (código: `app/cmd/app/main.go`, i18n: `app/web/locales/*/messages.json`)
-- Nova aba/relatório: **Triggers** — inclui tabela agregada por *Template* (`Triggers — Unknown por Template`) exibida antes da lista por Host. (código: `app/cmd/app/main.go`, docs: `docs/pt_BR/usage.md`)
-- Support for Zabbix >= 7.2 Bearer-token authentication: the application now detects `apiinfo.version` and, for Zabbix 7.2 and above, sends the token via the HTTP header `Authorization: Bearer <token>` instead of the JSON-RPC `auth` field.
-  - `user.login` remains unchanged and is still used for the Admin/password check; all other authenticated calls use Bearer for Zabbix >= 7.2.
-  - `app/cmd/app/main.go` now sets a runtime flag `useBearerAuth` and logs the detected version and chosen auth mode.
+- Added quick navigation in recommendations: links that open the corresponding tabs (`Server`, `Proxys`, `Items`, `Templates`, `Triggers`, `Users`). (code: `app/cmd/app/main.go`, i18n: `app/web/locales/*/messages.json`)
+- New tab/report: **Triggers** — includes a table aggregated by *Template* (`Triggers — Unknown by Template`) displayed before the list by Host. (code: `app/cmd/app/main.go`, docs: `docs/pt_BR/usage.md`)
 
 ### Changed
-- KPI `Triggers Unknown` agora mostra a porcentagem de triggers em `Unknown` (reaproveita o cálculo usado na recomendação). (`app/cmd/app/main.go`)
-- Recomendações: resumo ambiente de triggers passou a incluir total de triggers e percentagem formatada (i18n atualizado). (`app/web/locales/pt_BR/messages.json`, `app/web/locales/en_US/messages.json`)
+- KPI `Triggers Unknown` now shows the percentage of triggers in `Unknown` (reuses the calculation used in the recommendation). (`app/cmd/app/main.go`)
+- Recommendations: trigger environment summary now includes total triggers and formatted percentage (i18n updated). (`app/web/locales/pt_BR/messages.json`, `app/web/locales/en_US/messages.json`)
 
 ### Behavior / UI
-- Erros apresentados na tabela de Triggers foram encurtados e agregados por mensagem curta no formato `mensagem_curta:quantidade` (hosts mostram top 3; templates top 5). (`app/cmd/app/main.go`)
+- Errors presented in the Triggers table were shortened and aggregated by short message in the format `short_message:quantity` (hosts show top 3; templates top 5). (`app/cmd/app/main.go`)
 
 ### Docs
-- Atualizada documentação em Português explicando a nova tabela por Template e o formato de erros: `docs/pt_BR/usage.md`.
-- Documento em Inglês parcialmente atualizado: `docs/en/usage.md` (pendente: revisar exemplos finais).
+- Updated documentation in Portuguese explaining the new table by Template and the error format: `docs/pt_BR/usage.md`.
+- English documentation partially updated: `docs/en/usage.md` (pending: review final examples).
 
 ### Affected files
 - `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
 
 ### Notes
-- Evitei chamadas API extras por template: a agregação por template reaproveita os `hostids` retornados por `trigger.get` e faz um único `host.get` com `selectParentTemplates`.
-- Recomenda-se rodar um `go build` local para validar compilação no ambiente do usuário após as alterações.
+-  Avoided extra API calls per template: the aggregation by template reuses the `hostids` returned by `trigger.get` and performs a single `host.get` with `selectParentTemplates`.
+- It is recommended to run a local `go build` to validate compilation in the user's environment after the changes.
+
+## [0.0.4] - 2026-03-24
+
+## Authentication changes
+
+  - Support for Zabbix >= 7.2 Bearer-token authentication: the application now detects `apiinfo.version` and, for Zabbix 7.2 and above, sends the token via the HTTP header `Authorization: Bearer <token>` instead of the JSON-RPC `auth` field.
+  - `user.login` remains unchanged and is still used for the Admin/password check; all other authenticated calls use Bearer for Zabbix >= 7.2.
+  - `app/cmd/app/main.go` now sets a runtime flag `useBearerAuth` and logs the detected version and chosen auth mode.
+
+### Affected files
+
+  - `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
 
 ## [0.0.3] - 2026-03-22
 
