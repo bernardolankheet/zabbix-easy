@@ -5,6 +5,9 @@
 ### Added
 - Adicionada navegação rápida nas recomendações: links que abrem as abas correspondentes (`Server`, `Proxys`, `Items`, `Templates`, `Triggers`, `Usuários`). (código: `app/cmd/app/main.go`, i18n: `app/web/locales/*/messages.json`)
 - Nova aba/relatório: **Triggers** — inclui tabela agregada por *Template* (`Triggers — Unknown por Template`) exibida antes da lista por Host. (código: `app/cmd/app/main.go`, docs: `docs/pt_BR/usage.md`)
+- Support for Zabbix >= 7.2 Bearer-token authentication: the application now detects `apiinfo.version` and, for Zabbix 7.2 and above, sends the token via the HTTP header `Authorization: Bearer <token>` instead of the JSON-RPC `auth` field.
+  - `user.login` remains unchanged and is still used for the Admin/password check; all other authenticated calls use Bearer for Zabbix >= 7.2.
+  - `app/cmd/app/main.go` now sets a runtime flag `useBearerAuth` and logs the detected version and chosen auth mode.
 
 ### Changed
 - KPI `Triggers Unknown` agora mostra a porcentagem de triggers em `Unknown` (reaproveita o cálculo usado na recomendação). (`app/cmd/app/main.go`)
@@ -17,22 +20,12 @@
 - Atualizada documentação em Português explicando a nova tabela por Template e o formato de erros: `docs/pt_BR/usage.md`.
 - Documento em Inglês parcialmente atualizado: `docs/en/usage.md` (pendente: revisar exemplos finais).
 
+### Affected files
+- `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
+
 ### Notes
 - Evitei chamadas API extras por template: a agregação por template reaproveita os `hostids` retornados por `trigger.get` e faz um único `host.get` com `selectParentTemplates`.
 - Recomenda-se rodar um `go build` local para validar compilação no ambiente do usuário após as alterações.
-# CHANGELOG
-
-## [0.0.4] - 2026-03-25
-
-## Authentication changes
-
-  - Support for Zabbix >= 7.2 Bearer-token authentication: the application now detects `apiinfo.version` and, for Zabbix 7.2 and above, sends the token via the HTTP header `Authorization: Bearer <token>` instead of the JSON-RPC `auth` field.
-  - `user.login` remains unchanged and is still used for the Admin/password check; all other authenticated calls use Bearer for Zabbix >= 7.2.
-  - `app/cmd/app/main.go` now sets a runtime flag `useBearerAuth` and logs the detected version and chosen auth mode.
-
-### Affected files
-
-  - `app/cmd/app/main.go` — added `useBearerAuth` detection and Bearer header support for Zabbix >= 7.2.
 
 ## [0.0.3] - 2026-03-22
 
