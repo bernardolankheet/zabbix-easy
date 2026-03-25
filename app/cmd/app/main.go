@@ -931,7 +931,6 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	apiUrl := url
 	html := ""
 	log.Printf("[DEBUG] Iniciando coleta Zabbix: url=%s", url)
-	html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-processos");' data-i18n='rec.server_see_tab'></a></p>`
 	// compute frontend base URL (ambienteUrl) early so links can be built
 	ambienteUrl := url
 	if strings.HasSuffix(ambienteUrl, "/api_jsonrpc.php") {
