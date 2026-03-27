@@ -14,7 +14,7 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=zabbix_report
-      - MAX_CCONCURRENT=3
+      - MAX_CCONCURRENT=10
       - API_TIMEOUT_SECONDS=20   # se o Zabbix for mais lento
       - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
       #- ZABBIX_SERVER_HOSTID=23423

@@ -2,6 +2,7 @@
 
 import (
 	"github.com/gin-gonic/gin"
+	collector "go-zabbix-report/internal/collector"
 	"net/http"
 	"crypto/tls"
 	"fmt"
@@ -88,46 +89,11 @@ func parseCheckTrendEnv() {
 // parseCountResult interpreta o campo result de uma resposta JSON-RPC do Zabbix
 // para consultas com `countOutput:true`. Suporta `[]interface{}` (retorno antigo),
 // números (float64) e strings que contenham números.
-func parseCountResult(resp map[string]interface{}) (int, error) {
-	if resp == nil {
-		return 0, fmt.Errorf("nil response")
-	}
-	v, ok := resp["result"]
-	if !ok {
-		return 0, fmt.Errorf("no result")
-	}
-	switch t := v.(type) {
-	case []interface{}:
-		return len(t), nil
-	case float64:
-		return int(t), nil
-	case int:
-		return t, nil
-	case int64:
-		return int(t), nil
-	case string:
-		if n, err := strconv.Atoi(t); err == nil {
-			return n, nil
-		}
-		if f, err := strconv.ParseFloat(t, 64); err == nil {
-			return int(f), nil
-		}
-		return 0, fmt.Errorf("cannot parse count string: %v", t)
-	default:
-		s := fmt.Sprintf("%v", t)
-		if n, err := strconv.Atoi(s); err == nil {
-			return n, nil
-		}
-		if f, err := strconv.ParseFloat(s, 64); err == nil {
-			return int(f), nil
-		}
-		return 0, fmt.Errorf("cannot parse count: %v", s)
-	}
-}
+// NOTE: count parsing centralized in collector.CollectCount; old helper removed.
 
 // Reusable HTTP client to improve performance (connection reuse)
 var httpClient *http.Client
-var httpTransport *http.Transport
+	var httpTransport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 
 // Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
 var itemLookupCache sync.Map
@@ -181,7 +147,7 @@ func isDeadlineError(err error) bool {
 //
 // Parâmetros:
 //
-//	apiUrl  — URL completa do endpoint, ex: "https://zabbix.dominio.com/api_jsonrpc.php"
+		nItemsNaoSuportados = fmt.Sprintf("%d", cnt) + " items unsupported"
 //	token   — token de autenticação (campo "auth" no JSON-RPC). Passe "" para
 //	           chamadas que não requerem autenticação, como apiinfo.version.
 //	method  — método da API Zabbix, ex: "item.get", "trend.get", "host.get"
@@ -312,15 +278,12 @@ func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, er
 	if hostid != "" {
 		params["hostids"] = hostid
 	}
-	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
+	arr, err := collector.CollectRawList(apiUrl, token, "item.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		if len(arr) > 0 {
-			m := arr[0].(map[string]interface{})
-			itemLookupCache.Store(cacheKey, m)
-			return m, nil
-		}
+	if len(arr) > 0 {
+		m := arr[0]
+		itemLookupCache.Store(cacheKey, m)
+		return m, nil
 	}
 	return nil, nil
 }
@@ -405,112 +368,7 @@ func wildcardMatch(pattern, s string) bool {
 // ─── Como adicionar um processo novo ─────────────────────────────────────
 // Inclua o nome em pollerNames ou procNames dentro de generateZabbixReport.
 // Esta função é chamada automaticamente com a lista completa.
-func getProcessItemsBulk(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
-	if len(names) == 0 { return map[string]map[string]interface{}{}, nil }
-	patterns := make([]string, len(names))
-	for i, n := range names { patterns[i] = nameToWildcard(n) }
-	params := map[string]interface{}{
-		"output":                 []string{"itemid", "hostid", "name", "key_", "value_type"},
-		"search":                 map[string]interface{}{"key_": patterns},
-		"searchByAny":            true,
-		"searchWildcardsEnabled": true,
-	}
-	if hostid != "" { params["hostids"] = hostid }
-	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
-	if err != nil { return nil, err }
-	// Sort entries by word count desc so most-specific pattern is tried first
-	type nameEntry struct{ norm string; words int; pattern string }
-	entries := make([]nameEntry, len(names))
-	for i, n := range names {
-		entries[i] = nameEntry{norm: strings.ToLower(strings.TrimSpace(n)), words: len(strings.Fields(n)), pattern: patterns[i]}
-	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
-	result := map[string]map[string]interface{}{}
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		for _, raw := range arr {
-			item, _ := raw.(map[string]interface{})
-			if item == nil { continue }
-			itemKey := fmt.Sprintf("%v", item["key_"])
-			for _, e := range entries {
-				if wildcardMatch(e.pattern, itemKey) {
-					if _, exists := result[e.norm]; !exists { result[e.norm] = item }
-					break
-				}
-			}
-		}
-	}
-	return result, nil
-}
-
-// getProxyProcessItems busca itens de monitoramento de processos para um único
-// host de proxy em UMA chamada item.get, filtrando por type=5 (Zabbix internal).
-//
-// Estratégia (mais robusta que wildcard na key_):
-//
-//	1. Busca TODOS os itens do tipo 5 (Zabbix internal) do host de uma vez.
-//	2. Faz o match client-side usando nameToWildcard, testando TANTO key_ QUANTO
-//	   o campo name do item.
-//
-// Por que checar o campo name?
-//
-//	O Zabbix 7 alterou o formato da key_ de alguns processos do proxy.
-//	O campo name (ex: "Utilization of data sender processes, in %") é estável
-//	entre versões. Ao checar os dois campos, a função funciona em Zabbix 6 e 7
-//	sem ajustes.
-//
-// Parâmetros:
-//
-//	names  — lista de nomes (ex: ["data sender", "poller"]) de proxyAllProcNames
-//	hostid — hostid do host de auto-monitoramento do proxy (pode diferir do proxyid
-//	         no Zabbix 7; veja o Step 1 do goroutine de proxy em generateZabbixReport)
-//
-// Retorna map[nomeEmMinúsculas] → item.
-//
-// ─── Como adicionar um processo novo ao proxy ─────────────────────────────
-// Inclua o nome em proxyAllProcNames dentro de generateZabbixReport.
-// Use espaços como separador de palavras (ex: "nova feature") — igual a
-// pollerNames. O word-count correto garante que o sort "mais específico
-// vence" funcione; nameToWildcard converte espaços em "*" automaticamente.
-func getProxyProcessItems(apiUrl, token string, names []string, hostid string) (map[string]map[string]interface{}, error) {
-	if len(names) == 0 || hostid == "" { return map[string]map[string]interface{}{}, nil }
-	params := map[string]interface{}{
-		"output":  []string{"itemid", "hostid", "name", "key_", "value_type"},
-		"hostids": hostid,
-		"filter":  map[string]interface{}{"type": []int{5, 18}},
-	}
-	resp, err := zabbixApiRequest(apiUrl, token, "item.get", params)
-	if err != nil { return nil, err }
-	// Build name entries sorted by word count desc (most specific pattern wins)
-	type nameEntry struct{ norm string; words int; pattern string }
-	entries := make([]nameEntry, len(names))
-	for i, n := range names {
-		entries[i] = nameEntry{
-			norm:    strings.ToLower(strings.TrimSpace(n)),
-			words:   len(strings.Fields(n)),
-			pattern: nameToWildcard(n),
-		}
-	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].words > entries[j].words })
-	result := map[string]map[string]interface{}{}
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		for _, raw := range arr {
-			item, _ := raw.(map[string]interface{})
-			if item == nil { continue }
-			itemKey  := fmt.Sprintf("%v", item["key_"])
-			itemName := fmt.Sprintf("%v", item["name"])
-			for _, e := range entries {
-				// Match against key_ OR item name — covers both old and new key formats
-				if wildcardMatch(e.pattern, itemKey) || wildcardMatch(e.pattern, itemName) {
-					if _, exists := result[e.norm]; !exists { result[e.norm] = item }
-					break
-				}
-			}
-		}
-	}
-	return result, nil
-}
+// process/proxy helpers migrated to app/internal/collector; wrappers removed.
 
 // getLastHistoryValue retorna o valor mais recente do histórico de um item
 // (history.get com sortorder DESC, limit 1).
@@ -537,14 +395,11 @@ func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string,
 		"sortorder": "DESC",
 		"limit": 1,
 	}
-	resp, err := zabbixApiRequest(apiUrl, token, "history.get", params)
+	arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
 	if err != nil { return "", err }
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		if len(arr) > 0 {
-			hist := arr[0].(map[string]interface{})
-			return fmt.Sprintf("%v", hist["value"]), nil
-		}
+	if len(arr) > 0 {
+		hist := arr[0]
+		return fmt.Sprintf("%v", hist["value"]), nil
 	}
 	return "", nil
 }
@@ -589,16 +444,12 @@ func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[
 		"sortorder": "ASC",
 		"limit":     2000,
 	}
-	resp, err := zabbixApiRequest(apiUrl, token, "history.get", params)
+	arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
-	r, ok := resp["result"]
-	if !ok { return nil, nil }
-	arr, ok := r.([]interface{})
-	if !ok || len(arr) == 0 { return nil, nil }
+	if len(arr) == 0 { return nil, nil }
 	var vals []float64
-	for _, entry := range arr {
-		m, ok := entry.(map[string]interface{})
-		if !ok { continue }
+	for _, m := range arr {
+		if m == nil { continue }
 		if v, ok := m["value"]; ok {
 			if f, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); err == nil {
 				vals = append(vals, f)
@@ -657,51 +508,45 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 		"itemids":   []string{itemid},
 		"time_from": from,
 		"time_to":   now,
-		// sem "limit":1 — busca todos os registros do período e agrega (igual a getTrendsBulkStats)
-		// com limit:1 retornava apenas um ponto de trend (1h), dando valores erráticos
 	}
-	resp, err := zabbixApiRequest(apiUrl, token, "trend.get", params)
+	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		if len(arr) == 0 { return nil, nil }
-		// Agrega todos os registros do período: min=menor, avg=média dos avgs, max=maior
-		type aggState struct {
-			vmin, vmax float64
-			vavgSum    float64
-			count      int
-		}
-		var agg *aggState
-		parseF := func(row map[string]interface{}, k string) (float64, bool) {
-			if v, ok2 := row[k]; ok2 {
-				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
-			}
-			return 0, false
-		}
-		for _, raw := range arr {
-			row, _ := raw.(map[string]interface{})
-			if row == nil { continue }
-			vmin, ok1 := parseF(row, "value_min")
-			vavg, ok2 := parseF(row, "value_avg")
-			vmax, ok3 := parseF(row, "value_max")
-			if !ok1 && !ok2 && !ok3 { continue }
-			if agg == nil {
-				agg = &aggState{vmin: vmin, vmax: vmax, vavgSum: vavg, count: 1}
-			} else {
-				if ok1 && vmin < agg.vmin { agg.vmin = vmin }
-				if ok3 && vmax > agg.vmax { agg.vmax = vmax }
-				if ok2 { agg.vavgSum += vavg; agg.count++ }
-			}
-		}
-		if agg == nil { return nil, nil }
-		vavgFinal := 0.0
-		if agg.count > 0 { vavgFinal = agg.vavgSum / float64(agg.count) }
-		return map[string]interface{}{
-			"value_min": fmt.Sprintf("%f", agg.vmin),
-			"value_avg": fmt.Sprintf("%f", vavgFinal),
-			"value_max": fmt.Sprintf("%f", agg.vmax),
-		}, nil
+	if len(arr) == 0 { return nil, nil }
+	// Agrega todos os registros do período: min=menor, avg=média dos avgs, max=maior
+	type aggState struct {
+		vmin, vmax float64
+		vavgSum    float64
+		count      int
 	}
+	var agg *aggState
+	parseF := func(row map[string]interface{}, k string) (float64, bool) {
+		if v, ok2 := row[k]; ok2 {
+			if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
+		}
+		return 0, false
+	}
+	for _, row := range arr {
+		if row == nil { continue }
+		vmin, ok1 := parseF(row, "value_min")
+		vavg, ok2 := parseF(row, "value_avg")
+		vmax, ok3 := parseF(row, "value_max")
+		if !ok1 && !ok2 && !ok3 { continue }
+		if agg == nil {
+			agg = &aggState{vmin: vmin, vmax: vmax, vavgSum: vavg, count: 1}
+		} else {
+			if ok1 && vmin < agg.vmin { agg.vmin = vmin }
+			if ok3 && vmax > agg.vmax { agg.vmax = vmax }
+			if ok2 { agg.vavgSum += vavg; agg.count++ }
+		}
+	}
+	if agg == nil { return nil, nil }
+	vavgFinal := 0.0
+	if agg.count > 0 { vavgFinal = agg.vavgSum / float64(agg.count) }
+	return map[string]interface{}{
+		"value_min": fmt.Sprintf("%f", agg.vmin),
+		"value_avg": fmt.Sprintf("%f", vavgFinal),
+		"value_max": fmt.Sprintf("%f", agg.vmax),
+	}, nil
 	return nil, nil
 }
 
@@ -747,7 +592,7 @@ func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[
 		"time_from": from,
 		"time_to":   now,
 	}
-	resp, err := zabbixApiRequest(apiUrl, token, "trend.get", params)
+	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
 	type aggState struct {
 		vmin, vmaxV float64
@@ -755,30 +600,26 @@ func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[
 		count       int
 	}
 	agg := map[string]*aggState{}
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		for _, raw := range arr {
-			row, _ := raw.(map[string]interface{})
-			if row == nil { continue }
-			iid := fmt.Sprintf("%v", row["itemid"])
-			parseF := func(k string) (float64, bool) {
-				if v, ok2 := row[k]; ok2 {
-					if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
-				}
-				return 0, false
+	for _, row := range arr {
+		if row == nil { continue }
+		iid := fmt.Sprintf("%v", row["itemid"])
+		parseF := func(k string) (float64, bool) {
+			if v, ok2 := row[k]; ok2 {
+				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
 			}
-			vmin, ok1 := parseF("value_min")
-			vavg, ok2 := parseF("value_avg")
-			vmax, ok3 := parseF("value_max")
-			if !ok1 && !ok2 && !ok3 { continue }
-			if agg[iid] == nil {
-				agg[iid] = &aggState{vmin: vmin, vmaxV: vmax, vavgSum: vavg, count: 1}
-			} else {
-				s := agg[iid]
-				if ok1 && vmin < s.vmin { s.vmin = vmin }
-				if ok3 && vmax > s.vmaxV { s.vmaxV = vmax }
-				if ok2 { s.vavgSum += vavg; s.count++ }
-			}
+			return 0, false
+		}
+		vmin, ok1 := parseF("value_min")
+		vavg, ok2 := parseF("value_avg")
+		vmax, ok3 := parseF("value_max")
+		if !ok1 && !ok2 && !ok3 { continue }
+		if agg[iid] == nil {
+			agg[iid] = &aggState{vmin: vmin, vmaxV: vmax, vavgSum: vavg, count: 1}
+		} else {
+			s := agg[iid]
+			if ok1 && vmin < s.vmin { s.vmin = vmin }
+			if ok3 && vmax > s.vmaxV { s.vmaxV = vmax }
+			if ok2 { s.vavgSum += vavg; s.count++ }
 		}
 	}
 	result := map[string]map[string]interface{}{}
@@ -840,20 +681,16 @@ func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[
 			"sortorder": "ASC",
 			"limit":     limit,
 		}
-		resp, err := zabbixApiRequest(apiUrl, token, "history.get", params)
+		arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
 		if err != nil { continue }
 		type aggS struct{ vals []float64 }
 		agg := map[string]*aggS{}
-		if r, ok := resp["result"]; ok {
-			arr, _ := r.([]interface{})
-			for _, raw := range arr {
-				row, _ := raw.(map[string]interface{})
-				if row == nil { continue }
-				iid := fmt.Sprintf("%v", row["itemid"])
-				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", row["value"]), 64); e == nil {
-					if agg[iid] == nil { agg[iid] = &aggS{} }
-					agg[iid].vals = append(agg[iid].vals, f)
-				}
+		for _, row := range arr {
+			if row == nil { continue }
+			iid := fmt.Sprintf("%v", row["itemid"])
+			if f, e := strconv.ParseFloat(fmt.Sprintf("%v", row["value"]), 64); e == nil {
+				if agg[iid] == nil { agg[iid] = &aggS{} }
+				agg[iid].vals = append(agg[iid].vals, f)
 			}
 		}
 		mu.Lock()
@@ -896,23 +733,8 @@ func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[
 // e "status" (v6) para determinar o tipo (Active/Passive), e "state" para
 // determinar o estado (Online/Offline/Unknown).
 func getProxies(apiUrl, token string) ([]map[string]interface{}, error) {
-	params := map[string]interface{}{
-		"output": "extend",
-	}
-	resp, err := zabbixApiRequest(apiUrl, token, "proxy.get", params)
-	if err != nil { return nil, err }
-	if r, ok := resp["result"]; ok {
-		arr, _ := r.([]interface{})
-		out := []map[string]interface{}{}
-		for _, it := range arr {
-			if m, ok := it.(map[string]interface{}); ok {
-				out = append(out, m)
-			}
-		}
-		return out, nil
-	}
-	return nil, nil
-}
+// proxy helper migrated to app/internal/collector; wrapper removed.
+
 
 func generateZabbixReport(url, token string, progressCb func(string)) (string, error) {
 		nItemsNaoSuportados := "-"
@@ -956,11 +778,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// get Zabbix API version (apiinfo.version)
 	zabbixVersion := ""
-	verResp, err := zabbixApiRequest(apiUrl, "", "apiinfo.version", []interface{}{})
-	if err == nil {
-		if r, ok := verResp["result"]; ok {
-			zabbixVersion = fmt.Sprintf("%v", r)
-		}
+	if v, err := collector.CollectZabbixVersion(apiUrl, zabbixApiRequest); err == nil {
+		zabbixVersion = v
 	}
 	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
@@ -1055,13 +874,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 
 	// get em Consulta quantidade de itens não suportados
-	itensNaoSuportadosResp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-		"filter": map[string]interface{}{ "state": 1, "status": 0 },
-		"monitored": true,
-		"countOutput": true,
-	})
-	if err == nil {
-		nItemsNaoSuportados = fmt.Sprintf("%v", itensNaoSuportadosResp["result"])
+	if cnt, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{"filter": map[string]interface{}{"state": 1, "status": 0}, "monitored": true}, zabbixApiRequest); err == nil {
+		nItemsNaoSuportados = fmt.Sprintf("%d", cnt)
 	}
 	// ── Parallel summary collection ──────────────────────────────────────────────
 	if progressCb != nil { progressCb("progress.collecting_users") }
@@ -1083,72 +897,48 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// 1. Users
 	go func() {
 		defer summaryWg.Done()
-		resp, err := zabbixApiRequest(apiUrl, token, "user.get", map[string]interface{}{"countOutput": true})
+		n, err := collector.CollectCount(apiUrl, token, "user.get", nil, zabbixApiRequest)
 		nUsersErr = err
-		if err == nil {
-			if n, perr := parseCountResult(resp); perr == nil {
-				nUsers = n
-			} else {
-				nUsersErr = perr
-			}
-		}
+		if err == nil { nUsers = n }
 	}()
 
 	// 2. Hosts total + enabled + disabled (3 calls — kept serial within this goroutine
 	//    because they share the hostsErr variable and are fast count-only queries)
 	go func() {
 		defer summaryWg.Done()
-		r1, e1 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true})
-		hostsErr = e1
-		if e1 == nil {
-			if n, perr := parseCountResult(r1); perr == nil { nTotalHosts = n } else { hostsErr = perr }
-		}
-		r2, e2 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true, "filter": map[string]interface{}{"status": 0}})
-		if e2 == nil {
-			if n, perr := parseCountResult(r2); perr == nil { nEnabledHosts = n } else { hostsErr = perr }
-		}
-		r3, e3 := zabbixApiRequest(apiUrl, token, "host.get", map[string]interface{}{"countOutput": true, "filter": map[string]interface{}{"status": 1}})
-		if e3 == nil {
-			if n, perr := parseCountResult(r3); perr == nil { nDisabledHosts = n } else { hostsErr = perr }
-		}
+			// use CollectCount helper for host counts
+			n, herr := collector.CollectCount(apiUrl, token, "host.get", nil, zabbixApiRequest)
+			hostsErr = herr
+			if herr == nil { nTotalHosts = n }
+			n, herr = collector.CollectCount(apiUrl, token, "host.get", map[string]interface{}{"filter": map[string]interface{}{"status": 0}}, zabbixApiRequest)
+			if herr == nil { nEnabledHosts = n } else if hostsErr == nil { hostsErr = herr }
+			n, herr = collector.CollectCount(apiUrl, token, "host.get", map[string]interface{}{"filter": map[string]interface{}{"status": 1}}, zabbixApiRequest)
+			if herr == nil { nDisabledHosts = n } else if hostsErr == nil { hostsErr = herr }
 	}()
 
 	// 3. Templates count
 	go func() {
 		defer summaryWg.Done()
-		resp, err := zabbixApiRequest(apiUrl, token, "template.get", map[string]interface{}{"countOutput": true})
-		if err == nil { templatesCount = fmt.Sprintf("%v", resp["result"]) }
+		if cnt, err := collector.CollectCount(apiUrl, token, "template.get", nil, zabbixApiRequest); err == nil { templatesCount = fmt.Sprintf("%d", cnt) }
 	}()
 
 	// 4. Items total
 	go func() {
 		defer summaryWg.Done()
-		resp, err := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-			"countOutput": true,
-			"templated": false,
-			"webitems": true,
-		})
-		if err == nil { nItemsTotal = fmt.Sprintf("%v", resp["result"]) }
+		if cnt, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{"templated": false, "webitems": true}, zabbixApiRequest); err == nil {
+			nItemsTotal = fmt.Sprintf("%d", cnt)
+		}
 	}()
 
 	// 5. Items enabled + disabled (both fast count queries, serial within goroutine)
 	go func() {
 		defer summaryWg.Done()
-		rE, eE := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-			"countOutput": true,
-			"monitored": true,
-			"templated": false,
-			"webitems": true,
-			"filter": map[string]interface{}{"status": 0, "state": 0},
-		})
-		if eE == nil { nItemsEnabled = fmt.Sprintf("%v", rE["result"]) }
-		rD, eD := zabbixApiRequest(apiUrl, token, "item.get", map[string]interface{}{
-			"countOutput": true,
-			"templated": false,
-			"webitems": true,
-			"filter": map[string]interface{}{"status": 1},
-		})
-		if eD == nil { nItemsDisabled = fmt.Sprintf("%v", rD["result"]) }
+		if cnt, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{"monitored": true, "templated": false, "webitems": true, "filter": map[string]interface{}{"status": 0, "state": 0}}, zabbixApiRequest); err == nil {
+			nItemsEnabled = fmt.Sprintf("%d", cnt)
+		}
+		if cnt, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{"templated": false, "webitems": true, "filter": map[string]interface{}{"status": 1}}, zabbixApiRequest); err == nil {
+			nItemsDisabled = fmt.Sprintf("%d", cnt)
+		}
 	}()
 
 	summaryWg.Wait()
@@ -1689,7 +1479,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Proxys
 	if progressCb != nil { progressCb("progress.collecting_proxies") }
 	var proxies []map[string]interface{}
-	if plist, perr := getProxies(apiUrl, token); perr == nil && plist != nil {
+	if plist, perr := collector.CollectProxiesList(apiUrl, token, zabbixApiRequest); perr == nil && plist != nil {
 		proxies = plist
 	} else if perr != nil {
 		log.Printf("[ERROR] proxy.get (list) failed: %v", perr)
@@ -1890,7 +1680,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	// Single bulk item.get for ALL server process items (pollers + internal processes)
 	allServerNames := append(append([]string{}, pollerNames...), procNames...)
-	serverItemsMap, serverItemsErr := getProcessItemsBulk(apiUrl, token, allServerNames, serverHost)
+	serverItemsMap, serverItemsErr := collector.CollectProcessItemsBulk(apiUrl, token, allServerNames, serverHost, zabbixApiRequest)
 	if serverItemsErr != nil {
 		log.Printf("[ERROR] bulk process item.get failed: %v", serverItemsErr)
 		serverItemsMap = map[string]map[string]interface{}{}
@@ -2588,7 +2378,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			// ── Step 2: single item.get for all process names on this proxy's host ──
 			// Uses getProxyProcessItems: fetches ALL type=5 (Zabbix internal) items and
 			// matches client-side on BOTH key_ AND name — robust across Zabbix 6/7 key formats.
-			itemsMap, iErr := getProxyProcessItems(apiUrl, token, proxyAllProcNames, hostId)
+			itemsMap, iErr := collector.CollectProxyProcessItems(apiUrl, token, proxyAllProcNames, hostId, zabbixApiRequest)
 			if iErr != nil {
 				log.Printf("[ERROR] proxy '%s' item.get failed: %v", pm.Name, iErr)
 				res.noItemsNote = fmt.Sprintf("Erro ao consultar itens (hostid=%s).", htmlpkg.EscapeString(hostId))
@@ -3719,10 +3509,8 @@ details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
 
 // Compute total triggers in the environment and percentage Unknown (used by KPI and Recommendations)
 totalTriggersAll := 0
-if respAll, errAll := zabbixApiRequest(apiUrl, token, "trigger.get", map[string]interface{}{"countOutput": true}); errAll == nil {
-	if nAll, perr := parseCountResult(respAll); perr == nil {
-		totalTriggersAll = nAll
-	}
+if nAll, errAll := collector.CollectCount(apiUrl, token, "trigger.get", nil, zabbixApiRequest); errAll == nil {
+	totalTriggersAll = nAll
 }
 pctTriggers := 0.0
 if totalTriggersAll > 0 {
