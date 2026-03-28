@@ -337,6 +337,21 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coletores-usados-pelo-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coletores usados pelo backend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coletores usados pelo backend">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
   <a href="#autenticacao-via-bearer-zabbix-72" class="md-nav__link">
     <span class="md-ellipsis">
@@ -1918,6 +1933,21 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#coletores-usados-pelo-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coletores usados pelo backend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Coletores usados pelo backend">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
   <a href="#autenticacao-via-bearer-zabbix-72" class="md-nav__link">
     <span class="md-ellipsis">
@@ -3457,6 +3487,9 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
   &quot;id&quot;: 1
 }'
 </code></pre>
+<h2 id="coletores-usados-pelo-backend">Coletores usados pelo backend</h2>
+<p>O backend usa coletores tipados em <code>app/internal/collector</code> para centralizar chamadas à API, autenticação e parsing. Veja a referência completa de coletores: <a href="../collectors/">Índice de Coletores</a>.</p>
+<p>Prefira reutilizar os coletores em vez de duplicar chamadas JSON-RPC e parsing ad-hoc no código da aplicação.</p>
 <h3 id="autenticacao-via-bearer-zabbix-72">Autenticação via Bearer (Zabbix &gt;= 7.2)</h3>
 <p>Exemplo de requisição com Bearer (curl):</p>
 <pre><code>curl --location --request GET 'http://DNS/api_jsonrpc.php' \
@@ -3727,14 +3760,14 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <tbody>
 <tr>
 <td><code>nameToWildcard(name)</code></td>
-<td>Converte <code>"agent poller"</code> → <code>"*agent*poller*"</code> para a busca wildcard</td>
+<td>Helper interno (implementado dentro de <code>CollectProcessItemsBulk</code> / <code>CollectProxyProcessItems</code>) — converte <code>"agent poller"</code> → <code>"*agent*poller*"</code> para a busca wildcard</td>
 </tr>
 <tr>
 <td><code>wildcardMatch(pattern, key)</code></td>
-<td>Match client-side simples (<code>*</code>) para mapear items retornados de volta a cada nome de processo</td>
+<td>Helper interno (implementado dentro de <code>CollectProcessItemsBulk</code> / <code>CollectProxyProcessItems</code>) — match client-side simples (<code>*</code>) para mapear items retornados de volta a cada nome de processo</td>
 </tr>
 <tr>
-<td><code>getProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
+<td><code>CollectProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
 <td>Faz <strong>1 <code>item.get</code></strong> com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna <code>map[nomeLowercase]item</code></td>
 </tr>
 <tr>
@@ -4070,7 +4103,7 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <td>Retorna lista completa de proxies com todos os campos (<code>output:extend</code>)</td>
 </tr>
 <tr>
-<td><code>getProxyProcessItems(apiUrl, token, names, hostid)</code></td>
+<td><code>CollectProxyProcessItems(apiUrl, token, names, hostid)</code></td>
 <td>Busca todos os itens <code>type=5</code> do host; match client-side em <code>key_</code> <strong>e</strong> <code>name</code> usando <code>nameToWildcard</code></td>
 </tr>
 <tr>
@@ -4087,7 +4120,7 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 </tr>
 <tr>
 <td><code>wildcardMatch(pattern, s)</code></td>
-<td>Match simples com <code>*</code>; usado por <code>getProxyProcessItems</code> para testar <code>key_</code> e <code>name</code></td>
+<td>Match simples com <code>*</code>; usado por <code>CollectProxyProcessItems</code> para testar <code>key_</code> e <code>name</code></td>
 </tr>
 </tbody>
 </table>
@@ -5929,8 +5962,8 @@ html += `&lt;span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5
 
   subgraph Helpers[&quot;App helpers (functions)&quot;]
     getItemByKey[&quot;getItemByKey()\nuses item.get&quot;]
-    getProcessBulk[&quot;getProcessItemsBulk()\nuses item.get with search wildcards&quot;]
-    getProxyProc[&quot;getProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
+    getProcessBulk[&quot;CollectProcessItemsBulk()\nuses item.get with search wildcards&quot;]
+    getProxyProc[&quot;CollectProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
     getTrendsBulk[&quot;getTrendsBulkStats()\nuses trend.get&quot;]
     getHistoryBulk[&quot;getHistoryStatsBulkByType()\nuses history.get&quot;]
   end

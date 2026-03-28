@@ -414,6 +414,21 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#collectors-used-by-the-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      Collectors used by the backend
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Collectors used by the backend">
+      <ul class="md-nav__list">
+        
           <li class="md-nav__item">
   <a href="#bearer-authentication-zabbix-72" class="md-nav__link">
     <span class="md-ellipsis">
@@ -1997,6 +2012,9 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
   &quot;id&quot;: 1
 }'
 </code></pre>
+<h2 id="collectors-used-by-the-backend">Collectors used by the backend</h2>
+<p>The backend uses typed collectors in <code>app/internal/collector</code> to centralize API calls, authentication and parsing. See the full collector reference: <a href="../collectors/">Collectors Index</a>.</p>
+<p>Prefer reusing collectors instead of duplicating JSON-RPC calls and ad-hoc parsing in application code.</p>
 <h3 id="bearer-authentication-zabbix-72">Bearer authentication (Zabbix &gt;= 7.2)</h3>
 <p>Example request with Bearer (curl):</p>
 <pre><code>curl --location --request GET 'http://DNS/api_jsonrpc.php' \
@@ -2272,7 +2290,7 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 <td>Simple client-side <code>*</code> match used to map returned items back to names</td>
 </tr>
 <tr>
-<td><code>getProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
+<td><code>CollectProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
 <td>Performs 1 <code>item.get</code> with all patterns. Resolves collisions by specificity. Returns <code>map[nameLowercase]item</code></td>
 </tr>
 <tr>
@@ -4017,7 +4035,7 @@ curl -X DELETE http://localhost:8080/api/reports
 </tbody>
 </table>
 <h3 id="zabbix-api-calls_7">Zabbix API calls</h3>
-<p>Each process in the list queries the <strong>pre-loaded map</strong> by <code>getProcessItemsBulk</code> (1 call made before the goroutines) and then makes <strong>two parallel calls</strong> to get trend/history data:</p>
+<p>Each process in the list queries the <strong>pre-loaded map</strong> by <code>CollectProcessItemsBulk</code> (1 call made before the goroutines) and then makes <strong>two parallel calls</strong> to get trend/history data:</p>
 <h4 id="1-itemget-bulk-locate-all-process-items-1-single-call">1. <code>item.get</code> bulk — locate all process items (1 single call)</h4>
 <pre><code class="language-json">{
   &quot;method&quot;: &quot;item.get&quot;,
@@ -4085,14 +4103,14 @@ curl -X DELETE http://localhost:8080/api/reports
 <tbody>
 <tr>
 <td><code>nameToWildcard(name)</code></td>
-<td>Converts <code>"agent poller"</code> → <code>"*agent*poller*"</code> for wildcard search</td>
+<td>Internal helper (implemented inside <code>CollectProcessItemsBulk</code> / <code>CollectProxyProcessItems</code>) — converts <code>"agent poller"</code> → <code>"*agent*poller*"</code> for wildcard search</td>
 </tr>
 <tr>
 <td><code>wildcardMatch(pattern, key)</code></td>
-<td>Simple client-side match (<code>*</code>) to map returned items back to each name</td>
+<td>Internal helper (implemented inside <code>CollectProcessItemsBulk</code> / <code>CollectProxyProcessItems</code>) — simple client-side <code>*</code> match used to map returned items back to each name</td>
 </tr>
 <tr>
-<td><code>getProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
+<td><code>CollectProcessItemsBulk(apiUrl, token, names, hostid)</code></td>
 <td>Makes <strong>1 <code>item.get</code></strong> with all patterns. Resolves collisions by specificity (more words = higher priority). Returns <code>map[nameLowercase]item</code></td>
 </tr>
 <tr>
@@ -4494,8 +4512,8 @@ html += `&lt;span data-i18n='items.unsupported_paragraph' data-i18n-args='42|3.5
 
   subgraph Helpers[&quot;App helpers (functions)&quot;]
     getItemByKey[&quot;getItemByKey()\nuses item.get&quot;]
-    getProcessBulk[&quot;getProcessItemsBulk()\nuses item.get with search wildcards&quot;]
-    getProxyProc[&quot;getProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
+    getProcessBulk[&quot;CollectProcessItemsBulk()\nuses item.get with search wildcards&quot;]
+    getProxyProc[&quot;CollectProxyProcessItems()\nuses item.get type=5 (internal)&quot;]
     getTrendsBulk[&quot;getTrendsBulkStats()\nuses trend.get&quot;]
     getHistoryBulk[&quot;getHistoryStatsBulkByType()\nuses history.get&quot;]
   end
