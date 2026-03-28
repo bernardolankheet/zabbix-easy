@@ -80,6 +80,21 @@ curl --location --request POST 'http://DNS/api_jsonrpc.php' \
 }'
 ```
 
+## Collectors used by the backend
+
+The backend uses typed collectors from `app/internal/collector` to perform API calls and parse results. Key collectors used by the report generator include:
+
+- `CollectZabbixVersion` — queries `apiinfo.version`.
+- `Authenticate` — performs `user.login` and returns a token for authentication checks.
+- `CollectRawList` — generic helper for list-returning methods (`item.get`, `history.get`, `trend.get`).
+- `CollectCount` — helper for `countOutput:true` queries.
+- `CollectItemByKey` — finds an item by exact `key_` (used to locate NVPS items).
+- `CollectProcessItemsBulk` / `CollectProxyProcessItems` — fetch process-related items using wildcard search and client-side resolution.
+- `CollectHosts`, `CollectTemplates`, `CollectProxies` — entity collectors used across multiple report sections.
+
+Prefer using these collectors rather than duplicating JSON-RPC requests and ad-hoc parsing in application code.
+
+
 ### Bearer authentication (Zabbix >= 7.2)
 
 Example request with Bearer (curl):
@@ -259,7 +274,7 @@ Result: the entire Zabbix Server section performs at most 3 API calls — 1 `ite
 |----------|-------------|
 | `nameToWildcard(name)` | Convert `"agent poller"` → `"*agent*poller*"` for wildcard search |
 | `wildcardMatch(pattern, key)` | Simple client-side `*` match used to map returned items back to names |
-| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Performs 1 `item.get` with all patterns. Resolves collisions by specificity. Returns `map[nameLowercase]item` |
+| `CollectProcessItemsBulk(apiUrl, token, names, hostid)` | Performs 1 `item.get` with all patterns. Resolves collisions by specificity. Returns `map[nameLowercase]item` |
 | `getTrendsBulkStats(apiUrl, token, itemids)` | 1 `trend.get` for all itemids. Aggregates min/avg/max per item. Returns `map[itemid]stats` |
 | `getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)` | Fallback: groups ids by `value_type` and performs at most 2 `history.get` calls. Returns `map[itemid]stats` |
 
@@ -1319,7 +1334,7 @@ For each process, the **minimum**, **average** and **maximum** utilization (%) i
 
 ### Zabbix API calls
 
-Each process in the list queries the **pre-loaded map** by `getProcessItemsBulk` (1 call made before the goroutines) and then makes **two parallel calls** to get trend/history data:
+Each process in the list queries the **pre-loaded map** by `CollectProcessItemsBulk` (1 call made before the goroutines) and then makes **two parallel calls** to get trend/history data:
 
 #### 1. `item.get` bulk — locate all process items (1 single call)
 
@@ -1389,8 +1404,8 @@ Each process in the list queries the **pre-loaded map** by `getProcessItemsBulk`
 
 | Function | Description |
 |--------|-----------|
-| `nameToWildcard(name)` | Converts `"agent poller"` → `"*agent*poller*"` for wildcard search |
-| `wildcardMatch(pattern, key)` | Simple client-side match (`*`) to map returned items back to each name |
+| `nameToWildcard(name)` | Internal helper (implemented inside `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — converts `"agent poller"` → `"*agent*poller*"` for wildcard search |
+| `wildcardMatch(pattern, key)` | Internal helper (implemented inside `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — simple client-side `*` match used to map returned items back to each name |
 | `getProcessItemsBulk(apiUrl, token, names, hostid)` | Makes **1 `item.get`** with all patterns. Resolves collisions by specificity (more words = higher priority). Returns `map[nameLowercase]item` |
 | `getLastTrend(apiUrl, token, itemid, days)` | Makes `trend.get` for the itemid in the configured period. Respects `CHECKTRENDTIME`. |
 | `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: makes `history.get`, collects up to 2,000 data points and returns calculated `{value_min, value_avg, value_max}`. |
@@ -1696,7 +1711,7 @@ flowchart TD
 
   subgraph Helpers["App helpers (functions)"]
     getItemByKey["getItemByKey()\nuses item.get"]
-    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
+    getProcessBulk["CollectProcessItemsBulk()\nuses item.get with search wildcards"]
     getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
     getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
     getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
