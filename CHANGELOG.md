@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## [0.0.5] - 2026-03-28
+
+### Added
+- New internal collectors package `app/internal/collector` with typed helpers to centralize JSON-RPC transport and parsing. Key helpers/collectors:
+  - `CollectRawList`, `CollectCount`, `CollectZabbixVersion`, `Authenticate`
+  - `CollectItemByKey`, `CollectProcessItemsBulk`, `CollectProxyProcessItems`
+  - `CollectHosts`, `CollectTemplates`, `CollectProxies`, `CollectProxiesList`, `CollectHostExists`
+
+### Changed
+- Moved JSON-RPC request/response handling out of `app/cmd/app/main.go` into the collector package to reduce duplicated ad-hoc parsing and improve testability and performance.
+- Replaced multiple direct `zabbixApiRequest` call sites in `cmd/app/main.go` with the new collector helpers.
+- Cleared `app/go.mod` of explicit `// indirect` entries to keep the module file minimal (run `go mod tidy` to regenerate required indirects).
+
+### Removed
+- Duplicate helper implementations (client-side wildcard helpers) were removed from `app/cmd/app/main.go` — the equivalent logic is provided inside the collectors.
+
+### Docs
+- Updated `README.md`, `docs/en/usage.md`, `docs/pt_BR/usage.md` and `docs/diagrams/zabbix-api-calls.mmd` to document the new collectors and where they are used.
+
+### Tests / Validation
+- Added and ran unit tests for collector helpers. Changes were validated with containerized builds during the refactor process.
+
+### Notes
+- Prefer using the collector helpers when adding or modifying data collection logic to keep API transport and parsing centralized.
+- After pulling these changes, run `cd app && go mod tidy` and a local build (`go build` or the repo's Docker build) to ensure indirect dependencies are populated and the project compiles in your environment.
+
 ## [0.0.4] - 2026-03-25
 
 ### Added

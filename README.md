@@ -13,6 +13,17 @@ Key components
 - `app/cmd/app` — Go backend that collects data via the Zabbix API and renders the HTML report
 - `app/web` — static assets (templates, i18n, CSS, JS)
 - `docs/` — project documentation (MkDocs)
+- `app/internal/collector` — typed Zabbix API collectors centralizing JSON-RPC transport and parsing.
+
+Key helpers and collectors:
+- `CollectRawList` — generic list-returning JSON-RPC helper (used for `item.get`, `history.get`, `trend.get`).
+- `CollectCount` — wrapper for `countOutput:true` queries.
+- `CollectZabbixVersion` — returns `apiinfo.version`.
+- `Authenticate` — performs `user.login` and returns token.
+- `CollectItemByKey`, `CollectProcessItemsBulk`, `CollectProxyProcessItems` — item lookup helpers used by the report generator.
+- `CollectHosts`, `CollectTemplates`, `CollectProxies` — entity collectors used throughout the report.
+
+These helpers are used by the backend to avoid ad-hoc JSON parsing in `cmd/app/main.go` and to improve testability.
 
 Main features
 - Data collection and aggregation via the Zabbix API

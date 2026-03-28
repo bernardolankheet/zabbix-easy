@@ -80,6 +80,13 @@ curl --location --request POST 'http://DNS/api_jsonrpc.php' \
 }'
 ```
 
+## Coletores usados pelo backend
+
+O backend usa coletores tipados em `app/internal/collector` para centralizar chamadas à API, autenticação e parsing. Veja a referência completa de coletores: [Índice de Coletores](collectors/index.md).
+
+Prefira reutilizar os coletores em vez de duplicar chamadas JSON-RPC e parsing ad-hoc no código da aplicação.
+
+
 ### Autenticação via Bearer (Zabbix >= 7.2)
 
 Exemplo de requisição com Bearer (curl):
@@ -257,9 +264,9 @@ O `min/avg/max` é calculado manualmente a partir dos pontos retornados, por `it
 
 | Função | Descrição |
 |--------|-----------|
-| `nameToWildcard(name)` | Converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
-| `wildcardMatch(pattern, key)` | Match client-side simples (`*`) para mapear items retornados de volta a cada nome de processo |
-| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna `map[nomeLowercase]item` |
+| `nameToWildcard(name)` | Helper interno (implementado dentro de `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — converte `"agent poller"` → `"*agent*poller*"` para a busca wildcard |
+| `wildcardMatch(pattern, key)` | Helper interno (implementado dentro de `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — match client-side simples (`*`) para mapear items retornados de volta a cada nome de processo |
+| `CollectProcessItemsBulk(apiUrl, token, names, hostid)` | Faz **1 `item.get`** com todos os padrões. Resolve colisões por especificidade (mais palavras = prioridade maior). Retorna `map[nomeLowercase]item` |
 | `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids. Agrega todos os pontos do período por itemid (min/avg/max). Retorna `map[itemid]stats` |
 | `getHistoryStatsBulkByType(apiUrl, token, map[itemid]vtype)` | Fallback: agrupa ids por `value_type`, faz **no máximo 2 `history.get`**. Calcula min/avg/max por itemid. Retorna `map[itemid]stats` |
 
@@ -467,11 +474,11 @@ O hostid do host de auto-monitoramento do proxy pode diferir do proxyid a partir
 | Função | Descrição |
 |--------|-----------|
 | `getProxies(apiUrl, token)` | Retorna lista completa de proxies com todos os campos (`output:extend`) |
-| `getProxyProcessItems(apiUrl, token, names, hostid)` | Busca todos os itens `type=5` do host; match client-side em `key_` **e** `name` usando `nameToWildcard` |
+| `CollectProxyProcessItems(apiUrl, token, names, hostid)` | Busca todos os itens `type=5` do host; match client-side em `key_` **e** `name` usando `nameToWildcard` |
 | `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids; agrega `min/avg/max` por item |
 | `getHistoryStatsBulkByType(apiUrl, token, items)` | Fallback: **1 `history.get` por `value_type`**; agrega `min/avg/max` a partir do histórico bruto |
 | `nameToWildcard(name)` | Converte `"data*sender"` → `"*data*sender*"` para match client-side |
-| `wildcardMatch(pattern, s)` | Match simples com `*`; usado por `getProxyProcessItems` para testar `key_` e `name` |
+| `wildcardMatch(pattern, s)` | Match simples com `*`; usado por `CollectProxyProcessItems` para testar `key_` e `name` |
 
 #### Lógica de versão
 
@@ -1664,8 +1671,8 @@ flowchart TD
 
   subgraph Helpers["App helpers (functions)"]
     getItemByKey["getItemByKey()\nuses item.get"]
-    getProcessBulk["getProcessItemsBulk()\nuses item.get with search wildcards"]
-    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getProcessBulk["CollectProcessItemsBulk()\nuses item.get with search wildcards"]
+    getProxyProc["CollectProxyProcessItems()\nuses item.get type=5 (internal)"]
     getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
     getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
   end
