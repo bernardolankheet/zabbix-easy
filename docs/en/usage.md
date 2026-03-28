@@ -82,17 +82,9 @@ curl --location --request POST 'http://DNS/api_jsonrpc.php' \
 
 ## Collectors used by the backend
 
-The backend uses typed collectors from `app/internal/collector` to perform API calls and parse results. Key collectors used by the report generator include:
+The backend uses typed collectors in `app/internal/collector` to centralize API calls, authentication and parsing. See the full collector reference: [Collectors Index](collectors/index.md).
 
-- `CollectZabbixVersion` — queries `apiinfo.version`.
-- `Authenticate` — performs `user.login` and returns a token for authentication checks.
-- `CollectRawList` — generic helper for list-returning methods (`item.get`, `history.get`, `trend.get`).
-- `CollectCount` — helper for `countOutput:true` queries.
-- `CollectItemByKey` — finds an item by exact `key_` (used to locate NVPS items).
-- `CollectProcessItemsBulk` / `CollectProxyProcessItems` — fetch process-related items using wildcard search and client-side resolution.
-- `CollectHosts`, `CollectTemplates`, `CollectProxies` — entity collectors used across multiple report sections.
-
-Prefer using these collectors rather than duplicating JSON-RPC requests and ad-hoc parsing in application code.
+Prefer reusing collectors instead of duplicating JSON-RPC calls and ad-hoc parsing in application code.
 
 
 ### Bearer authentication (Zabbix >= 7.2)

@@ -82,17 +82,9 @@ curl --location --request POST 'http://DNS/api_jsonrpc.php' \
 
 ## Coletores usados pelo backend
 
-O backend usa coletores tipados em `app/internal/collector` para executar chamadas à API e parsear respostas. Principais coletores usados no gerador de relatórios:
+O backend usa coletores tipados em `app/internal/collector` para centralizar chamadas à API, autenticação e parsing. Veja a referência completa de coletores: [Índice de Coletores](collectors/index.md).
 
-- `CollectZabbixVersion` — consulta `apiinfo.version`.
-- `Authenticate` — executa `user.login` e retorna o token de autenticação.
-- `CollectRawList` — helper genérico para métodos que retornam listas (`item.get`, `history.get`, `trend.get`).
-- `CollectCount` — helper para consultas com `countOutput:true`.
-- `CollectItemByKey` — encontra um item pelo `key_` exato (usado para localizar NVPS).
-- `CollectProcessItemsBulk` / `CollectProxyProcessItems` — obtêm itens de processos com wildcard e resolvem colisões client-side.
-- `CollectHosts`, `CollectTemplates`, `CollectProxies` — coletores de entidades usados em várias seções do relatório.
-
-Prefira reutilizar esses coletores em vez de duplicar requisições JSON-RPC e parsing ad-hoc no código da aplicação.
+Prefira reutilizar os coletores em vez de duplicar chamadas JSON-RPC e parsing ad-hoc no código da aplicação.
 
 
 ### Autenticação via Bearer (Zabbix >= 7.2)
