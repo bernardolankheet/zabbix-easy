@@ -491,7 +491,6 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 		"value_avg": fmt.Sprintf("%f", vavgFinal),
 		"value_max": fmt.Sprintf("%f", agg.vmax),
 	}, nil
-	return nil, nil
 }
 
 // getTrendsBulkStats busca dados de trend para TODOS os itemids em UMA única
