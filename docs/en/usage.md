@@ -1398,7 +1398,7 @@ Each process in the list queries the **pre-loaded map** by `CollectProcessItemsB
 |--------|-----------|
 | `nameToWildcard(name)` | Internal helper (implemented inside `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — converts `"agent poller"` → `"*agent*poller*"` for wildcard search |
 | `wildcardMatch(pattern, key)` | Internal helper (implemented inside `CollectProcessItemsBulk` / `CollectProxyProcessItems`) — simple client-side `*` match used to map returned items back to each name |
-| `getProcessItemsBulk(apiUrl, token, names, hostid)` | Makes **1 `item.get`** with all patterns. Resolves collisions by specificity (more words = higher priority). Returns `map[nameLowercase]item` |
+| `CollectProcessItemsBulk(apiUrl, token, names, hostid)` | Makes **1 `item.get`** with all patterns. Resolves collisions by specificity (more words = higher priority). Returns `map[nameLowercase]item` |
 | `getLastTrend(apiUrl, token, itemid, days)` | Makes `trend.get` for the itemid in the configured period. Respects `CHECKTRENDTIME`. |
 | `getHistoryStats(apiUrl, token, itemid, histType, days)` | Fallback: makes `history.get`, collects up to 2,000 data points and returns calculated `{value_min, value_avg, value_max}`. |
 
@@ -1704,7 +1704,7 @@ flowchart TD
   subgraph Helpers["App helpers (functions)"]
     getItemByKey["getItemByKey()\nuses item.get"]
     getProcessBulk["CollectProcessItemsBulk()\nuses item.get with search wildcards"]
-    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getProxyProc["CollectProxyProcessItems()\nuses item.get type=5 (internal)"]
     getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
     getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
   end

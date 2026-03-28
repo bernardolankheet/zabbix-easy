@@ -474,11 +474,11 @@ O hostid do host de auto-monitoramento do proxy pode diferir do proxyid a partir
 | Função | Descrição |
 |--------|-----------|
 | `getProxies(apiUrl, token)` | Retorna lista completa de proxies com todos os campos (`output:extend`) |
-| `getProxyProcessItems(apiUrl, token, names, hostid)` | Busca todos os itens `type=5` do host; match client-side em `key_` **e** `name` usando `nameToWildcard` |
+| `CollectProxyProcessItems(apiUrl, token, names, hostid)` | Busca todos os itens `type=5` do host; match client-side em `key_` **e** `name` usando `nameToWildcard` |
 | `getTrendsBulkStats(apiUrl, token, itemids)` | **1 `trend.get`** para todos os itemids; agrega `min/avg/max` por item |
 | `getHistoryStatsBulkByType(apiUrl, token, items)` | Fallback: **1 `history.get` por `value_type`**; agrega `min/avg/max` a partir do histórico bruto |
 | `nameToWildcard(name)` | Converte `"data*sender"` → `"*data*sender*"` para match client-side |
-| `wildcardMatch(pattern, s)` | Match simples com `*`; usado por `getProxyProcessItems` para testar `key_` e `name` |
+| `wildcardMatch(pattern, s)` | Match simples com `*`; usado por `CollectProxyProcessItems` para testar `key_` e `name` |
 
 #### Lógica de versão
 
@@ -1672,7 +1672,7 @@ flowchart TD
   subgraph Helpers["App helpers (functions)"]
     getItemByKey["getItemByKey()\nuses item.get"]
     getProcessBulk["CollectProcessItemsBulk()\nuses item.get with search wildcards"]
-    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getProxyProc["CollectProxyProcessItems()\nuses item.get type=5 (internal)"]
     getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
     getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
   end

@@ -17,7 +17,7 @@ flowchart TD
   subgraph Helpers["App helpers (functions)"]
     getItemByKey["getItemByKey()\nuses item.get"]
     getProcessBulk["CollectProcessItemsBulk()\nuses item.get with search wildcards"]
-    getProxyProc["getProxyProcessItems()\nuses item.get type=5 (internal)"]
+    getProxyProc["CollectProxyProcessItems()\nuses item.get type=5 (internal)"]
     getTrendsBulk["getTrendsBulkStats()\nuses trend.get"]
     getHistoryBulk["getHistoryStatsBulkByType()\nuses history.get"]
   end
