@@ -2579,9 +2579,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// (legend use .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='items.type'></th><th data-i18n='table.total'></th><th data-i18n='label_unsupported'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 
-	// Define item types to query (type code -> label)
-	baseTypes := []struct{ Code int; Label string }{
-		{0, "<span data-i18n='types.zabbix_agent'></span>"},
+		html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
+		// quick link to open discovery rules in Zabbix (works for Zabbix 7 and 6)
+		html += `<p style='margin-top:4px;'><a href='` + htmlpkg.EscapeString(lldOpenLink) + `' target='_blank' rel='noopener' data-i18n='open_in_zabbix'>Abrir no Zabbix</a></p>`
 		{2, "<span data-i18n='types.zabbix_trapper'></span>"},
 		{3, "<span data-i18n='types.simple_check'></span>"},
 		{5, "<span data-i18n='types.zabbix_internal'></span>"},
@@ -2796,6 +2796,18 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		lldPerPath = "host_discovery.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_delay=&filter_lifetime=&filter_snmp_oid=&filter_state=1&filter_set=1"
 	}
 	lldPerLink := ambienteUrl + "/" + lldPerPath
+
+	// montar link rápido para "Abrir no Zabbix" a partir da recomendação
+	// Para Zabbix 7 queremos abrir o contexto de TEMPLATE com filtro delay=600 (10min)
+	// Exemplo Zabbix7: /host_discovery.php?context=template&...&filter_delay=600&...&filter_set=1
+	var lldOpenPath string
+	if majorV >= 7 {
+		lldOpenPath = "host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=600&filter_lifetime_type=-1&filter_enabled_lifetime_type=-1&filter_snmp_oid=&filter_status=-1&filter_set=1"
+	} else {
+		// Zabbix 6 fallback: use host context with same delay filter
+		lldOpenPath = "host_discovery.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_delay=600&filter_lifetime=&filter_snmp_oid=&filter_state=1&filter_set=1"
+	}
+	lldOpenLink := ambienteUrl + "/" + lldOpenPath
 
 	if lldNotSupCnt > 0 {
 		html += titleWithInfo("h3", "i18n:section.lld_not_supported", "i18n:tip.lld_not_supported")
@@ -3761,7 +3773,7 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				// Build version-aware link to open the full listing in Zabbix frontend
 				var textItemsFullLink string
 				if majorV >= 7 {
-					textItemsFullLink = ambienteUrl + "/zabbix.php?action=item.list&context=host&filter_name=&filter_type=-1&filter_key=&filter_snmp_oid=&filter_value_type=4&filter_delay=300&filter_history=1w&filter_trends=&filter_status=-1&filter_state=-1&filter_inherited=-1&filter_with_triggers=-1&filter_discovered=-1&filter_evaltype=0&filter_profile=web.hosts.items.list.filter&filter_tab=1&sort=name&sortorder=ASC"
+					textItemsFullLink = ambienteUrl + "/zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=4&filter_history=7d&filter_trends=&filter_delay=300&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=-1&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
 				} else {
 					// Legacy frontend path for Zabbix < 7 — keep filters similar to modern listing
 					textItemsFullLink = ambienteUrl + "/items.php?filter_value_type=4&filter_delay=300&filter_history=1w&filter_status=-1&sort=name&sortorder=ASC"
@@ -3856,6 +3868,8 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		}
 		if lldNotSupCnt > 0 {
 				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + formatInt(lldNotSupCnt) + `'></span></p>`
+				// quick link to open discovery rules in Zabbix (host context for not-supported rules)
+				html += `<p style='margin-top:4px;'><a href='` + htmlpkg.EscapeString(lldPerLink) + `' target='_blank' rel='noopener' data-i18n='open_in_zabbix'>Abrir no Zabbix</a></p>`
 		}
 		html += `</div>`
 		// LLD fix-box: show only relevant hints
