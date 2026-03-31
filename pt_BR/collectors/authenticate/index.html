@@ -59,11 +59,6 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#authenticate" class="md-skip">
-          Ir para o conteúdo
-        </a>
-      
     </div>
     <div data-md-component="announce">
       
@@ -361,8 +356,6 @@
   
   
   
-    
-  
   
 </nav>
                   </div>
@@ -380,18 +373,7 @@
   
 
 
-<h1 id="authenticate"><code>Authenticate</code></h1>
-<p>Executa <code>user.login</code> e retorna o token de autenticação. Indicado para testes de credenciais e fluxos de login curtos.</p>
-<p>Uso</p>
-<ul>
-<li>Assinatura: <code>Authenticate(apiUrl, username, password string, req ApiRequester) (string, error)</code></li>
-<li>Método Zabbix: <code>user.login</code></li>
-<li>Retorno: <code>token string</code> em caso de sucesso</li>
-</ul>
-<p>Observações</p>
-<ul>
-<li>Use <code>Authenticate</code> para testes explícitos de usuário/senha (ex.: senha padrão Admin). Para operação normal, prefira usar o token obtido no login inicial e passá-lo para outros coletores.</li>
-</ul>
+  <h1>Authenticate</h1>
 
 
 
@@ -399,8 +381,7 @@
 
 
 
-  
-  
+
 
 
 

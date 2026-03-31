@@ -16,7 +16,7 @@
     
     
       
-        <title>API Call Matrix - Zabbix Easy Report</title>
+        <title>Api call matrix - Zabbix Easy Report</title>
       
     
     
@@ -59,11 +59,6 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#api-call-matrix-zabbix-methods-collectors-callers" class="md-skip">
-          Ir para o conteúdo
-        </a>
-      
     </div>
     <div data-md-component="announce">
       
@@ -95,7 +90,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API Call Matrix
+              Api call matrix
             
           </span>
         </div>
@@ -361,8 +356,6 @@
   
   
   
-    
-  
   
 </nav>
                   </div>
@@ -380,85 +373,7 @@
   
 
 
-<h1 id="api-call-matrix-zabbix-methods-collectors-callers">API Call Matrix (Zabbix methods → collectors → callers)</h1>
-<p>This matrix maps Zabbix JSON-RPC methods to the collector helpers that encapsulate them and the main callers in the codebase. Use this file as a quick reference to understand what collector to use and where a given API call is exercised.</p>
-<table>
-<thead>
-<tr>
-<th>Zabbix method</th>
-<th>Collector helper</th>
-<th>Main caller(s)</th>
-<th>Purpose / params</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>apiinfo.version</code></td>
-<td><code>CollectZabbixVersion(apiUrl, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (startup/report)</td>
-<td>Determine Zabbix version to enable Bearer auth (7.2+)</td>
-</tr>
-<tr>
-<td><code>user.login</code></td>
-<td><code>Authenticate(apiUrl, username, password, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (Admin check)</td>
-<td>Best-effort check for default Admin password; returns token</td>
-</tr>
-<tr>
-<td><code>item.get</code></td>
-<td><code>CollectRawList(apiUrl, token, "item.get", params, req)</code><br><code>CollectItemByKey(apiUrl, token, key, hostid, req)</code><br><code>CollectProcessItemsBulk(apiUrl, token, names, hostid, req)</code><br><code>CollectProxyProcessItems(apiUrl, token, names, hostid, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (processes, items, probes, SNMP checks, templates resolution)</td>
-<td>Fetch items (filters, search wildcards, templated flag, output fields)</td>
-</tr>
-<tr>
-<td><code>history.get</code></td>
-<td><code>CollectRawList(apiUrl, token, "history.get", params, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (getLastHistoryValue, getHistoryStats, bulk history fallbacks)</td>
-<td>Get raw history points (used as fallback when trends absent)</td>
-</tr>
-<tr>
-<td><code>trend.get</code></td>
-<td><code>CollectRawList(apiUrl, token, "trend.get", params, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (getLastTrend, getTrendsBulkStats)</td>
-<td>Get aggregated trend points (min/avg/max) for time window</td>
-</tr>
-<tr>
-<td><code>host.get</code></td>
-<td><code>CollectHosts(apiUrl, token, req)</code><br><code>CollectHostExists(apiUrl, token, hostid, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (hosts summary, per-host checks)</td>
-<td>Fetch hosts, counts and existence checks</td>
-</tr>
-<tr>
-<td><code>template.get</code></td>
-<td><code>CollectTemplates(apiUrl, token, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (templates count, template lookups)</td>
-<td>Fetch templates and template metadata</td>
-</tr>
-<tr>
-<td><code>proxy.get</code></td>
-<td><code>CollectProxies(apiUrl, token, majorV, req)</code><br><code>CollectProxiesList(apiUrl, token, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (proxies summary, per-proxy analysis)</td>
-<td>Fetch proxies list (v6/v7 field differences handled in collector)</td>
-</tr>
-<tr>
-<td><code>trigger.get</code></td>
-<td><code>CollectTriggers(apiUrl, token, state, req)</code><br><code>CollectTriggersCount(apiUrl, token, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (Triggers tab and KPI calculations)</td>
-<td>Collect triggers filtered by state or templates</td>
-</tr>
-<tr>
-<td><code>user.get</code></td>
-<td><code>CollectRawList(apiUrl, token, "user.get", params, req)</code><br><code>CollectCount(apiUrl, token, "user.get", nil, req)</code></td>
-<td><code>app/cmd/app/main.go</code> (users count, default admin check)</td>
-<td>User listing and counts</td>
-</tr>
-</tbody>
-</table>
-<p>Notes
-- Use the collector helpers in <code>app/internal/collector</code> instead of calling <code>zabbixApiRequest</code> directly. This centralizes auth, transport and parsing.
-- For generic list methods we expose <code>CollectRawList</code> and for count queries <code>CollectCount</code> (which sets <code>countOutput:true</code>).
-- Process matching (server/proxy) uses wildcard search + client-side resolution inside <code>CollectProcessItemsBulk</code> and <code>CollectProxyProcessItems</code>.</p>
-<p>If you want, I can convert this table into a CSV/MD table embedded in the diagrams or expand each collector entry with example input/output samples.</p>
+  <h1>Api call matrix</h1>
 
 
 
@@ -466,8 +381,7 @@
 
 
 
-  
-  
+
 
 
 

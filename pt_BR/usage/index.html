@@ -4519,6 +4519,10 @@ if majorV &gt;= 7 {
 - O relatório <strong>não</strong> lista todos os usuários — executa um <code>user.get</code> filtrando apenas <code>username = Admin</code> para evitar varredura completa.
 - Quando a conta <code>Admin</code> existe e parece habilitada, o relatório tenta <code>user.login</code> com <code>Admin</code>/<code>zabbix</code>. O token retornado não é armazenado; o cheque serve apenas para detectar exposição de senha padrão.
 - Se a conta <code>Admin</code> estiver ausente ou claramente desabilitada, o teste de senha é pulado e o KPI é considerado seguro.</p>
+<p>Adicionalmente, o relatório verifica a presença da conta padrão <code>Guest</code> (quando aplicável) e se ela está habilitada ou faz parte do grupo <code>Disabled</code>:
+- O <code>Guest</code> não possui senha padrão a ser testada — portanto não é feito <code>user.login</code> para o <code>Guest</code>.
+- Se o <code>Guest</code> existir e estiver habilitado e NÃO pertencer ao grupo <code>Disabled</code>, o relatório emite recomendações específicas para desabilitá-lo ou movê-lo para o grupo <code>Disabled</code>.
+- Quando o <code>Guest</code> já pertence ao grupo <code>Disabled</code>, o relatório omite avisos relacionados ao <code>Guest</code> (não aparece na tabela de usuários nem nas recomendações).</p>
 <h3 id="como-e-detectado-que-a-conta-esta-habilitada-best-effort">Como é detectado que a conta está habilitada (best-effort)</h3>
 <p>O código inspeciona campos comuns retornados por <code>user.get</code> (<code>status</code>, <code>disabled</code>) e aceita várias representações (numérica, booleana ou string). Exemplos que são interpretados como <strong>desabilitado</strong> incluem:</p>
 <ul>
@@ -4566,13 +4570,13 @@ if majorV &gt;= 7 {
 </tr>
 <tr>
 <td><code>user.get</code></td>
-<td><code>filter:{username:"Admin"}, output:["userid","username","name","surname"]</code></td>
-<td>Busca somente a conta <code>Admin</code> para exibir a tabela de uma linha (evita varredura completa)</td>
+<td><code>filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]</code></td>
+<td>Busca dirigida para <code>Admin</code> e <code>Guest</code>; <code>output</code> inclui campos usados para detectar se a conta está habilitada; <code>selectUsrgrps</code> permite verificar se <code>Guest</code> pertence ao grupo <code>Disabled</code></td>
 </tr>
 <tr>
 <td><code>user.login</code></td>
 <td><code>username:"Admin", password:"zabbix"</code></td>
-<td>Tentativa de autenticação best-effort para detectar se a senha padrão é válida (token descartado)</td>
+<td>Tentativa de autenticação best-effort para detectar se a senha padrão é válida para <code>Admin</code> (token descartado). Não é feita tentativa de <code>login</code> para <code>Guest</code>.</td>
 </tr>
 </tbody>
 </table>

@@ -59,11 +59,6 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#authenticate" class="md-skip">
-          Ir para o conteúdo
-        </a>
-      
     </div>
     <div data-md-component="announce">
       
@@ -361,8 +356,6 @@
   
   
   
-    
-  
   
 </nav>
                   </div>
@@ -380,25 +373,7 @@
   
 
 
-<h1 id="authenticate"><code>Authenticate</code></h1>
-<p>Performs <code>user.login</code> and returns the auth token. Intended for credential checks and short-lived login flows.</p>
-<p>Usage</p>
-<ul>
-<li>Signature: <code>Authenticate(apiUrl, username, password string, req ApiRequester) (string, error)</code></li>
-<li>Zabbix method: <code>user.login</code></li>
-<li>Returns: <code>token string</code> when successful</li>
-</ul>
-<p>Notes</p>
-<ul>
-<li>Use <code>Authenticate</code> for explicit username/password checks (e.g., default Admin password test). For normal operation, prefer using the token obtained during the initial login and pass it to other collectors.</li>
-</ul>
-<p>Example (Go)</p>
-<pre><code class="language-go">token, err := collector.Authenticate(apiUrl, &quot;Admin&quot;, &quot;zabbix&quot;, req)
-if err != nil {
-    return err
-}
-// use token for subsequent collectors
-</code></pre>
+  <h1>Authenticate</h1>
 
 
 
@@ -406,8 +381,7 @@ if err != nil {
 
 
 
-  
-  
+
 
 
 

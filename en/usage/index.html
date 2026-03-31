@@ -2843,6 +2843,10 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 - The report does <strong>not</strong> list all users — it performs a targeted <code>user.get</code> filtered by <code>username = Admin</code> to avoid scanning the entire user table.
 - If the <code>Admin</code> account appears enabled, the report attempts a <code>user.login</code> with <code>Admin</code>/<code>zabbix</code>. The returned token is discarded; the check is only to detect the default-password exposure.
 - If the <code>Admin</code> account is missing or clearly disabled, the password test is skipped and the KPI is considered safe.</p>
+<p>In addition, the report also checks for the presence of the default <code>Guest</code> account (when applicable) and whether it is enabled or assigned to the <code>Disabled</code> group:
+- The <code>Guest</code> account does not have a default-password login test, so no <code>user.login</code> is attempted for <code>Guest</code>.
+- If <code>Guest</code> exists and is enabled and NOT part of the <code>Disabled</code> group, the report surfaces recommendations to disable it or move it to the <code>Disabled</code> group.
+- If <code>Guest</code> is already assigned to the <code>Disabled</code> group, guest-related warnings and the guest row in the Users table are omitted.</p>
 <h3 id="how-enabled-is-detected-best-effort">How "enabled" is detected (best-effort)</h3>
 <p>The code inspects common fields returned by <code>user.get</code> (<code>status</code>, <code>disabled</code>) and accepts several representations (numeric, boolean or string). Concretely, values indicating disabled (examples) are interpreted as:</p>
 <ul>
@@ -2890,13 +2894,13 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 </tr>
 <tr>
 <td><code>user.get</code></td>
-<td><code>filter:{username:"Admin"}, output:["userid","username","name","surname"]</code></td>
-<td>Fetches only the <code>Admin</code> account to display the single-row table (avoids fetching full user list)</td>
+<td><code>filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]</code></td>
+<td>Targeted fetch for <code>Admin</code> and <code>Guest</code>; <code>selectUsrgrps</code> is used to verify if <code>Guest</code> belongs to the <code>Disabled</code> group</td>
 </tr>
 <tr>
 <td><code>user.login</code></td>
 <td><code>username:"Admin", password:"zabbix"</code></td>
-<td>Best-effort authentication attempt to determine whether the default password is still valid (token discarded)</td>
+<td>Best-effort authentication attempt to determine whether the default password is still valid for <code>Admin</code> (token discarded). No <code>login</code> attempt is made for <code>Guest</code>.</td>
 </tr>
 </tbody>
 </table>
