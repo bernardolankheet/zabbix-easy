@@ -727,7 +727,7 @@ Se nenhum desses marcadores indicar que a conta está desabilitada e o `username
 | Chamada | Parâmetros relevantes | Observação |
 |---------|-----------------------|-----------|
 | `user.get` | `countOutput:true` (resumo) | Conta de usuários exibida no sumário |
-| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname"], selectUsrgrps:["name"]` | Busca dirigida para `Admin` e `Guest`; `selectUsrgrps` permite verificar se `Guest` pertence ao grupo `Disabled` |
+| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]` | Busca dirigida para `Admin` e `Guest`; `output` inclui campos usados para detectar se a conta está habilitada; `selectUsrgrps` permite verificar se `Guest` pertence ao grupo `Disabled` |
 | `user.login` | `username:"Admin", password:"zabbix"` | Tentativa de autenticação best-effort para detectar se a senha padrão é válida para `Admin` (token descartado). Não é feita tentativa de `login` para `Guest`. |
 
 Observações:
