@@ -2552,7 +2552,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Link used to open the full listing for unsupported items (reused)
 	var unsupportedPath string
 	if majorV >= 7 {
-		unsupportedPath = "zabbix.php?action=item.list&context=host&filter_evaltype=0&filter_name=&filter_type=-1&filter_key=&filter_snmp_oid=&filter_value_type=-1&filter_delay=&filter_history=&filter_trends=&filter_status=-1&filter_state=1&filter_inherited=-1&filter_discovered=-1&filter_with_triggers=-1&filter_profile=web.hosts.items.list.filter&filter_tab=1&sort=name&sortorder=ASC"
+		unsupportedPath = "zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
 	} else {
 		unsupportedPath = "items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
 	}
@@ -2579,10 +2579,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// (legend use .como-corrigir)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='items.type'></th><th data-i18n='table.total'></th><th data-i18n='label_unsupported'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 
-		html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
-		// quick link to open discovery rules in Zabbix (works for Zabbix 7 and 6)
-		html += `<p style='margin-top:4px;'><a href='` + htmlpkg.EscapeString(lldOpenLink) + `' target='_blank' rel='noopener' data-i18n='open_in_zabbix'>Abrir no Zabbix</a></p>`
-		{2, "<span data-i18n='types.zabbix_trapper'></span>"},
+		baseTypes := []struct{ Code int; Label string }{
+			{0, "<span data-i18n='types.zabbix_agent'></span>"},
+			{2, "<span data-i18n='types.zabbix_trapper'></span>"},
 		{3, "<span data-i18n='types.simple_check'></span>"},
 		{5, "<span data-i18n='types.zabbix_internal'></span>"},
 		{7, "<span data-i18n='types.zabbix_agent_active'></span>"},
@@ -3767,7 +3766,14 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_disabled") + `</strong> <span data-i18n='items.disabled_paragraph' data-i18n-args='` + formatInt(disabledCount) + `|` + pct(disabledCount, totalItemsVal) + `'></span> <a href='` + itemsDisabledLink + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 			}
 			if itemsLe60 > 0 {
-				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + formatInt(itemsLe60) + `'></span></p>`
+				// build a full-listing link to open items with delay = 60s in frontend
+				var itemsLe60FullLink string
+				if majorV >= 7 {
+					itemsLe60FullLink = ambienteUrl + "/zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=60&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
+				} else {
+					itemsLe60FullLink = ambienteUrl + "/items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=60&filter_evaltype=0&filter_tags%5B0%5D%5Btag%5D=&filter_tags%5B0%5D%5Boperator%5D=0&filter_tags%5B0%5D%5Bvalue%5D=&filter_state=-1&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1"
+				}
+				html += `<p><strong>` + nextSub(&itemsSub, "i18n:sub.items_interval_le_60") + `</strong> <span data-i18n='items.interval_le_60_paragraph' data-i18n-args='` + formatInt(itemsLe60) + `'></span> <a href='` + htmlpkg.EscapeString(itemsLe60FullLink) + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 			}
 			if textCount > 0 {
 				// Build version-aware link to open the full listing in Zabbix frontend
@@ -3831,10 +3837,9 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		}
 		// use i18n key with args: totalUnknown|pct_str|templates|hosts
 		args := fmt.Sprintf("%d|%s|%d|%d", totalTriggersUnknown, triggersPctStr, templatesAffected, len(triggerUnknownRows))
-		html += `<p style='font-size:0.92em;margin-bottom:10px;'><span data-i18n='rec.triggers_summary_env' data-i18n-args='` + args + `'></span> ` +
-			`<a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a>. ` +
-			`<a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a>` +
-			`</p>`
+		// single quick link to open corresponding tab (Triggers)
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-triggers");' data-i18n='rec.triggers_see_tab'></a></p>`
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><span data-i18n='rec.triggers_summary_env' data-i18n-args='` + args + `'></span> <a href='`+htmlpkg.EscapeString(trigAllLink)+`' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
 			`<ul>` +
 			`<li><span data-i18n='fix.triggers_unknown_hint'></span></li>` +
@@ -3864,12 +3869,11 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-items");' data-i18n='rec.lld_see_tab'></a></p>`
 		html += `<div style='margin-left:6px;font-size:0.88em;'>`
 		if lldLe300 > 0 {
-				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span></p>`
+				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_interval_le_300") + `</strong> <span data-i18n='lld.interval_le_300_paragraph' data-i18n-args='` + formatInt(lldLe300) + `'></span> <a href='` + htmlpkg.EscapeString(lldOpenLink) + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		if lldNotSupCnt > 0 {
-				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + formatInt(lldNotSupCnt) + `'></span></p>`
-				// quick link to open discovery rules in Zabbix (host context for not-supported rules)
-				html += `<p style='margin-top:4px;'><a href='` + htmlpkg.EscapeString(lldPerLink) + `' target='_blank' rel='noopener' data-i18n='open_in_zabbix'>Abrir no Zabbix</a></p>`
+				// Link para abrir o full listing de regras de LLD com status "unsupported" no frontend, usando filtro por delay ≤ 300s para facilitar a identificação 
+				html += `<p><strong>` + nextSub(&lldSub, "i18n:sub.lld_not_supported") + `</strong> <span data-i18n='lld.not_supported_paragraph' data-i18n-args='` + formatInt(lldNotSupCnt) + `'></span> <a href='` + htmlpkg.EscapeString(lldPerLink) + `' target='_blank' rel='noopener' data-i18n='open_full_listing'></a></p>`
 		}
 		html += `</div>`
 		// LLD fix-box: show only relevant hints
