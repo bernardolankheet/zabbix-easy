@@ -579,7 +579,7 @@ If none of those markers indicate the account is disabled and the username equal
 | Call | Params | Purpose |
 |------|--------|---------|
 | `user.get` | `countOutput:true` (summary) | Counts users shown in the summary table |
-| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname"], selectUsrgrps:["name"]` | Targeted fetch for `Admin` and `Guest`; `selectUsrgrps` is used to verify if `Guest` belongs to the `Disabled` group |
+| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]` | Targeted fetch for `Admin` and `Guest`; `selectUsrgrps` is used to verify if `Guest` belongs to the `Disabled` group |
 | `user.login` | `username:"Admin", password:"zabbix"` | Best-effort authentication attempt to determine whether the default password is still valid for `Admin` (token discarded). No `login` attempt is made for `Guest`. |
 
 Notes:
