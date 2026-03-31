@@ -552,6 +552,11 @@ Key points:
 - If the `Admin` account appears enabled, the report attempts a `user.login` with `Admin`/`zabbix`. The returned token is discarded; the check is only to detect the default-password exposure.
 - If the `Admin` account is missing or clearly disabled, the password test is skipped and the KPI is considered safe.
 
+In addition, the report also checks for the presence of the default `Guest` account (when applicable) and whether it is enabled or assigned to the `Disabled` group:
+- The `Guest` account does not have a default-password login test, so no `user.login` is attempted for `Guest`.
+- If `Guest` exists and is enabled and NOT part of the `Disabled` group, the report surfaces recommendations to disable it or move it to the `Disabled` group.
+- If `Guest` is already assigned to the `Disabled` group, guest-related warnings and the guest row in the Users table are omitted.
+
 ### How "enabled" is detected (best-effort)
 
 The code inspects common fields returned by `user.get` (`status`, `disabled`) and accepts several representations (numeric, boolean or string). Concretely, values indicating disabled (examples) are interpreted as:
@@ -574,8 +579,8 @@ If none of those markers indicate the account is disabled and the username equal
 | Call | Params | Purpose |
 |------|--------|---------|
 | `user.get` | `countOutput:true` (summary) | Counts users shown in the summary table |
-| `user.get` | `filter:{username:"Admin"}, output:["userid","username","name","surname"]` | Fetches only the `Admin` account to display the single-row table (avoids fetching full user list) |
-| `user.login` | `username:"Admin", password:"zabbix"` | Best-effort authentication attempt to determine whether the default password is still valid (token discarded) |
+| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]` | Targeted fetch for `Admin` and `Guest`; `selectUsrgrps` is used to verify if `Guest` belongs to the `Disabled` group |
+| `user.login` | `username:"Admin", password:"zabbix"` | Best-effort authentication attempt to determine whether the default password is still valid for `Admin` (token discarded). No `login` attempt is made for `Guest`. |
 
 Notes:
 - The password check is non-destructive and only tests authentication; it may fail silently depending on API rate limits, network errors, or insufficient permissions. Failures are logged at debug level.

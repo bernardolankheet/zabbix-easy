@@ -700,6 +700,11 @@ Pontos importantes:
 - Quando a conta `Admin` existe e parece habilitada, o relatório tenta `user.login` com `Admin`/`zabbix`. O token retornado não é armazenado; o cheque serve apenas para detectar exposição de senha padrão.
 - Se a conta `Admin` estiver ausente ou claramente desabilitada, o teste de senha é pulado e o KPI é considerado seguro.
 
+Adicionalmente, o relatório verifica a presença da conta padrão `Guest` (quando aplicável) e se ela está habilitada ou faz parte do grupo `Disabled`:
+- O `Guest` não possui senha padrão a ser testada — portanto não é feito `user.login` para o `Guest`.
+- Se o `Guest` existir e estiver habilitado e NÃO pertencer ao grupo `Disabled`, o relatório emite recomendações específicas para desabilitá-lo ou movê-lo para o grupo `Disabled`.
+- Quando o `Guest` já pertence ao grupo `Disabled`, o relatório omite avisos relacionados ao `Guest` (não aparece na tabela de usuários nem nas recomendações).
+
 ### Como é detectado que a conta está habilitada (best-effort)
 
 O código inspeciona campos comuns retornados por `user.get` (`status`, `disabled`) e aceita várias representações (numérica, booleana ou string). Exemplos que são interpretados como **desabilitado** incluem:
@@ -722,8 +727,8 @@ Se nenhum desses marcadores indicar que a conta está desabilitada e o `username
 | Chamada | Parâmetros relevantes | Observação |
 |---------|-----------------------|-----------|
 | `user.get` | `countOutput:true` (resumo) | Conta de usuários exibida no sumário |
-| `user.get` | `filter:{username:"Admin"}, output:["userid","username","name","surname"]` | Busca somente a conta `Admin` para exibir a tabela de uma linha (evita varredura completa) |
-| `user.login` | `username:"Admin", password:"zabbix"` | Tentativa de autenticação best-effort para detectar se a senha padrão é válida (token descartado) |
+| `user.get` | `filter:{username:["Admin","guest"]}, output:["userid","username","name","surname","status","disabled"], selectUsrgrps:["name"]` | Busca dirigida para `Admin` e `Guest`; `output` inclui campos usados para detectar se a conta está habilitada; `selectUsrgrps` permite verificar se `Guest` pertence ao grupo `Disabled` |
+| `user.login` | `username:"Admin", password:"zabbix"` | Tentativa de autenticação best-effort para detectar se a senha padrão é válida para `Admin` (token descartado). Não é feita tentativa de `login` para `Guest`. |
 
 Observações:
 - O teste de senha é não-destrutivo e pode falhar silenciosamente devido a limites da API, erros de rede ou permissões insuficientes. Falhas são logadas em nível debug.

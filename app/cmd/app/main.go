@@ -889,13 +889,19 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// Fetch only the 'Admin' account (avoid fetching all users)
 	var usersList []map[string]interface{}
+	// Fetch Admin and Guest in a single call to minimize API requests
 	hasDefaultAdmin := false
+	var hasDefaultGuest bool
+	var guestEnabled bool
+	var guestInDisabledGroup bool
 	if arr, err := collector.CollectRawList(apiUrl, token, "user.get", map[string]interface{}{
 		"output": []string{"userid", "username", "name", "surname", "status", "disabled"},
-		"filter": map[string]interface{}{"username": "Admin"},
+		"filter": map[string]interface{}{"username": []string{"Admin", "guest"}},
+		"selectUsrgrps": []string{"name"},
 	}, zabbixApiRequest); err == nil {
 		for _, u := range arr {
 			usersList = append(usersList, u)
+
 			// determine if the user is enabled (best-effort: check common fields)
 			enabled := true
 			if s, ok := u["status"]; ok {
@@ -924,9 +930,30 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 					if dv == "1" || strings.EqualFold(dv, "true") || strings.EqualFold(dv, "disabled") { enabled = false }
 				}
 			}
-			// mark default Admin only when username == Admin AND enabled
-			if fmt.Sprintf("%v", u["username"]) == "Admin" && enabled {
-				hasDefaultAdmin = true
+
+			uname := fmt.Sprintf("%v", u["username"])
+			if strings.EqualFold(uname, "Admin") {
+				if enabled { hasDefaultAdmin = true }
+			}
+			if strings.EqualFold(uname, "guest") || strings.EqualFold(uname, "Guest") {
+				hasDefaultGuest = true
+				guestEnabled = enabled
+				// inspect usrgrps if provided
+				if g, ok := u["usrgrps"]; ok {
+					switch gv := g.(type) {
+					case []interface{}:
+						for _, gi := range gv {
+							if gm, ok := gi.(map[string]interface{}); ok {
+								if name, ok := gm["name"]; ok {
+									if fmt.Sprintf("%v", name) == "Disabled" {
+										guestInDisabledGroup = true
+										break
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -3045,6 +3072,23 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 	}
 
+	// Security alert: default Guest recommendations (disable + ensure in Disabled group)
+	// Only show guest-related messages in the Users tab when Guest exists AND is NOT already in the Disabled group.
+	if hasDefaultGuest && !guestInDisabledGroup {
+		if guestEnabled {
+			html += `<div style='background:#fff7f0;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			`<div><strong data-i18n='users.default_guest_alert_title'></strong>` +
+			`<p style='margin:8px 0 0;font-size:0.95em;color:#b91c1c;font-weight:700;' data-i18n='users.default_guest_alert_desc'></p>` +
+			`<p style='margin:8px 0 0;font-size:0.95em;color:#92400e;font-weight:700;' data-i18n='fix.guest_must_be_disabled'></p></div>` +
+			`</div>`
+		} else {
+			html += `<div style='background:#f8fafc;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			`<div><strong data-i18n='users.guest_group_alert_title'></strong>` +
+			`<p style='margin:4px 0 0;font-size:0.88em;color:#0f172a;' data-i18n='users.guest_group_alert_desc'></p></div>` +
+			`</div>`
+		}
+	}
+
 	if len(usersList) == 0 {
 		html += `<p data-i18n='users.no_data'></p>`
 	} else {
@@ -3056,16 +3100,25 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			`</tr></thead><tbody>`
 		for _, u := range usersList {
 			username := fmt.Sprintf("%v", u["username"])
+			// If Guest is present but already in the Disabled group, hide the guest row entirely
+			if strings.EqualFold(username, "guest") && guestInDisabledGroup {
+				continue
+			}
 			firstName := fmt.Sprintf("%v", u["name"])
 			surname := fmt.Sprintf("%v", u["surname"])
 			fullName := strings.TrimSpace(firstName + " " + surname)
 			rowStyle := ""
 			if username == "Admin" {
 				rowStyle = " style='background:#fff7ed;'"
+			} else if username == "Guest" {
+				rowStyle = " style='background:#fff7ed;'"
 			}
-			// determine default-password badge for this user (only relevant for Admin)
+			// determine default-password badge for this user (only relevant for Admin).
+			// For the 'guest' account we intentionally hide the Yes/No badge (no password).
 			defaultPwdCell := "<td><span style='background:#ecfdf5;color:#065f46;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_no'></span></span></td>"
-			if username == "Admin" && adminDefaultPasswordValid {
+			if strings.EqualFold(username, "guest") {
+				defaultPwdCell = "<td></td>"
+			} else if username == "Admin" && adminDefaultPasswordValid {
 				defaultPwdCell = "<td><span style='background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 6px;font-size:0.78rem;font-weight:700;'><span data-i18n='users.default_password_yes'></span></span></td>"
 			}
 
@@ -3073,6 +3126,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 				`<td><strong>` + htmlpkg.EscapeString(username) + `</strong>` +
 				func() string {
 					if username == "Admin" { return ` <span style='background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:700;margin-left:4px;' data-i18n='users.default_badge'></span>` }
+					if username == "Guest" { return ` <span style='background:#fff1f0;color:#92400e;border-radius:4px;padding:1px 5px;font-size:0.72rem;font-weight:700;margin-left:4px;' data-i18n='users.guest_badge'></span>` }
 					return ""
 				}() +
 				`</td>` +
@@ -3360,17 +3414,26 @@ triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
 	}
 	textItemsClass := "kpi-ok"; if textItemsCount > 0 { textItemsClass = "kpi-warn" }
 	html += `<div class='kpi ` + textItemsClass + `' data-target='#card-items' data-i18n-title='kpi.items_text_history' title=''><div class='kpi-num'>` + formatInt(textItemsCount) + `</div><div class='kpi-label' data-i18n='kpi.items_text_history'></div></div>`
-	// KPI: default Admin account
+	// KPI: default Admin account (extended to include Guest security issue)
+	securityIssue := false
+	if hasDefaultAdmin {
+		securityIssue = true
+	}
+	// consider Guest as a security issue when enabled and not in Disabled group
+	if hasDefaultGuest && guestEnabled && !guestInDisabledGroup {
+		securityIssue = true
+	}
 	adminKpiClass := "kpi-ok"
-	if hasDefaultAdmin {
+	if securityIssue {
 		adminKpiClass = "kpi-warn"
-		if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
 	}
+	// escalate to critical when Admin accepts default password
+	if adminDefaultPasswordValid { adminKpiClass = "kpi-crit" }
 	adminKpiIcon := "🟢"
-	if hasDefaultAdmin {
+	if securityIssue {
 		adminKpiIcon = "🟡"
-		if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	}
+	if adminDefaultPasswordValid { adminKpiIcon = "🔴" }
 	// KPI: Triggers Unknown (show percentage of triggers Unknown)
 	triggersUnknownHostsCount := len(triggerUnknownRows)
 	// Red (critical) when percent >0 and below 3%; warn when there are hosts with Unknown triggers; ok otherwise
@@ -3963,8 +4026,9 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		html += `</div></details>` // rec-sec-body + accordion
 	}
 
-	// --- Seção: Segurança (conta Admin padrão) ---
-	if hasDefaultAdmin {
+	// --- Seção: Segurança (conta Admin padrão e Guest) ---
+	showSecurity := hasDefaultAdmin || (hasDefaultGuest && guestEnabled && !guestInDisabledGroup)
+	if showSecurity {
 		secNum++
 		securitySub := 0
 		// badge: warn by default, escalate to crit when default password is accepted
@@ -3972,12 +4036,16 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 		badgeIcon := "🟡"
 		if adminDefaultPasswordValid { badgeClass = "crit"; badgeIcon = "🔴" }
 
+		// build combined description: admin desc plus guest desc when applicable
 		html += `<details class='rec-section' id='card-security'>` +
 			`<summary><span class='rec-sec-icon'>🔐</span>` +
 			`<div class='rec-sec-text'>` +
 			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='section.security'></span></div>` +
-			`<div class='rec-sec-desc'><span data-i18n='rec.desc.default_admin'></span>` +
-			func() string {
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.default_admin'></span>`
+		if hasDefaultGuest && guestEnabled && !guestInDisabledGroup {
+				html += ` <br/><span data-i18n='fix.guest_must_be_disabled'></span>`
+		}
+		html += func() string {
 				if adminDefaultPasswordValid {
 					return ` <br/><span style='color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></span>`
 				}
@@ -3985,18 +4053,39 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			}() +
 			`</div>` +
 			`</div><span class='status-badge ` + badgeClass + `'>` + badgeIcon + `</span>` +
-			`<span class='rec-sec-arrow'>▶</span></summary>` +
-			`<div class='rec-sec-body'>`
+			` <span class='rec-sec-arrow'>▶</span></summary>` +
+			` <div class='rec-sec-body'>`
 		// single quick link to open the Users tab
-		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-usuarios");' data-i18n='rec.users_see_tab'></a></p>` +
-			`<h5>` + nextSub(&securitySub, "i18n:sub.default_admin_account") + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
-			`<p data-i18n='tip.default_admin'></p>` +
-			`<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
-			`<ul>` +
-			`<li><span data-i18n='fix.default_admin_change_password'></span></li>` +
-			`<li><span data-i18n='fix.default_admin_rename'></span></li>` +
-			`<li><span data-i18n='fix.default_admin_disable'></span></li>` +
-			`</ul>` +
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-usuarios");' data-i18n='rec.users_see_tab'></a></p>`
+
+		// Admin subitem (only if present)
+		if hasDefaultAdmin {
+			html += `<h5>` + nextSub(&securitySub, "i18n:sub.default_admin_account") + ` <span data-i18n='sub.default_admin_account'></span></h5>` +
+				`<p data-i18n='tip.default_admin'></p>`
+		}
+
+		// Guest subitem (show messages depending on enabled/group state)
+		if hasDefaultGuest && !guestInDisabledGroup {
+			html += `<h5>` + nextSub(&securitySub, "i18n:sub.default_guest_account") + ` <span data-i18n='users.default_guest_alert_title'></span></h5>`
+				if guestEnabled {
+					html += `<p data-i18n='fix.guest_must_be_disabled'></p>`
+				} else {
+					html += `<p data-i18n='users.guest_group_alert_desc'></p>`
+			}
+		}
+
+		// Fix box: actions for both Admin and Guest
+		html += `<div class='fix-box'><div class='fix-box-title'>🔧 <span data-i18n='fix.how_to_resolve'></span></div>` +
+			`<ul>`
+		if hasDefaultAdmin {
+			html += `<li><span data-i18n='fix.default_admin_change_password'></span></li>` +
+				`<li><span data-i18n='fix.default_admin_rename'></span></li>` +
+				`<li><span data-i18n='fix.default_admin_disable'></span></li>`
+		}
+		if hasDefaultGuest && !guestInDisabledGroup {
+			html += `<li><span data-i18n='fix.guest_must_be_disabled'></span></li>`
+		}
+		html += `</ul>` +
 			func() string {
 				if adminDefaultPasswordValid {
 					return "<ul><li><span data-i18n='fix.default_admin_password_in_use'></span></li></ul>"
