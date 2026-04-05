@@ -6,7 +6,7 @@ site_url: https://zabbix-easy.github.io
 site_author: Bernardo Lankheet
 copyright: Copyright &copy; 2026 Maintained by <a href="https://github.com/bernardolankheet">Bernardo Lankheet</a>.
 nav:
-  - Home: pt_BR/index.md
+  - Home: index.md
   - Installation: pt_BR/installation.md
   - Usage: pt_BR/usage.md
   - API: pt_BR/api.md
