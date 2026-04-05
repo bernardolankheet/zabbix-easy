@@ -40,5 +40,3 @@ jobs:
           name: v${{ steps.version.outputs.APP_VERSION }}
           generate_release_notes: true
           make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
