@@ -2,24 +2,39 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ dev, main ]
     paths:
       - 'app/**'
+      - 'VERSION'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Build Docker image
-        run: | 
-          docker build -t bernardolankheet/zabbix-easy:latest ./app
-          docker tag bernardolankheet/zabbix-easy:latest bernardolankheet/zabbix-easy:$(date +%s)
+      - uses: actions/checkout@v4
+
+      - name: Read version from VERSION file
+        id: version
+        run: echo "APP_VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
+
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Push to DockerHub
+
+      # --- Dev branch: push :dev tag ---
+      - name: Build and push (dev)
+        if: github.ref == 'refs/heads/dev'
         run: |
+          docker build -t bernardolankheet/zabbix-easy:dev ./app
+          docker push bernardolankheet/zabbix-easy:dev
+
+      # --- Main branch: push :latest + :vX.Y.Z tags ---
+      - name: Build and push (main)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker build -t bernardolankheet/zabbix-easy:latest ./app
+          docker tag bernardolankheet/zabbix-easy:latest bernardolankheet/zabbix-easy:v${{ steps.version.outputs.APP_VERSION }}
           docker push bernardolankheet/zabbix-easy:latest
+          docker push bernardolankheet/zabbix-easy:v${{ steps.version.outputs.APP_VERSION }}

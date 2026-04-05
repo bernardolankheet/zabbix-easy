@@ -29,12 +29,6 @@ docker run -d \
 
 Acesse a interface em `http://localhost:8080`.
 
-UI: ![UI form](/img/screenshots/ui-form.svg)
-
-Sample report: ![Report sample](/img/screenshots/report-sample.svg)
-
-Helm deploy: ![Helm install](/img/screenshots/helm-install.svg)
-
 ---
 
 ## Opção 2 — Docker Compose (sem banco de dados)

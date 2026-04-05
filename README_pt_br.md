@@ -2,7 +2,13 @@
 
 Zabbix Easy é uma ferramenta open-source que analisa um ambiente Zabbix via API e gera um relatório HealthCheck com recomendações práticas para melhorar desempenho, confiabilidade e manutenção.
 
-Compatibilidade: testado e funcionando em Zabbix 6.0, 6.4, 7.0, 7.2, 7.4, 8.0 (experimental).
+Compatibilidade Zabbix: 
+- 6.0
+- 6.4
+- 7.0
+- 7.2
+- 7.4
+- 8.0 (experimental)
 
 Resumo rápido
 - Linguagem backend: Go
@@ -25,22 +31,16 @@ Rápido tutorial — executar localmente
 1) Usando Docker (mais simples):
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 \
-  -e MAX_CCONCURRENT=10 \
-  -e ZABBIX_SERVER_HOSTID=10084 \
-  -e CHECKTRENDTIME=15d \
-  bernardolankheet/zabbix-easy:latest
-# abra http://localhost:8080
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+# open http://localhost:8080
 ```
 
 2) Rodando localmente (desenvolvimento):
 
 ```bash
-# compilar
-cd app/cmd/app
-go build -o zbx-easy
-# executar
-./zbx-easy
+docker compose --profile db up --build -d
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+# Acesse http://localhost:8080
 ```
 
 Documentação (MkDocs)
