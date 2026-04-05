@@ -12,21 +12,23 @@
         <meta name="author" content="Bernardo Lankheet">
       
       
-        <link rel="canonical" href="https://zabbix-easy.github.io/en/contribution/">
+        <link rel="canonical" href="https://zabbix-easy.github.io/">
       
       
       
+        <link rel="next" href="pt_BR/installation/">
       
-      <link rel="icon" href="../../img/favicon.svg">
+      
+      <link rel="icon" href="img/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.50">
     
     
       
-        <title>Contributing - Zabbix Easy Report</title>
+        <title>Zabbix Easy HealthCheck Report - Zabbix Easy Report</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.a40c8224.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.a40c8224.min.css">
       
       
 
@@ -45,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../../css/lang-switch.css">
+      <link rel="stylesheet" href="css/lang-switch.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -66,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing" class="md-skip">
+        <a href="#zabbix-easy-healthcheck-report" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -82,9 +84,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
-    <a href="../.." title="Zabbix Easy Report" class="md-header__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+    <a href="." title="Zabbix Easy Report" class="md-header__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
       
-  <img src="../../img/favicon.svg" alt="logo">
+  <img src="img/favicon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -101,7 +103,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing
+              Zabbix Easy HealthCheck Report
             
           </span>
         </div>
@@ -188,9 +190,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navegação" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Zabbix Easy Report" class="md-nav__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+    <a href="." title="Zabbix Easy Report" class="md-nav__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
       
-  <img src="../../img/favicon.svg" alt="logo">
+  <img src="img/favicon.svg" alt="logo">
 
     </a>
     Zabbix Easy Report
@@ -214,10 +216,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -226,6 +248,62 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Índice">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Índice
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility:
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changelog
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -237,7 +315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/installation/" class="md-nav__link">
+      <a href="pt_BR/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -257,7 +335,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/usage/" class="md-nav__link">
+      <a href="pt_BR/usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -277,7 +355,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/api/" class="md-nav__link">
+      <a href="pt_BR/api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -297,7 +375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/screenshots/" class="md-nav__link">
+      <a href="pt_BR/screenshots/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -337,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pt_BR/contribution/" class="md-nav__link">
+      <a href="pt_BR/contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -377,78 +455,36 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#contributing-new-languages" class="md-nav__link">
+  <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
-      Contributing new languages
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Contributing new languages">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-copy-an-existing-locale" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Copy an existing locale
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-translate-the-keys" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Translate the keys
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-register-the-language-in-the-selector" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Register the language in the selector
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-test" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Test
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tips" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tips
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-the-docs-locally-mkdocs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Running the docs locally (MkDocs)
+      Compatibility:
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle" class="md-nav__link">
+  <a href="#components" class="md-nav__link">
     <span class="md-ellipsis">
-      TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")
+      Components
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changelog" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changelog
     </span>
   </a>
   
@@ -472,103 +508,32 @@
   
 
 
-<h1 id="contributing">Contributing</h1>
-<p>Contributions are welcome!</p>
-<ol>
-<li>Fork the project</li>
-<li>Create a branch</li>
-<li>Submit your PR</li>
-</ol>
-<p>Suggestions, issues and improvements are appreciated.</p>
-<hr />
-<h2 id="contributing-new-languages">Contributing new languages</h2>
-<p>ZBX-Easy uses a JSON-based i18n system. Adding a new language requires only four steps:</p>
-<h3 id="1-copy-an-existing-locale">1. Copy an existing locale</h3>
-<p>Create a folder for the new language inside <code>app/web/locales/</code> using the standard locale code (<code>xx_YY</code>):</p>
-<pre><code class="language-bash">cp -r app/web/locales/pt_BR app/web/locales/es_ES
-</code></pre>
-<h3 id="2-translate-the-keys">2. Translate the keys</h3>
-<p>Open <code>app/web/locales/es_ES/messages.json</code> and translate <strong>only the values</strong> (right-hand side). Keys (left-hand side) must remain unchanged.</p>
-<div class="admonition warning">
-<p class="admonition-title">Important</p>
+<h1 id="zabbix-easy-healthcheck-report">Zabbix Easy HealthCheck Report</h1>
+<p>Project for a Zabbix HealthCheck using Go and Postgres.</p>
+<p><img alt="Report Summary" src="img/screenshots/report-summary.jpg" /></p>
+<h2 id="compatibility">Compatibility:</h2>
+<p>Tested and working on Zabbix:</p>
 <ul>
-<li>Keep <code>%s</code> and <code>%d</code> placeholders in translations that contain them.</li>
-<li>Do not change JSON keys.</li>
-<li>The <code>pt_BR/messages.json</code> file (~290 keys) is the most complete reference.</li>
+<li>6.0</li>
+<li>6.4</li>
+<li>7.0</li>
+<li>7.2</li>
+<li>7.4</li>
+<li>8.0 (experimental)</li>
 </ul>
-</div>
-<h3 id="3-register-the-language-in-the-selector">3. Register the language in the selector</h3>
-<p>Edit <code>app/web/templates/index.html</code> and add an <code>&lt;option&gt;</code> to the <code>#lang-select</code> selector:</p>
-<pre><code class="language-html">&lt;select id=&quot;lang-select&quot;&gt;
-  &lt;option value=&quot;pt_BR&quot;&gt;🇧🇷 PT&lt;/option&gt;
-  &lt;option value=&quot;en_US&quot;&gt;🇺🇸 EN&lt;/option&gt;
-  &lt;option value=&quot;es_ES&quot;&gt;🇪🇸 ES&lt;/option&gt;  &lt;!-- new --&gt;
-&lt;/select&gt;
-</code></pre>
-<h3 id="4-test">4. Test</h3>
-<pre><code class="language-bash">docker compose up -d --build
-</code></pre>
-<h3 id="tips">Tips</h3>
+<h2 id="components">Components</h2>
 <ul>
-<li>Use the browser console to check untranslated keys — if a key doesn't exist in the dictionary, the original HTML text will be kept.</li>
-<li>Compare your <code>messages.json</code> with <code>pt_BR</code> to ensure no keys are missing.</li>
-<li>Contribute via Pull Request with the title <code>i18n: add &lt;language&gt;</code> (e.g. <code>i18n: add es_ES</code>).</li>
+<li>Go backend: API, workers, Zabbix data collection</li>
+<li>PostgreSQL: temporary storage for reports</li>
 </ul>
-<hr />
-<h2 id="running-the-docs-locally-mkdocs">Running the docs locally (MkDocs)</h2>
-<p>To preview the documentation locally we use <code>mkdocs</code>. The repository includes a <code>requirements.txt</code> with the needed packages.</p>
+<h2 id="flow">Flow</h2>
 <ol>
-<li>Create and activate a virtual environment (recommended):</li>
+<li>User provides Zabbix URL/token via the web UI</li>
+<li>Workers collect data and store it in PostgreSQL</li>
+<li>Report is generated and displayed in the UI</li>
 </ol>
-<pre><code class="language-bash">python3 -m venv .venv
-source .venv/bin/activate
-</code></pre>
-<ol>
-<li>Install dependencies:</li>
-</ol>
-<pre><code class="language-bash">pip install -r requirements.txt
-</code></pre>
-<ol>
-<li>Serve the site locally:</li>
-</ol>
-<pre><code class="language-bash">mkdocs serve
-</code></pre>
-<p>Open <code>http://127.0.0.1:8000</code> in your browser.</p>
-<h2 id="tls-certificate-error-troubleshooting-eg-could-not-find-a-suitable-tls-ca-certificate-bundle">TLS / certificate error troubleshooting (e.g. "Could not find a suitable TLS CA certificate bundle")</h2>
-<p>If <code>pip install -r requirements.txt</code> fails with an error like:</p>
-<pre><code>Could not find a suitable TLS CA certificate bundle, invalid path: /path/to/certifi/cacert.pem
-</code></pre>
-<p>it's likely an environment variable points to a missing or invalid CA bundle. Fix it as follows:</p>
-<ol>
-<li>Check TLS-related environment variables:</li>
-</ol>
-<pre><code class="language-bash">echo $SSL_CERT_FILE
-echo $REQUESTS_CA_BUNDLE
-echo $PIP_CERT
-</code></pre>
-<ol>
-<li>If any point to an invalid path (e.g. <code>/path/to/certifi/cacert.pem</code>), unset them temporarily:</li>
-</ol>
-<pre><code class="language-bash">unset SSL_CERT_FILE REQUESTS_CA_BUNDLE PIP_CERT
-</code></pre>
-<ol>
-<li>Reinstall/upgrade <code>certifi</code> and get its bundle path:</li>
-</ol>
-<pre><code class="language-bash">pip install --upgrade certifi
-python -c &quot;import certifi; print(certifi.where())&quot;
-</code></pre>
-<ol>
-<li>Optionally export that path if your environment requires an explicit variable:</li>
-</ol>
-<pre><code class="language-bash">export SSL_CERT_FILE=&quot;$(python -c 'import certifi; print(certifi.where())')&quot;
-</code></pre>
-<ol>
-<li>Retry installation and serving:</li>
-</ol>
-<pre><code class="language-bash">pip install -r requirements.txt
-mkdocs serve
-</code></pre>
-<p>If you're behind a corporate proxy using a custom CA, set <code>SSL_CERT_FILE</code> to your organization's CA bundle instead of the <code>certifi</code> bundle.</p>
+<h2 id="changelog">Changelog</h2>
+<p>See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md</p>
 
 
 
@@ -622,16 +587,16 @@ mkdocs serve
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "Mais 1 nesta p\u00e1gina", "search.result.more.other": "Mais # nesta p\u00e1gina", "search.result.none": "Nenhum resultado encontrado", "search.result.one": "1 resultado encontrado", "search.result.other": "# resultados encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}}</script>
+    <script id="__config" type="application/json">{"base": ".", "features": [], "search": "assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "Mais 1 nesta p\u00e1gina", "search.result.more.other": "Mais # nesta p\u00e1gina", "search.result.none": "Nenhum resultado encontrado", "search.result.one": "1 resultado encontrado", "search.result.other": "# resultados encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.60a45f97.min.js"></script>
+      <script src="assets/javascripts/bundle.60a45f97.min.js"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
-        <script src="../../js/mermaid-init.js"></script>
+        <script src="js/mermaid-init.js"></script>
       
-        <script src="../../js/lang-switch.js"></script>
+        <script src="js/lang-switch.js"></script>
       
     
   </body>
