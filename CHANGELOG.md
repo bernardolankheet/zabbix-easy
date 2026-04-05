@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [0.1.0] - 2026-04-05
+
+### First Official Release
+
+This is the first official release of Zabbix Easy Report.
+
+### Highlights
+- **HealthCheck Report**: Server, Proxies, Items, Templates, Triggers, Users tabs
+- **Zabbix Compatibility**: 6.0, 6.4, 7.0, 7.2, 7.4, 8.0 (experimental)
+- **PostgreSQL**: Simple Database for persistence reports
+- **Docker & Helm**: Container image and Helm chart for Kubernetes deployment
+- **Documentation**: MkDocs Material site in Portuguese and English
+
+### Infrastructure
+- Docker image: `bernardolankheet/zabbix-easy:v0.1.0`
+- Helm chart version: `0.1.0`
+- Branching: `dev` → `main`
+
+---
+
 ## [0.0.5] - 2026-03-28
 
 ### Added
