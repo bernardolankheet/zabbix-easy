@@ -2,7 +2,7 @@
 
 Zabbix Easy is an open-source tool that analyzes a Zabbix environment via the Zabbix API and generates a concise HealthCheck report with actionable recommendations to improve performance, reliability and maintenance.
 
-Compatibility: 
+Compatibility Zabbix: 
 - 6.0
 - 6.4
 - 7.0
