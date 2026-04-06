@@ -70,7 +70,7 @@
 		var btnEn = document.createElement('button');
 		btnEn.className = 'ls-btn ls-en' + (isEn ? ' ls-active' : '');
 		btnEn.title = 'English';
-		btnEn.innerHTML = '<span class="ls-flag">🇬🇧</span> <span class="ls-label">EN</span>';
+		btnEn.innerHTML = '<span class="ls-flag">🇺🇸</span> <span class="ls-label">EN</span>';
 
 		btnPt.addEventListener('click', function () {
 			if (!isEn) return;
