@@ -2,7 +2,7 @@ site_name: Zabbix Easy Report
 repo_url: https://github.com/bernardolankheet/zabbix-easy
 repo_name: bernardolankheet/zabbix-easy
 site_description: "Zabbix Easy Report is an open-source tool that analyzes a Zabbix environment via API and generates a HealthCheck report with practical recommendations to improve performance, reliability, and maintenance."
-site_url: https://zabbix-easy.github.io
+site_url: https://bernardolankheet.github.io/zabbix-easy/
 site_author: Bernardo Lankheet
 copyright: Copyright &copy; 2026 Maintained by <a href="https://github.com/bernardolankheet">Bernardo Lankheet</a>.
 nav:
