@@ -31,7 +31,7 @@ Compatibility Zabbix:
 
 ## Quick start — run locally
 
-### 1) Using Docker (easiest):
+### 1) Using Docker:
 
 ```bash
 docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
