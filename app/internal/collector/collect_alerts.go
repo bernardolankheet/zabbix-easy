@@ -18,3 +18,17 @@ func CollectAlertCount(apiUrl, token string, actionid string, alertStatus int, t
 	}
 	return CollectCount(apiUrl, token, "alert.get", params, req)
 }
+
+// CollectFailedAlertDetails fetches failed alerts (status=2) with details
+// including mediatypeid, error message and actionid for the given time window.
+func CollectFailedAlertDetails(apiUrl, token string, timeFrom int64, req ApiRequester) ([]map[string]interface{}, error) {
+	params := map[string]interface{}{
+		"output":    []string{"alertid", "mediatypeid", "error", "actionid"},
+		"filter":    map[string]interface{}{"status": 2},
+		"time_from": timeFrom,
+		"sortfield": "alertid",
+		"sortorder": "DESC",
+		"limit":     5000,
+	}
+	return CollectRawList(apiUrl, token, "alert.get", params, req)
+}

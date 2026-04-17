@@ -451,5 +451,12 @@
   ,"rec.alerts_title": "Alertas"
   ,"sub.alerts_failed_actions": "Ações com alertas falhados:"
   ,"fix.alerts_failed_hint": "Verifique os tipos de mídia e a configuração dos canais de notificação (SMTP, webhook, script) para as ações com falhas. Revise o log de alertas em Administração → Audit log ou Alertas → Ações para mensagens de erro detalhadas."
+  ,"section.alerts_mediatype": "Alertas por Tipo de Mídia (últimas 24h)"
+  ,"tip.alerts_mediatype": "Agrupa alertas com falha por tipo de mídia para ajudar a identificar quais canais de notificação têm mais problemas de entrega. A coluna de erro mostra o erro mais comum para cada combinação de tipo de mídia/ação."
+  ,"table.mediatype_name": "Tipo de Mídia"
+  ,"table.alert_error_count": "Erros"
+  ,"table.alert_error_msg": "Erro"
+  ,"alerts.no_mediatype_failures": "Nenhum alerta com falha por tipo de mídia nas últimas 24 horas."
+  ,"sub.alerts_mediatype_failures": "Tipos de mídia com falhas de entrega:"
   ,"alerts.summary_paragraph": "Existem %d ações com alertas falhados de um total de %d ações nas últimas 24 horas, representando aproximadamente %s de todos os alertas."
 }

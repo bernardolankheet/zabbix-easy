@@ -1347,10 +1347,84 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 		wg.Wait()
 	}
-	// sort by Failed desc, then by Total desc
+	// sort by ErrorPerc desc, then by Failed desc
 	sort.Slice(alertRows, func(i, j int) bool {
-		if alertRows[i].Failed != alertRows[j].Failed { return alertRows[i].Failed > alertRows[j].Failed }
-		return alertRows[i].Total > alertRows[j].Total
+		if alertRows[i].ErrorPerc != alertRows[j].ErrorPerc { return alertRows[i].ErrorPerc > alertRows[j].ErrorPerc }
+		return alertRows[i].Failed > alertRows[j].Failed
+	})
+
+	// ── Coletar detalhes de alertas falhados por Media Type ──────────────────
+	actionNameMap := map[string]string{}
+	for _, r := range alertRows { actionNameMap[r.ActionID] = r.Name }
+
+	type mediaTypeAlertRow struct {
+		MediaType  string
+		ActionName string
+		ErrorCount int
+		TopError   string
+	}
+	var mediaTypeRows []mediaTypeAlertRow
+
+	var mediaTypes []map[string]interface{}
+	var failedDetails []map[string]interface{}
+	{
+		var wgM sync.WaitGroup
+		wgM.Add(2)
+		go func() {
+			defer wgM.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			mediaTypes, _ = collector.CollectMediaTypes(apiUrl, token, zabbixApiRequest)
+		}()
+		go func() {
+			defer wgM.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			failedDetails, _ = collector.CollectFailedAlertDetails(apiUrl, token, alertTimeFrom, zabbixApiRequest)
+		}()
+		wgM.Wait()
+	}
+
+	mtNameMap := map[string]string{}
+	for _, mt := range mediaTypes {
+		mtid := fmt.Sprintf("%v", mt["mediatypeid"])
+		mtNameMap[mtid] = fmt.Sprintf("%v", mt["name"])
+	}
+
+	type mtActKey struct{ MTID, ActID string }
+	type mtActAgg struct {
+		Count  int
+		Errors map[string]int
+	}
+	aggMap := map[mtActKey]*mtActAgg{}
+	for _, d := range failedDetails {
+		mtid := fmt.Sprintf("%v", d["mediatypeid"])
+		actid := fmt.Sprintf("%v", d["actionid"])
+		errMsg := fmt.Sprintf("%v", d["error"])
+		key := mtActKey{mtid, actid}
+		if _, ok := aggMap[key]; !ok {
+			aggMap[key] = &mtActAgg{Errors: map[string]int{}}
+		}
+		aggMap[key].Count++
+		aggMap[key].Errors[errMsg]++
+	}
+
+	for key, agg := range aggMap {
+		mtName := mtNameMap[key.MTID]
+		if mtName == "" {
+			if key.MTID == "0" { mtName = "Script" } else { mtName = "ID:" + key.MTID }
+		}
+		actName := actionNameMap[key.ActID]
+		if actName == "" { actName = "ID:" + key.ActID }
+		topErr := ""
+		topErrCount := 0
+		for msg, c := range agg.Errors {
+			if c > topErrCount { topErrCount = c; topErr = msg }
+		}
+		mediaTypeRows = append(mediaTypeRows, mediaTypeAlertRow{mtName, actName, agg.Count, topErr})
+	}
+	sort.Slice(mediaTypeRows, func(i, j int) bool {
+		return mediaTypeRows[i].ErrorCount > mediaTypeRows[j].ErrorCount
 	})
 
 	// --- HTML ---
@@ -3288,6 +3362,30 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		}
 		html += `</tbody></table></div>`
 	}
+
+	// ── Tabela: Alertas por Media Type ───────────────────────────────────────
+	html += titleWithInfo("h3", "i18n:section.alerts_mediatype", "i18n:tip.alerts_mediatype")
+	if len(mediaTypeRows) == 0 {
+		html += `<p data-i18n='alerts.no_mediatype_failures'></p>`
+	} else {
+		html += `<div class='table-responsive'><table class='modern-table'>` +
+			`<colgroup><col style='width:18%'><col style='width:18%'><col style='width:10%'><col style='width:54%'></colgroup>` +
+			`<thead><tr>` +
+			`<th data-i18n='table.mediatype_name'></th>` +
+			`<th data-i18n='table.action_name'></th>` +
+			`<th data-i18n='table.alert_error_count'></th>` +
+			`<th data-i18n='table.alert_error_msg'></th>` +
+			`</tr></thead><tbody>`
+		for _, r := range mediaTypeRows {
+			html += `<tr>` +
+				`<td>` + htmlpkg.EscapeString(r.MediaType) + `</td>` +
+				`<td>` + htmlpkg.EscapeString(r.ActionName) + `</td>` +
+				`<td style='text-align:center;'><span style='color:#b91c1c;font-weight:700;'>` + strconv.Itoa(r.ErrorCount) + `</span></td>` +
+				`<td style='font-size:0.88em;color:#555;'>` + htmlpkg.EscapeString(r.TopError) + `</td>` +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
 	html += `</div>` // end tab-alerts
 
 	// Recomendações tab (espaço para sugestões automáticas / ações)
@@ -3537,11 +3635,13 @@ triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
 	alertsKpiIcon := "✅"
 	if actionsWithAlertFailures > 0 {
 		alertsKpiClass = "kpi-warn"
-		alertsKpiIcon = fmt.Sprintf("%d", actionsWithAlertFailures)
-	}
-	if totalAlertsAll > 0 {
-		failPct := float64(totalAlertsFailed) / float64(totalAlertsAll) * 100
-		if failPct >= 10 { alertsKpiClass = "kpi-crit" }
+		if totalAlertsAll > 0 {
+			failPct := float64(totalAlertsFailed) / float64(totalAlertsAll) * 100
+			alertsKpiIcon = fmt.Sprintf("%.1f%%", failPct)
+			if failPct >= 10 { alertsKpiClass = "kpi-crit" }
+		} else {
+			alertsKpiIcon = "0.0%"
+		}
 	}
 	html += `<div class='kpi ` + alertsKpiClass + `' data-target='#card-alerts' data-i18n-title='kpi.alerts_failed' title=''>` +
 		`<div class='kpi-num'>` + alertsKpiIcon + `</div>` +
@@ -4157,8 +4257,17 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			}
 		}
 		html += `</ul>` +
-			`<p class='hint' data-i18n='fix.alerts_failed_hint'></p>` +
-			`<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-alerts");' data-i18n='rec.alerts_see_tab'></a></p>` +
+			`<p class='hint' data-i18n='fix.alerts_failed_hint'></p>`
+		if len(mediaTypeRows) > 0 {
+			html += `<p data-i18n='sub.alerts_mediatype_failures' style='margin-top:12px;'></p><ul>`
+			for _, r := range mediaTypeRows {
+				html += `<li><strong>` + htmlpkg.EscapeString(r.MediaType) + `</strong> → ` +
+					htmlpkg.EscapeString(r.ActionName) + ` — <span style='color:#b91c1c;font-weight:700;'>` +
+					strconv.Itoa(r.ErrorCount) + `</span> errors</li>`
+			}
+			html += `</ul>`
+		}
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-alerts");' data-i18n='rec.alerts_see_tab'></a></p>` +
 			`</div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
