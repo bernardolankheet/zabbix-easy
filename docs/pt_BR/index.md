@@ -7,6 +7,8 @@ lang: pt_BR
 
 Projeto de um HealthCheck do Zabbix usando Go e Postgres.
 
+![Report Summary](../img/screenshots/report-summary.jpg)
+
 ## Compatibilidade: 
 
 Testado e funcionando no Zabbix:

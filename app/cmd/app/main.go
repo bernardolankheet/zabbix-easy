@@ -896,8 +896,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	var guestInDisabledGroup bool
 	if arr, err := collector.CollectRawList(apiUrl, token, "user.get", map[string]interface{}{
 		"output": []string{"userid", "username", "name", "surname", "status", "disabled"},
-		// include both lowercase and uppercase Guest username variants to ensure the user is found
-		"filter": map[string]interface{}{"username": []string{"Admin", "guest", "guest"}},
+		"filter": map[string]interface{}{"username": []string{"Admin", "guest"}},
 		"selectUsrgrps": []string{"name"},
 	}, zabbixApiRequest); err == nil {
 		for _, u := range arr {

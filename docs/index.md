@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Zabbix Easy HealthCheck Report"
 lang: en_US
 ---
@@ -23,7 +23,6 @@ Tested and working on Zabbix:
 ## Components
 - Go backend: API, workers, Zabbix data collection
 - PostgreSQL: temporary storage for reports
- - Alerts check: new Action Alerts and Alerts-by-MediaType views (see [Alerts Check](alerts.md))
 
 ## Flow
 1. User provides Zabbix URL/token via the web UI
@@ -32,4 +31,3 @@ Tested and working on Zabbix:
 
 ## Changelog
 See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md
-
