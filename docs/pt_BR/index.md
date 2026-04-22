@@ -21,6 +21,7 @@ Testado e funcionando no Zabbix:
 ## Componentes
 - Go Backend: API, workers, coleta Zabbix
 - Postgres: Armazenamento temporário
+ - Checagem de Alertas: novas visualizações Action Alerts e Alertas por Tipo de Mídia (veja [Checagem de Alertas](alerts.md))
 
 ## Fluxo
 1. Usuário informa URL/token do Zabbix via Web UI

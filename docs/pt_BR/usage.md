@@ -293,6 +293,10 @@ procNames := []string{
 
 Exibe o status e métricas dos Zabbix Proxies configurados no ambiente. Divide os proxies em: Unknown, Offline, Ativos (Active), Passivos (Passive). Para cada proxy ativo/comunicando exibe itens totais, não suportados e fila de 10 minutos.
 
+Para que essa informação funcione corretamente é necessário criar um host com o mesmo nome (nome de identificação) do proxy, configurá‑lo para ser monitorado por esse proxy e vincular a ele o template "Zabbix Proxy Health" ou "Remote Zabbix Proxy Health". A consulta é realizada com base no padrão de chaves (`key`) dos itens usados por esses dois templates.
+
+
+
 ### Tabelas exibidas
 
 **Sumário:**

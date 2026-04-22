@@ -292,6 +292,13 @@ procNames := []string{
 
 Shows the status and metrics of Zabbix Proxies configured in the environment. Proxies are grouped into: Unknown, Offline, Active, Passive. For each active/communicating proxy it shows total items, unsupported items and the 10-minute queue.
 
+To make this data work correctly you must create a host with the proxy's technical/identification name, configure that host to be monitored by the proxy, and link the `Zabbix Proxy Health` or `Remote Zabbix Proxy Health` template to it. The collection is performed based on the item key patterns (`key`) used by those templates.
+
+Example of proxy host configuration:
+![Zabbix Proxy](/img/screenshots/doc-proxy01.jpg)
+
+![Zabbix Proxy Host](/img/screenshots/doc-proxy02.jpg)
+
 ### Tables displayed
 
 **Summary:**
@@ -966,6 +973,39 @@ tplHasData := len(topTemplates) > 0 || len(topErrors) > 0 ||
 | Templates suitable for SNMP-POLLER migration | `majorV >= 7 && len(snmpMigrationTpls) > 0` | `snmpMigrationTpls` |
 
 ---
+
+## Guide: Alerts (`tab-alerts`)
+
+### What it is
+
+The Alerts tab provides two focused views to help triage notification delivery failures in the last 24 hours:
+
+- **Action Alerts (last 24h)** — a table of Actions with failed alerts showing `Action Name`, `Total Alerts`, `Failed Alerts` and `Error%`. Rows are ordered by highest `Error%` (descending) to quickly surface problematic actions.
+- **Alerts by Media Type (last 24h)** — a compact table that groups failed alerts by `Media Type` and `Action`, showing `Errors` and the most common `Error` message for each combination. This helps identify which notification channels (Email, Webhook, Script, etc.) are failing more frequently.
+
+### Zabbix API calls and collectors
+
+The report uses two new collectors:
+
+- `CollectFailedAlertDetails(apiUrl, token, timeFrom, req)` (implemented in `app/internal/collector/collect_alerts.go`) — calls `alert.get` filtered by `status=2` (failed) and returns detailed fields: `alertid`, `mediatypeid`, `error`, `actionid`.
+- `CollectMediaTypes(apiUrl, token, req)` (implemented in `app/internal/collector/collect_mediatypes.go`) — calls `mediatype.get` with `output: ["mediatypeid","name"]` to resolve media type names.
+
+The application aggregates failed alert details by `mediatypeid + actionid`, counts occurrences and picks the most common error message for display.
+
+Notes:
+
+- `mediatypeid == 0` is treated as `Script` in the UI for readability (scripts / remote commands).
+- The Action Alerts table sorts by `Error%` desc, tiebreaker by Failed count desc.
+
+### Recommendations integration
+
+The Recommendations card for Alerts now includes a compact list of media types with delivery failures (when present). Each item shows `Media Type → Action — Errors` to surface where to start troubleshooting. No additional KPI was added for media types by default.
+
+### Code locations
+
+- UI: `app/cmd/app/main.go` (tab rendering, aggregation and recommendation list)
+- Collectors: `app/internal/collector/collect_alerts.go`, `app/internal/collector/collect_mediatypes.go`
+
 
 ### Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)
 
