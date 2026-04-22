@@ -1309,6 +1309,124 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// Descrições moved to i18n locale files
 
+	// ── Coletar Alertas de Ações (últimas 24h) ───────────────────────────────
+	if progressCb != nil { progressCb("progress.collecting_alerts") }
+	type alertActionRow struct {
+		ActionID   string
+		Name       string
+		Total      int
+		Failed     int
+		ErrorPerc  float64
+	}
+	var alertRows []alertActionRow
+	totalAlertsFailed := 0
+	totalAlertsAll := 0
+	alertTimeFrom := time.Now().Unix() - 86400 // últimas 24h
+	if actions, err := collector.CollectActions(apiUrl, token, zabbixApiRequest); err == nil && len(actions) > 0 {
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		for _, act := range actions {
+			act := act
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				actionid := fmt.Sprintf("%v", act["actionid"])
+				name := fmt.Sprintf("%v", act["name"])
+				failed, _ := collector.CollectAlertCount(apiUrl, token, actionid, 2, alertTimeFrom, zabbixApiRequest)
+				total, _ := collector.CollectAlertCount(apiUrl, token, actionid, -1, alertTimeFrom, zabbixApiRequest)
+				perc := 0.0
+				if total > 0 { perc = float64(failed) / float64(total) * 100 }
+				mu.Lock()
+				alertRows = append(alertRows, alertActionRow{actionid, name, total, failed, perc})
+				totalAlertsFailed += failed
+				totalAlertsAll += total
+				mu.Unlock()
+			}()
+		}
+		wg.Wait()
+	}
+	// sort by ErrorPerc desc, then by Failed desc
+	sort.Slice(alertRows, func(i, j int) bool {
+		if alertRows[i].ErrorPerc != alertRows[j].ErrorPerc { return alertRows[i].ErrorPerc > alertRows[j].ErrorPerc }
+		return alertRows[i].Failed > alertRows[j].Failed
+	})
+
+	// ── Coletar detalhes de alertas falhados por Media Type ──────────────────
+	actionNameMap := map[string]string{}
+	for _, r := range alertRows { actionNameMap[r.ActionID] = r.Name }
+
+	type mediaTypeAlertRow struct {
+		MediaType  string
+		ActionName string
+		ErrorCount int
+		TopError   string
+	}
+	var mediaTypeRows []mediaTypeAlertRow
+
+	var mediaTypes []map[string]interface{}
+	var failedDetails []map[string]interface{}
+	{
+		var wgM sync.WaitGroup
+		wgM.Add(2)
+		go func() {
+			defer wgM.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			mediaTypes, _ = collector.CollectMediaTypes(apiUrl, token, zabbixApiRequest)
+		}()
+		go func() {
+			defer wgM.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			failedDetails, _ = collector.CollectFailedAlertDetails(apiUrl, token, alertTimeFrom, zabbixApiRequest)
+		}()
+		wgM.Wait()
+	}
+
+	mtNameMap := map[string]string{}
+	for _, mt := range mediaTypes {
+		mtid := fmt.Sprintf("%v", mt["mediatypeid"])
+		mtNameMap[mtid] = fmt.Sprintf("%v", mt["name"])
+	}
+
+	type mtActKey struct{ MTID, ActID string }
+	type mtActAgg struct {
+		Count  int
+		Errors map[string]int
+	}
+	aggMap := map[mtActKey]*mtActAgg{}
+	for _, d := range failedDetails {
+		mtid := fmt.Sprintf("%v", d["mediatypeid"])
+		actid := fmt.Sprintf("%v", d["actionid"])
+		errMsg := fmt.Sprintf("%v", d["error"])
+		key := mtActKey{mtid, actid}
+		if _, ok := aggMap[key]; !ok {
+			aggMap[key] = &mtActAgg{Errors: map[string]int{}}
+		}
+		aggMap[key].Count++
+		aggMap[key].Errors[errMsg]++
+	}
+
+	for key, agg := range aggMap {
+		mtName := mtNameMap[key.MTID]
+		if mtName == "" {
+			if key.MTID == "0" { mtName = "Script" } else { mtName = "ID:" + key.MTID }
+		}
+		actName := actionNameMap[key.ActID]
+		if actName == "" { actName = "ID:" + key.ActID }
+		topErr := ""
+		topErrCount := 0
+		for msg, c := range agg.Errors {
+			if c > topErrCount { topErrCount = c; topErr = msg }
+		}
+		mediaTypeRows = append(mediaTypeRows, mediaTypeAlertRow{mtName, actName, agg.Count, topErr})
+	}
+	sort.Slice(mediaTypeRows, func(i, j int) bool {
+		return mediaTypeRows[i].ErrorCount > mediaTypeRows[j].ErrorCount
+	})
+
 	// --- HTML ---
 	html += `<div class='zabbix-report-modern'>`
 		// Global tooltip CSS/JS (single copy) - info-icon + info-tooltip
@@ -1404,6 +1522,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
 	html += `<button class='tab-btn' data-tab='tab-templates' data-i18n='tabs.templates'></button>`
 	html += `<button class='tab-btn' data-tab='tab-triggers' data-i18n='tabs.triggers'></button>`
+	html += `<button class='tab-btn' data-tab='tab-alerts' data-i18n='tabs.alerts'></button>`
 	html += `<button class='tab-btn' data-tab='tab-top' data-i18n='tabs.top'></button>`
 	html += `<button class='tab-btn' data-tab='tab-usuarios' data-i18n='tabs.users'></button>`
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
@@ -3208,6 +3327,67 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	html += `</div>` // end tab-triggers
 
+	// ── Tab: Alertas de Ações ─────────────────────────────────────────────────
+	html += `<div id='tab-alerts' class='tab-panel' style='display:none;'>`
+	html += `<h2 class='tab-print-title' data-i18n='tabs.alerts'></h2>`
+	html += titleWithInfo("h3", "i18n:section.alerts", "i18n:tip.alerts")
+
+	if len(alertRows) == 0 {
+		html += `<p data-i18n='alerts.no_data'></p>`
+	} else {
+		html += `<div class='table-responsive'><table class='modern-table'>` +
+			`<colgroup><col style='width:46%'><col style='width:18%'><col style='width:18%'><col style='width:18%'></colgroup>` +
+			`<thead><tr>` +
+			`<th data-i18n='table.action_name'></th>` +
+			`<th data-i18n='table.alerts_total'></th>` +
+			`<th data-i18n='table.alerts_failed'></th>` +
+			`<th data-i18n='table.alerts_error_perc'></th>` +
+			`</tr></thead><tbody>`
+		for _, r := range alertRows {
+			tdStyle := ""
+			if r.ErrorPerc >= 60 {
+				tdStyle = "background:#ff6666 !important;color:#000 !important;"
+			}
+			html += `<tr>` +
+				`<td style='` + tdStyle + `'>` + htmlpkg.EscapeString(r.Name) + `</td>` +
+				`<td style='text-align:center;` + tdStyle + `'>` + strconv.Itoa(r.Total) + `</td>` +
+				`<td style='text-align:center;` + tdStyle + `'>` + func() string {
+					if r.Failed > 0 {
+						return `<span style='color:#b91c1c;font-weight:700;'>` + strconv.Itoa(r.Failed) + `</span>`
+					}
+					return strconv.Itoa(r.Failed)
+				}() + `</td>` +
+				`<td style='text-align:center;` + tdStyle + `'>` + fmt.Sprintf("%.2f%%", r.ErrorPerc) + `</td>` +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
+
+	// ── Tabela: Alertas por Media Type ───────────────────────────────────────
+	html += titleWithInfo("h3", "i18n:section.alerts_mediatype", "i18n:tip.alerts_mediatype")
+	if len(mediaTypeRows) == 0 {
+		html += `<p data-i18n='alerts.no_mediatype_failures'></p>`
+	} else {
+		html += `<div class='table-responsive'><table class='modern-table'>` +
+			`<colgroup><col style='width:18%'><col style='width:18%'><col style='width:10%'><col style='width:54%'></colgroup>` +
+			`<thead><tr>` +
+			`<th data-i18n='table.mediatype_name'></th>` +
+			`<th data-i18n='table.action_name'></th>` +
+			`<th data-i18n='table.alert_error_count'></th>` +
+			`<th data-i18n='table.alert_error_msg'></th>` +
+			`</tr></thead><tbody>`
+		for _, r := range mediaTypeRows {
+			html += `<tr>` +
+				`<td>` + htmlpkg.EscapeString(r.MediaType) + `</td>` +
+				`<td>` + htmlpkg.EscapeString(r.ActionName) + `</td>` +
+				`<td style='text-align:center;'><span style='color:#b91c1c;font-weight:700;'>` + strconv.Itoa(r.ErrorCount) + `</span></td>` +
+				`<td style='font-size:0.88em;color:#555;'>` + htmlpkg.EscapeString(r.TopError) + `</td>` +
+				`</tr>`
+		}
+		html += `</tbody></table></div>`
+	}
+	html += `</div>` // end tab-alerts
+
 	// Recomendações tab (espaço para sugestões automáticas / ações)
 	html += `<div id='tab-recomendacoes' class='tab-panel' style='display:none;'>`
 	html += `<h2 class='tab-print-title' data-i18n='tabs.recommendations'></h2>`
@@ -3446,6 +3626,26 @@ triggersPctStr := fmt.Sprintf("%.1f%%", pctTriggers)
 	html += `<div class='kpi ` + triggersKpiClass + `' data-target='#card-triggers' data-i18n-title='kpi.triggers_unknown' title=''>` +
 		`<div class='kpi-num'>` + triggersPctStr + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.triggers_unknown'></div></div>`
+	// KPI: Failed Alerts (last 24h)
+	actionsWithAlertFailures := 0
+	for _, r := range alertRows {
+		if r.Failed > 0 { actionsWithAlertFailures++ }
+	}
+	alertsKpiClass := "kpi-ok"
+	alertsKpiIcon := "✅"
+	if actionsWithAlertFailures > 0 {
+		alertsKpiClass = "kpi-warn"
+		if totalAlertsAll > 0 {
+			failPct := float64(totalAlertsFailed) / float64(totalAlertsAll) * 100
+			alertsKpiIcon = fmt.Sprintf("%.1f%%", failPct)
+			if failPct >= 10 { alertsKpiClass = "kpi-crit" }
+		} else {
+			alertsKpiIcon = "0.0%"
+		}
+	}
+	html += `<div class='kpi ` + alertsKpiClass + `' data-target='#card-alerts' data-i18n-title='kpi.alerts_failed' title=''>` +
+		`<div class='kpi-num'>` + alertsKpiIcon + `</div>` +
+		`<div class='kpi-label' data-i18n='kpi.alerts_failed'></div></div>`
 	html += `<div class='kpi ` + adminKpiClass + `' data-target='#card-security' data-i18n-title='kpi.default_admin' title=''>` +
 		`<div class='kpi-num'>` + adminKpiIcon + `</div>` +
 		`<div class='kpi-label' data-i18n='kpi.default_admin'></div></div>`
@@ -4023,6 +4223,52 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 			html += `<li><span data-i18n='fix.templates_snmp_hint'></span>: <code>get[OID]</code> / <code>walk[OID]</code></li>`
 		}
 		html += `</ul></div>`
+		html += `</div></details>` // rec-sec-body + accordion
+	}
+
+	// --- Seção: Alertas com Falha (últimas 24h) ---
+	if actionsWithAlertFailures > 0 {
+		secNum++
+		alertBadgeClass := "warn"
+		alertBadgeIcon := "🟡"
+		if totalAlertsAll > 0 {
+			pct := float64(totalAlertsFailed) / float64(totalAlertsAll) * 100
+			if pct >= 10 { alertBadgeClass = "crit"; alertBadgeIcon = "🔴" }
+		}
+		html += `<details class='rec-section' id='card-alerts'>` +
+			`<summary><span class='rec-sec-icon'>⚠️</span>` +
+			`<div class='rec-sec-text'>` +
+			`<div class='rec-sec-title'><strong>` + fmt.Sprintf("%d)", secNum) + `</strong> <span data-i18n='rec.alerts_title'></span></div>` +
+			`<div class='rec-sec-desc'><span data-i18n='rec.desc.alerts_failed' data-i18n-args='` + fmt.Sprintf("%d", actionsWithAlertFailures) + `'></span></div>` +
+			`</div><span class='status-badge ` + alertBadgeClass + `'>` + alertBadgeIcon + `</span>` +
+			`<span class='rec-sec-arrow'>▶</span></summary>` +
+			`<div class='rec-sec-body'>`
+		failedPercRec := 0.0
+		if totalAlertsAll > 0 { failedPercRec = float64(totalAlertsFailed) / float64(totalAlertsAll) * 100 }
+		html += `<p data-i18n='alerts.summary_paragraph' data-i18n-args='` + fmt.Sprintf("%d|%d|%s", actionsWithAlertFailures, len(alertRows), fmt.Sprintf("%.1f%%", failedPercRec)) + `'></p>`
+		html += `<div class='rec-sec-detail'>` +
+			`<p data-i18n='sub.alerts_failed_actions'></p>` +
+			`<ul>`
+		for _, r := range alertRows {
+			if r.Failed > 0 {
+				html += `<li><strong>` + htmlpkg.EscapeString(r.Name) + `</strong> — ` +
+					strconv.Itoa(r.Failed) + ` / ` + strconv.Itoa(r.Total) +
+					` (` + fmt.Sprintf("%.1f%%", r.ErrorPerc) + `)</li>`
+			}
+		}
+		html += `</ul>` +
+			`<p class='hint' data-i18n='fix.alerts_failed_hint'></p>`
+		if len(mediaTypeRows) > 0 {
+			html += `<p data-i18n='sub.alerts_mediatype_failures' style='margin-top:12px;'></p><ul>`
+			for _, r := range mediaTypeRows {
+				html += `<li><strong>` + htmlpkg.EscapeString(r.MediaType) + `</strong> → ` +
+					htmlpkg.EscapeString(r.ActionName) + ` — <span style='color:#b91c1c;font-weight:700;'>` +
+					strconv.Itoa(r.ErrorCount) + `</span> errors</li>`
+			}
+			html += `</ul>`
+		}
+		html += `<p style='font-size:0.92em;margin-bottom:10px;'><a href='#' onclick='event.preventDefault();showTab("tab-alerts");' data-i18n='rec.alerts_see_tab'></a></p>` +
+			`</div>`
 		html += `</div></details>` // rec-sec-body + accordion
 	}
 

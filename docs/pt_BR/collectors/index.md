@@ -17,5 +17,6 @@ Coletores incluídos:
 - [CollectProcessItemsBulk](collect_process_items_bulk.md) — descoberta bulk de processos (server)
 - [CollectHostExists](collect_host_exists.md) — verificação de existência de host
 - [CollectProxiesList](collect_proxies_list.md) — lista leve de proxies para resumos
+ - [CollectMediaTypes](collect_mediatypes.md) — retorna `mediatypeid` e `name` para os tipos de mídia configurados
 
 Clique em um coletor acima para abrir sua documentação e exemplos.
