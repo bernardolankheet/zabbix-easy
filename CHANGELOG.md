@@ -2,7 +2,7 @@
 
 ## [0.1.1] - 2026-04-23
 
-### Add
+### Added
 - New collector: `CollectMediaTypes` — returns the list of media types configured in Zabbix. This collector is used by the new Alerts check to group failed alerts by media type and to surface the most common error message per media type/action. (code: `app/internal/collector/collect_mediatypes.go`, docs: `docs/pt_BR/collectors/collect_mediatypes.md`, `docs/en/collectors/collect_mediatypes.md`)
 - New documentation page for the `CollectMediaTypes` collector in both Portuguese and English.
 - New Tab Alerts check: a new tab in the report that surfaces failed alerts grouped by media type and action, with the most common error message for each group. (docs: `docs/pt_BR/usage.md`, `docs/en/usage.md`)
