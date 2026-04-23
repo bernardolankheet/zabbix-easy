@@ -26,9 +26,9 @@ Project structure
 - `docs/` — project documentation (MkDocs)
 - `app/internal/collector` — Zabbix API collectors.
 
-These helpers are used by the backend to avoid ad-hoc JSON parsing in `cmd/app/main.go` and to improve testability.
+These collector helpers are used by the backend to avoid ad-hoc JSON parsing in `cmd/app/main.go` and to improve testability.
 
-Main features
+## Main features
 - Data collection and aggregation via the Zabbix API
 - Analysis: unsupported items, items without templates, server pollers/processes and proxies, trends, LLD
 - Automated recommendations with fix snippets
