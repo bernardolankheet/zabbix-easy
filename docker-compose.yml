@@ -1,27 +1,25 @@
 services:
   go-app:
-    build: ./app
-    #image: bernardolankheet/zabbix-easy:latest
+    #build: ./app # Uncomment the line above to build the image locally, or use the ready-made image on Docker Hub.
+    image: bernardolankheet/zabbix-easy:latest
     container_name: go-zabbix-app
     ports:
       - "8080:8080"
     environment:
-      # Descomente as variáveis abaixo para habilitar persistência de relatórios no PostgreSQL.
-      # Para subir com banco: docker compose --profile db up --build -d
+      # Uncomment the variables below to enable report persistence in PostgreSQL.
+      # To start with the database: docker compose --profile db up --build -d
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=zabbix_report
-      - MAX_CCONCURRENT=10
-      - API_TIMEOUT_SECONDS=20   # se o Zabbix for mais lento
-      - ZABBIX_SERVER_HOSTID=10084 # HostID do zabbix Server, utliza para pegar os dados de performance.
-      #- ZABBIX_SERVER_HOSTID=23423
-      #- ZABBIX_SERVER_HOSTID=19882   
-      - APP_DEBUG=true # true ou false Habilita logs de debug da API do Zabbix
-      - CHECKTRENDTIME=15d # Tempo para verificar tendência de dados, não utilize history (<7d), leva em consideracão o valor que é definido no zabbix para Trends ou o Valor Utilizado no Particionamento do banco de dados.
+      - MAX_CCONCURRENT=10 # Defines the maximum number of concurrent processes to process Zabbix data, adjust according to your environment's capacity.
+      - API_TIMEOUT_SECONDS=20   # Used in frontend environments with low performance, increases the timeout for Zabbix API response.
+      - ZABBIX_SERVER_HOSTID=10084 # HostID of the Zabbix Server, used to fetch performance data.
+      - APP_DEBUG=true # true or false Enables debug logs for the Zabbix API
+      - CHECKTRENDTIME=15d # Time to check data trends, do not use history (<7d), takes into account the value defined in Zabbix for Trends or the value used in database partitioning.
     restart: unless-stopped
-# Para subir com banco: docker compose --profile db up --build -d    
+# To start with the database: docker compose --profile db up --build -d    
   postgres:
     profiles: ["db"]
     image: postgres:18-alpine
@@ -31,7 +29,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
