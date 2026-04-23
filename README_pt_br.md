@@ -60,5 +60,5 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 - Repositório: [https://github.com/bernardolankheet/zabbix-easy](https://github.com/bernardolankheet/zabbix-easy)
 - Licença: veja `LICENSE`
 
-Notas
+## Notas
 - Para detalhes das novas funcionalidades e mudanças veja `CHANGELOG.md`.
