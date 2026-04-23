@@ -20,7 +20,7 @@ Compatibility Zabbix:
 - Frontend: HTML/CSS/JS (server-generated)
 - Documentation: MkDocs (in the `docs/` folder)
 
-Project structure
+## Project structure
 - `app/cmd/app` — Go backend that collects data via the Zabbix API and renders the HTML report
 - `app/web` — static assets (templates, i18n, CSS, JS)
 - `docs/` — project documentation (MkDocs)
