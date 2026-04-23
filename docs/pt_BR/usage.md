@@ -295,7 +295,10 @@ Exibe o status e métricas dos Zabbix Proxies configurados no ambiente. Divide o
 
 Para que essa informação funcione corretamente é necessário criar um host com o mesmo nome (nome de identificação) do proxy, configurá‑lo para ser monitorado por esse proxy e vincular a ele o template "Zabbix Proxy Health" ou "Remote Zabbix Proxy Health". A consulta é realizada com base no padrão de chaves (`key`) dos itens usados por esses dois templates.
 
+Exemplo de configuração do host do proxy:
+![Zabbix Proxy](/img/screenshots/doc-proxy01.jpg)
 
+![Zabbix Proxy Host](/img/screenshots/doc-proxy02.jpg)
 
 ### Tabelas exibidas
 

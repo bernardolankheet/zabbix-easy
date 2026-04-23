@@ -73,6 +73,8 @@
   ,"error.fetch_data": "Error fetching data"
   ,"table.description": "Description"
   ,"table.quantity": "Quantity"
+  ,"table.enabled": "Enabled"
+  ,"table.disabled": "Disabled"
   ,"table.link": "Link"
   ,"items.type": "Item Type"
   ,"table.total": "Total"

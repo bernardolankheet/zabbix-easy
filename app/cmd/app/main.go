@@ -2834,90 +2834,119 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `</tbody></table></div>`
 
 	// --- Intervalo de Coleta ---
-	// Coleta a quantidade de itens com update interval de 1s, 10s, 30s e 60s
+	// Coleta a quantidade de itens com update interval de 1s, 10s, 30s e 60s, separado por habilitados e desabilitados
 	intervals := []int{1, 10, 30, 60}
-	intervalRows := []struct{ Interval int; Count int; Link string }{}
+	intervalRows := []struct {
+		Interval    int
+		Enabled     int
+		Disabled    int
+		LinkEnabled  string
+		LinkDisabled string
+	}{}
 	for _, d := range intervals {
-		params := map[string]interface{}{
-			"output": "extend",
-			"filter": map[string]interface{}{"delay": d},
-			"templated": false,
-			"countOutput": true,
+		cntEnabled, cntDisabled := 0, 0
+		if c, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{
+			"output": "extend", "filter": map[string]interface{}{"delay": d, "status": 0},
+			"templated": false, "countOutput": true,
+		}, zabbixApiRequest); err == nil {
+			cntEnabled = c
 		}
-		cnt := 0
-		if c, err := collector.CollectCount(apiUrl, token, "item.get", params, zabbixApiRequest); err == nil {
-			cnt = c
+		if c, err := collector.CollectCount(apiUrl, token, "item.get", map[string]interface{}{
+			"output": "extend", "filter": map[string]interface{}{"delay": d, "status": 1},
+			"templated": false, "countOutput": true,
+		}, zabbixApiRequest); err == nil {
+			cntDisabled = c
 		}
-		// montar link para a listagem com filter_delay (usar path apropriado para versão do Zabbix)
-		var perPath string
+		// montar links com filter_delay + filter_status
+		var pathEnabled, pathDisabled string
 		if majorV >= 7 {
-			perPath = fmt.Sprintf("zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
+			pathEnabled = fmt.Sprintf("zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=0&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
+			pathDisabled = fmt.Sprintf("zabbix.php?action=item.list&context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
 		} else {
-			perPath = fmt.Sprintf("items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=-1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
+			pathEnabled = fmt.Sprintf("items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=0&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
+			pathDisabled = fmt.Sprintf("items.php?context=host&filter_name=&filter_key=&filter_type=-1&filter_value_type=-1&filter_snmp_oid=&filter_history=&filter_trends=&filter_delay=%d&filter_evaltype=0&filter_tags%%5B0%%5D%%5Btag%%5D=&filter_tags%%5B0%%5D%%5Boperator%%5D=0&filter_tags%%5B0%%5D%%5Bvalue%%5D=&filter_state=-1&filter_status=1&filter_with_triggers=-1&filter_inherited=-1&filter_discovered=-1&filter_set=1", d)
 		}
-		perLink := ambienteUrl + "/" + perPath
-		linkHTML := "<a href='" + perLink + "' target='_blank' data-i18n='open'></a>"
-		intervalRows = append(intervalRows, struct{ Interval int; Count int; Link string }{Interval: d, Count: cnt, Link: linkHTML})
+		linkEnabled := "<a href='" + ambienteUrl + "/" + pathEnabled + "' target='_blank'>" + formatInt(cntEnabled) + "</a>"
+		linkDisabled := "<a href='" + ambienteUrl + "/" + pathDisabled + "' target='_blank'>" + formatInt(cntDisabled) + "</a>"
+		intervalRows = append(intervalRows, struct {
+			Interval    int
+			Enabled     int
+			Disabled    int
+			LinkEnabled  string
+			LinkDisabled string
+		}{Interval: d, Enabled: cntEnabled, Disabled: cntDisabled, LinkEnabled: linkEnabled, LinkDisabled: linkDisabled})
 	}
 
 	// renderiza a seção de Intervalo de Coleta
-	// (legend use .como-corrigir)
 	html += titleWithInfo("h3", "i18n:section.collection_interval", "i18n:tip.collection_interval")
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.total'></th><th data-i18n='table.enabled'></th><th data-i18n='table.disabled'></th></tr></thead><tbody>`
 	for _, r := range intervalRows {
-		if r.Count == 0 {
+		if r.Enabled == 0 && r.Disabled == 0 {
 			continue
 		}
-			html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Count) + `</td><td>` + r.Link + `</td></tr>`
+		html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Enabled+r.Disabled) + `</td><td>` + r.LinkEnabled + `</td><td>` + r.LinkDisabled + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
 	// --- Regras de LLD (Discovery rules) ---
-	// Coleta a quantidade de regras de descoberta (discoveryrule) com delay 1s,10s,30s,60s,300s
+	// Coleta a quantidade de regras de descoberta com delay 1s,10s,30s,60s,300s, separado por habilitadas e desabilitadas
 	lldIntervals := []int{1, 10, 30, 60, 300}
-	lldRows := []struct{ Interval int; Count int; Link string }{}
+	lldRows := []struct {
+		Interval    int
+		Enabled     int
+		Disabled    int
+		LinkEnabled  string
+		LinkDisabled string
+	}{}
 	for _, d := range lldIntervals {
-		params := map[string]interface{}{
-			"output": "extend",
-			"filter": map[string]interface{}{"delay": d},
-			"templated": true,
-			"countOutput": true,
-		}
-		cnt := 0
-		if c, err := collector.CollectCount(apiUrl, token, "discoveryrule.get", params, zabbixApiRequest); err == nil {
-			cnt = c
-		}
-
-		// montar link para a listagem de discovery rules com filter_delay (usar path apropriado para versão do Zabbix)
-		// formatar delay como "Ns" ou "Nm" para o link (Zabbix frontend espera p.ex. 5m)
+		// formatar delay como "Ns" ou "Nm" para o link
 		delayFmt := ""
 		if d >= 60 && d%60 == 0 {
 			delayFmt = fmt.Sprintf("%dm", d/60)
 		} else {
 			delayFmt = fmt.Sprintf("%ds", d)
 		}
-
-		var perPath string
-		if majorV >= 7 {
-			perPath = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime_type=-1&filter_enabled_lifetime_type=-1&filter_snmp_oid=&filter_status=-1&filter_set=1", delayFmt)
-		} else {
-			perPath = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime=&filter_snmp_oid=&filter_status=-1&filter_set=1", delayFmt)
+		cntEnabled, cntDisabled := 0, 0
+		if c, err := collector.CollectCount(apiUrl, token, "discoveryrule.get", map[string]interface{}{
+			"output": "extend", "filter": map[string]interface{}{"delay": d, "status": 0},
+			"templated": true, "countOutput": true,
+		}, zabbixApiRequest); err == nil {
+			cntEnabled = c
 		}
-		perLink := ambienteUrl + "/" + perPath
-		linkHTML := "<a href='" + perLink + "' target='_blank' data-i18n='open'></a>"
-
-		lldRows = append(lldRows, struct{ Interval int; Count int; Link string }{Interval: d, Count: cnt, Link: linkHTML})
+		if c, err := collector.CollectCount(apiUrl, token, "discoveryrule.get", map[string]interface{}{
+			"output": "extend", "filter": map[string]interface{}{"delay": d, "status": 1},
+			"templated": true, "countOutput": true,
+		}, zabbixApiRequest); err == nil {
+			cntDisabled = c
+		}
+		// montar links com filter_delay + filter_status
+		var pathEnabled, pathDisabled string
+		if majorV >= 7 {
+			pathEnabled = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime_type=-1&filter_enabled_lifetime_type=-1&filter_snmp_oid=&filter_status=0&filter_set=1", delayFmt)
+			pathDisabled = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime_type=-1&filter_enabled_lifetime_type=-1&filter_snmp_oid=&filter_status=1&filter_set=1", delayFmt)
+		} else {
+			pathEnabled = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime=&filter_snmp_oid=&filter_status=0&filter_set=1", delayFmt)
+			pathDisabled = fmt.Sprintf("host_discovery.php?context=template&filter_name=&filter_key=&filter_type=-1&filter_delay=%s&filter_lifetime=&filter_snmp_oid=&filter_status=1&filter_set=1", delayFmt)
+		}
+		linkEnabled := "<a href='" + ambienteUrl + "/" + pathEnabled + "' target='_blank'>" + formatInt(cntEnabled) + "</a>"
+		linkDisabled := "<a href='" + ambienteUrl + "/" + pathDisabled + "' target='_blank'>" + formatInt(cntDisabled) + "</a>"
+		lldRows = append(lldRows, struct {
+			Interval    int
+			Enabled     int
+			Disabled    int
+			LinkEnabled  string
+			LinkDisabled string
+		}{Interval: d, Enabled: cntEnabled, Disabled: cntDisabled, LinkEnabled: linkEnabled, LinkDisabled: linkDisabled})
 	}
 
 	// renderiza a seção de Regras de LLD (Intervalo de Coleta)
 	html += titleWithInfo("h3", "i18n:section.lld_interval", "i18n:tip.lld_interval")
-	// legend moved into tooltip via titleWithInfo
-	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.quantity'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
+	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.interval_seconds'></th><th data-i18n='table.total'></th><th data-i18n='table.enabled'></th><th data-i18n='table.disabled'></th></tr></thead><tbody>`
 	for _, r := range lldRows {
-		if r.Count == 0 {
+		if r.Enabled == 0 && r.Disabled == 0 {
 			continue
 		}
-			html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Count) + `</td><td>` + r.Link + `</td></tr>`
+		html += `<tr><td>` + formatInt(r.Interval) + `</td><td>` + formatInt(r.Enabled+r.Disabled) + `</td><td>` + r.LinkEnabled + `</td><td>` + r.LinkDisabled + `</td></tr>`
 	}
 	html += `</tbody></table></div>`
 
@@ -3042,7 +3071,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 
 	if textCount > 0 {
-		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.template'></th><th data-i18n='items.item_name'></th><th data-i18n='table.itemid'></th><th data-i18n='table.interval_seconds'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
+		html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.template'></th><th data-i18n='items.item_name'></th><th data-i18n='table.interval_seconds'></th><th data-i18n='table.link'></th></tr></thead><tbody>`
 		for _, tr := range textRows {
 			tplNames := hostToTemplates[tr.HostID]
 			tplCell := "-"
@@ -3080,7 +3109,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 				}
 			}
 
-			html += `<tr><td>` + tplCell + `</td><td>` + htmlpkg.EscapeString(tr.Name) + `</td><td>` + tr.ItemID + `</td><td>` + tr.Delay + `</td><td>` + linkHTML + `</td></tr>`
+			html += `<tr><td>` + tplCell + `</td><td>` + htmlpkg.EscapeString(tr.Name) + `</td><td>` + tr.Delay + `</td><td>` + linkHTML + `</td></tr>`
 		}
 		html += `</tbody></table></div>`
 	}
@@ -3410,10 +3439,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// items with interval <= 60s (sum 1,10,30,60)
 	itemsLe60 := 0
-	for _, r := range intervalRows { if r.Interval <= 60 { itemsLe60 += r.Count } }
+	for _, r := range intervalRows { if r.Interval <= 60 { itemsLe60 += r.Enabled + r.Disabled } }
 	// LLD rules with interval <= 300s (sum 1,10,30,60,300)
 	lldLe300 := 0
-	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Count } }
+	for _, r := range lldRows { if r.Interval <= 300 { lldLe300 += r.Enabled + r.Disabled } }
 
 	// get em itens SNMP com SNMP OID GET E WALK, utilzado no Zabbix 7,
 	snmpTplCount := 0
