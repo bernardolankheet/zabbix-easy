@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## [0.1.1] - 2026-04-23
+
+### Add
+- New collector: `CollectMediaTypes` — returns the list of media types configured in Zabbix. This collector is used by the new Alerts check to group failed alerts by media type and to surface the most common error message per media type/action. (code: `app/internal/collector/collect_mediatypes.go`, docs: `docs/pt_BR/collectors/collect_mediatypes.md`, `docs/en/collectors/collect_mediatypes.md`)
+- New documentation page for the `CollectMediaTypes` collector in both Portuguese and English.
+- New Tab Alerts check: a new tab in the report that surfaces failed alerts grouped by media type and action, with the most common error message for each group. (docs: `docs/pt_BR/usage.md`, `docs/en/usage.md`)
+
+### Changed
+- Change table headers in the Items tab to include Enabled/Disabled status of Interval Check table. Issue #97
+
+
+## [0.1.0] - 2026-04-05
+
+### First Official Release
+
+This is the first official release of Zabbix Easy Report.
+
+### Highlights
+- **HealthCheck Report**: Server, Proxies, Items, Templates, Triggers, Users tabs
+- **Zabbix Compatibility**: 6.0, 6.4, 7.0, 7.2, 7.4, 8.0 (experimental)
+- **PostgreSQL**: Simple Database for persistence reports
+- **Docker & Helm**: Container image and Helm chart for Kubernetes deployment
+- **Documentation**: MkDocs Material site in Portuguese and English
+
+### Infrastructure
+- Docker image: `bernardolankheet/zabbix-easy:v0.1.0`
+- Helm chart version: `0.1.0`
+- Branching: `dev` → `main`
+
+---
+
 ## [0.0.5] - 2026-03-28
 
 ### Added

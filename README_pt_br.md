@@ -9,10 +9,11 @@ Resumo rápido
 - Frontend: HTML/CSS/JS (gerado pelo backend)
 - Documentação: MkDocs (pasta `docs/`)
 
-Principais componentes
+Estrutura do projeto
 - `app/cmd/app` — backend em Go que coleta dados via Zabbix API e gera o HTML do relatório
 - `app/web` — recursos estáticos (templates, i18n, CSS, JS)
 - `docs/` — documentação do projeto (MkDocs)
+- `app/internal/collector` — coletores para API Zabbix.
 
 Funcionalidades principais
 - Coleta e agregação de métricas via Zabbix API
