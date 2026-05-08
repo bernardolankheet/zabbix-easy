@@ -24,7 +24,6 @@ Overview tab of a generated report with high-level metrics and badges.
 
 ---
 
-
 ### Zabbix Server: pollers view
 
 Internal Zabbix Server metrics showing poller processes and their states.
@@ -70,6 +69,13 @@ Example report section showing LLD items and their intervals.
 Templates tab showing template usage and linked hosts.
 
 ![Report templates](../img/screenshots/report-templates.jpg)
+
+---
+
+### Report: Alerts
+Displays an alerts report.
+
+![Alerts](../img/screenshots/report-alerts.jpg)
 
 ---
 
