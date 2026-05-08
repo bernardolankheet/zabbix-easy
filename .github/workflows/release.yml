@@ -40,3 +40,11 @@ jobs:
           name: v${{ steps.version.outputs.APP_VERSION }}
           generate_release_notes: true
           make_latest: true
+          body: |
+            ## Docker Image
+
+            [Docker Hub](https://hub.docker.com/r/bernardolankheet/zabbix-easy/tags?name=v${{ steps.version.outputs.APP_VERSION }})
+
+            ```bash
+            docker pull bernardolankheet/zabbix-easy:v${{ steps.version.outputs.APP_VERSION }}
+            ```
