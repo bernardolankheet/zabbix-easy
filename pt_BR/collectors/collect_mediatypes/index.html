@@ -12,21 +12,21 @@
         <meta name="author" content="Bernardo Lankheet">
       
       
-        <link rel="canonical" href="https://bernardolankheet.github.io/zabbix-easy/en/">
+        <link rel="canonical" href="https://bernardolankheet.github.io/zabbix-easy/pt_BR/collectors/collect_mediatypes/">
       
       
       
       
-      <link rel="icon" href="../img/favicon.svg">
+      <link rel="icon" href="../../../img/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.50">
     
     
       
-        <title>Zabbix Easy HealthCheck Report - Zabbix Easy Report</title>
+        <title>CollectMediaTypes - Zabbix Easy Report</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.a40c8224.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.a40c8224.min.css">
       
       
 
@@ -45,9 +45,9 @@
       
     
     
-      <link rel="stylesheet" href="../css/lang-switch.css">
+      <link rel="stylesheet" href="../../../css/lang-switch.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#zabbix-easy-healthcheck-report" class="md-skip">
+        <a href="#collectmediatypes" class="md-skip">
           Ir para o conteúdo
         </a>
       
@@ -82,9 +82,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Cabeçalho">
-    <a href=".." title="Zabbix Easy Report" class="md-header__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+    <a href="../../.." title="Zabbix Easy Report" class="md-header__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
       
-  <img src="../img/favicon.svg" alt="logo">
+  <img src="../../../img/favicon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -101,7 +101,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Zabbix Easy HealthCheck Report
+              CollectMediaTypes
             
           </span>
         </div>
@@ -188,9 +188,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navegação" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Zabbix Easy Report" class="md-nav__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
+    <a href="../../.." title="Zabbix Easy Report" class="md-nav__button md-logo" aria-label="Zabbix Easy Report" data-md-component="logo">
       
-  <img src="../img/favicon.svg" alt="logo">
+  <img src="../../../img/favicon.svg" alt="logo">
 
     </a>
     Zabbix Easy Report
@@ -217,7 +217,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -237,7 +237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pt_BR/installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -257,7 +257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pt_BR/usage/" class="md-nav__link">
+      <a href="../../usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -277,7 +277,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pt_BR/api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -297,7 +297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pt_BR/screenshots/" class="md-nav__link">
+      <a href="../../screenshots/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -337,7 +337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../pt_BR/contribution/" class="md-nav__link">
+      <a href="../../contribution/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -370,50 +370,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Índice
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility:
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#components" class="md-nav__link">
-    <span class="md-ellipsis">
-      Components
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      Flow
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changelog" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changelog
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -430,33 +386,28 @@
   
 
 
-<h1 id="zabbix-easy-healthcheck-report">Zabbix Easy HealthCheck Report</h1>
-<p>Project for a Zabbix HealthCheck using Go and Postgres.</p>
-<p><img alt="Report Summary" src="../img/screenshots/report-summary.jpg" /></p>
-<h2 id="compatibility">Compatibility:</h2>
-<p>Tested and working on Zabbix:</p>
+<h1 id="collectmediatypes">CollectMediaTypes</h1>
+<p><code>CollectMediaTypes(apiUrl, token, req ApiRequester)</code> — retorna a lista de tipos de mídia configurados no Zabbix.</p>
+<p>Descrição</p>
+<p>Este coletor invoca o método <code>mediatype.get</code> do Zabbix API com <code>output: ["mediatypeid","name"]</code> e devolve uma lista de objetos contendo <code>mediatypeid</code> e <code>name</code>.</p>
+<p>Uso</p>
 <ul>
-<li>6.0</li>
-<li>6.4</li>
-<li>7.0</li>
-<li>7.2</li>
-<li>7.4</li>
-<li>8.0 (experimental)</li>
+<li>Local: <code>app/internal/collector/collect_mediatypes.go</code></li>
+<li>Método Zabbix: <code>mediatype.get</code></li>
+<li>Parâmetros enviados: <code>output: ["mediatypeid","name"]</code></li>
 </ul>
-<h2 id="components">Components</h2>
+<p>Exemplo (pseudo-resultado):</p>
+<pre><code>[ { &quot;mediatypeid&quot;: &quot;1&quot;, &quot;name&quot;: &quot;Email&quot; }, { &quot;mediatypeid&quot;: &quot;0&quot;, &quot;name&quot;: &quot;Script&quot; } ]
+</code></pre>
+<p>Notas</p>
 <ul>
-<li>Go backend: API, workers, Zabbix data collection</li>
-<li>PostgreSQL: temporary storage for reports</li>
-<li>Alerts check: new Action Alerts and Alerts-by-MediaType views (see <a href="alerts.md">Alerts Check</a>)</li>
+<li>Em Zabbix, <code>mediatypeid</code> igual a <code>0</code> é usado para indicar scripts/remotes commands em algumas versões ou contextos. O relatório trata explicitamente <code>mediatypeid == 0</code> como <code>Script</code> para facilitar leitura.</li>
+<li>Este coletor é usado pelo novo recurso de verificação de alertas para agrupar falhas por tipo de mídia e associar mensagens de erro mais comuns.</li>
 </ul>
-<h2 id="flow">Flow</h2>
-<ol>
-<li>User provides Zabbix URL/token via the web UI</li>
-<li>Workers collect data and store it in PostgreSQL</li>
-<li>Report is generated and displayed in the UI</li>
-</ol>
-<h2 id="changelog">Changelog</h2>
-<p>See the project changelog for recent changes: https://github.com/bernardolankheet/zabbix-easy/blob/main/CHANGELOG.md</p>
+<p>Referência de código</p>
+<ul>
+<li><code>app/internal/collector/collect_mediatypes.go</code> — implementação simples usando <code>CollectRawList</code></li>
+</ul>
 
 
 
@@ -510,16 +461,16 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "Mais 1 nesta p\u00e1gina", "search.result.more.other": "Mais # nesta p\u00e1gina", "search.result.none": "Nenhum resultado encontrado", "search.result.one": "1 resultado encontrado", "search.result.other": "# resultados encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copiado para \u00e1rea de transfer\u00eancia", "clipboard.copy": "Copiar para \u00e1rea de transfer\u00eancia", "search.result.more.one": "Mais 1 nesta p\u00e1gina", "search.result.more.other": "Mais # nesta p\u00e1gina", "search.result.none": "Nenhum resultado encontrado", "search.result.one": "1 resultado encontrado", "search.result.other": "# resultados encontrados", "search.result.placeholder": "Digite para iniciar a busca", "search.result.term.missing": "Ausente", "select.version": "Selecione a vers\u00e3o"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.60a45f97.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.60a45f97.min.js"></script>
       
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
       
-        <script src="../js/mermaid-init.js"></script>
+        <script src="../../../js/mermaid-init.js"></script>
       
-        <script src="../js/lang-switch.js"></script>
+        <script src="../../../js/lang-switch.js"></script>
       
     
   </body>

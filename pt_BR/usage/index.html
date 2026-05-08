@@ -3801,6 +3801,10 @@ GET /api/reportdb/:id?raw=1 → retorna fragment bare para renderização inline
 <h2 id="guia-3-zabbix-proxys-tab-proxys">Guia 3: Zabbix Proxys (<code>tab-proxys</code>)</h2>
 <h3 id="o-que-e_2">O que é</h3>
 <p>Exibe o status e métricas dos Zabbix Proxies configurados no ambiente. Divide os proxies em: Unknown, Offline, Ativos (Active), Passivos (Passive). Para cada proxy ativo/comunicando exibe itens totais, não suportados e fila de 10 minutos.</p>
+<p>Para que essa informação funcione corretamente é necessário criar um host com o mesmo nome (nome de identificação) do proxy, configurá‑lo para ser monitorado por esse proxy e vincular a ele o template "Zabbix Proxy Health" ou "Remote Zabbix Proxy Health". A consulta é realizada com base no padrão de chaves (<code>key</code>) dos itens usados por esses dois templates.</p>
+<p>Exemplo de configuração do host do proxy:
+<img alt="Zabbix Proxy" src="/img/screenshots/doc-proxy01.jpg" /></p>
+<p><img alt="Zabbix Proxy Host" src="/img/screenshots/doc-proxy02.jpg" /></p>
 <h3 id="tabelas-exibidas">Tabelas exibidas</h3>
 <p><strong>Sumário:</strong></p>
 <table>

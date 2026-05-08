@@ -1311,6 +1311,57 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guide-alerts-tab-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Guide: Alerts (tab-alerts)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Guide: Alerts (tab-alerts)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-is_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      What it is
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zabbix-api-calls-and-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Zabbix API calls and collectors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommendations-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Recommendations integration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#code-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Code locations
+    </span>
+  </a>
+  
+</li>
+        
           <li class="md-nav__item">
   <a href="#item-items-snmp-poller-zabbix-7-section-3-items" class="md-nav__link">
     <span class="md-ellipsis">
@@ -1322,7 +1373,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_9" class="md-nav__link">
+  <a href="#what-it-is_10" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1373,7 +1424,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#what-it-is_10" class="md-nav__link">
+  <a href="#what-it-is_11" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -1582,7 +1633,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#what-it-is_11" class="md-nav__link">
+  <a href="#what-it-is_12" class="md-nav__link">
     <span class="md-ellipsis">
       What it is
     </span>
@@ -2324,6 +2375,10 @@ GET /api/reportdb/:id?raw=1 → returns bare fragment for inline rendering
 <h2 id="guide-3-zabbix-proxies-tab-proxys">Guide 3: Zabbix Proxies (<code>tab-proxys</code>)</h2>
 <h3 id="what-it-is_2">What it is</h3>
 <p>Shows the status and metrics of Zabbix Proxies configured in the environment. Proxies are grouped into: Unknown, Offline, Active, Passive. For each active/communicating proxy it shows total items, unsupported items and the 10-minute queue.</p>
+<p>To make this data work correctly you must create a host with the proxy's technical/identification name, configure that host to be monitored by the proxy, and link the <code>Zabbix Proxy Health</code> or <code>Remote Zabbix Proxy Health</code> template to it. The collection is performed based on the item key patterns (<code>key</code>) used by those templates.</p>
+<p>Example of proxy host configuration:
+<img alt="Zabbix Proxy" src="/img/screenshots/doc-proxy01.jpg" /></p>
+<p><img alt="Zabbix Proxy Host" src="/img/screenshots/doc-proxy02.jpg" /></p>
 <h3 id="tables-displayed">Tables displayed</h3>
 <p><strong>Summary:</strong></p>
 <table>
@@ -3538,8 +3593,34 @@ if len(missing) &gt; 0 {
 </tbody>
 </table>
 <hr />
+<h2 id="guide-alerts-tab-alerts">Guide: Alerts (<code>tab-alerts</code>)</h2>
+<h3 id="what-it-is_9">What it is</h3>
+<p>The Alerts tab provides two focused views to help triage notification delivery failures in the last 24 hours:</p>
+<ul>
+<li><strong>Action Alerts (last 24h)</strong> — a table of Actions with failed alerts showing <code>Action Name</code>, <code>Total Alerts</code>, <code>Failed Alerts</code> and <code>Error%</code>. Rows are ordered by highest <code>Error%</code> (descending) to quickly surface problematic actions.</li>
+<li><strong>Alerts by Media Type (last 24h)</strong> — a compact table that groups failed alerts by <code>Media Type</code> and <code>Action</code>, showing <code>Errors</code> and the most common <code>Error</code> message for each combination. This helps identify which notification channels (Email, Webhook, Script, etc.) are failing more frequently.</li>
+</ul>
+<h3 id="zabbix-api-calls-and-collectors">Zabbix API calls and collectors</h3>
+<p>The report uses two new collectors:</p>
+<ul>
+<li><code>CollectFailedAlertDetails(apiUrl, token, timeFrom, req)</code> (implemented in <code>app/internal/collector/collect_alerts.go</code>) — calls <code>alert.get</code> filtered by <code>status=2</code> (failed) and returns detailed fields: <code>alertid</code>, <code>mediatypeid</code>, <code>error</code>, <code>actionid</code>.</li>
+<li><code>CollectMediaTypes(apiUrl, token, req)</code> (implemented in <code>app/internal/collector/collect_mediatypes.go</code>) — calls <code>mediatype.get</code> with <code>output: ["mediatypeid","name"]</code> to resolve media type names.</li>
+</ul>
+<p>The application aggregates failed alert details by <code>mediatypeid + actionid</code>, counts occurrences and picks the most common error message for display.</p>
+<p>Notes:</p>
+<ul>
+<li><code>mediatypeid == 0</code> is treated as <code>Script</code> in the UI for readability (scripts / remote commands).</li>
+<li>The Action Alerts table sorts by <code>Error%</code> desc, tiebreaker by Failed count desc.</li>
+</ul>
+<h3 id="recommendations-integration">Recommendations integration</h3>
+<p>The Recommendations card for Alerts now includes a compact list of media types with delivery failures (when present). Each item shows <code>Media Type → Action — Errors</code> to surface where to start troubleshooting. No additional KPI was added for media types by default.</p>
+<h3 id="code-locations">Code locations</h3>
+<ul>
+<li>UI: <code>app/cmd/app/main.go</code> (tab rendering, aggregation and recommendation list)</li>
+<li>Collectors: <code>app/internal/collector/collect_alerts.go</code>, <code>app/internal/collector/collect_mediatypes.go</code></li>
+</ul>
 <h3 id="item-items-snmp-poller-zabbix-7-section-3-items">Item "Items SNMP-POLLER (Zabbix 7)" — Section 3 (Items)</h3>
-<h4 id="what-it-is_9">What it is</h4>
+<h4 id="what-it-is_10">What it is</h4>
 <p>Appears in <strong>Section 3 — Items</strong> of the Recommendations (sub-item <code>3.x)</code>), <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 SNMP item in templates (<code>snmpTplCount &gt; 0</code>). Displays:</p>
 <ul>
 <li>Total SNMP items in templates (<code>snmpTplCount</code>)</li>
@@ -3584,7 +3665,7 @@ if len(missing) &gt; 0 {
 </code></pre>
 <hr />
 <h3 id="sub-section-templates-suitable-for-migration-to-snmp-poller-section-5-templates">Sub-section "Templates suitable for migration to SNMP-POLLER" — Section 5 (Templates)</h3>
-<h4 id="what-it-is_10">What it is</h4>
+<h4 id="what-it-is_11">What it is</h4>
 <p>Appears at the end of <strong>Section 5 — Templates</strong> of the Recommendations, <strong>only</strong> for Zabbix ≥ 7 and when there is at least 1 legacy template in use (<code>len(snmpMigrationTpls) &gt; 0</code>). Lists alphabetically the names of templates that satisfy <strong>all</strong> of these conditions:</p>
 <ol>
 <li>Have at least one SNMP item (<code>type=20</code>) in templates</li>
@@ -3979,7 +4060,7 @@ curl -X DELETE http://localhost:8080/api/reports
 </code></pre>
 <p>The report is divided into tabs. This section documents each one: what it displays, which Zabbix API calls are made, which Go function generates the HTML, and how the data is processed.</p>
 <hr />
-<h3 id="what-it-is_11">What it is</h3>
+<h3 id="what-it-is_12">What it is</h3>
 <p>Displays the utilization level of internal Zabbix Server processes, divided into two groups:</p>
 <ul>
 <li><strong>Pollers (Data Collectors):</strong> processes responsible for actively collecting metrics from agents (poller, http poller, icmp pinger, agent poller, snmp poller, etc.)</li>
