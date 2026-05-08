@@ -20,7 +20,7 @@ Compatibilidade Zabbix:
 - Frontend: HTML/CSS/JS (gerado pelo backend)
 - Documentação: MkDocs (pasta `docs/`)
 
-Estrutura do projeto
+## Estrutura do projeto
 - `app/cmd/app` — backend em Go que coleta dados via Zabbix API e gera o HTML do relatório
 - `app/web` — recursos estáticos (templates, i18n, CSS, JS)
 - `docs/` — documentação do projeto (MkDocs)
@@ -60,5 +60,5 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 - Repositório: [https://github.com/bernardolankheet/zabbix-easy](https://github.com/bernardolankheet/zabbix-easy)
 - Licença: veja `LICENSE`
 
-Notas
+## Notas
 - Para detalhes das novas funcionalidades e mudanças veja `CHANGELOG.md`.
