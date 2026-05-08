@@ -72,6 +72,13 @@ Abas de templates mostrando uso e hosts vinculados.
 
 ---
 
+### Relatório: Alertas
+Exibe um relatorio de alertas.
+
+![Alertas](../img/screenshots/report-alerts.jpg)
+
+---
+
 ### Relatório: Principais itens (Top)
 
 Exibe os itens de maior impacto e suas métricas.
