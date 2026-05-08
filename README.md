@@ -20,7 +20,13 @@ Compatibility Zabbix:
 - Frontend: HTML/CSS/JS (server-generated)
 - Documentation: MkDocs (in the `docs/` folder)
 
-![Report Summary](docs/img/screenshots/report-summary.jpg)
+## Project structure
+- `app/cmd/app` — Go backend that collects data via the Zabbix API and renders the HTML report
+- `app/web` — static assets (templates, i18n, CSS, JS)
+- `docs/` — project documentation (MkDocs)
+- `app/internal/collector` — Zabbix API collectors.
+
+These collector helpers are used by the backend to avoid ad-hoc JSON parsing in `cmd/app/main.go` and to improve testability.
 
 ## Main features
 - Data collection and aggregation via the Zabbix API
