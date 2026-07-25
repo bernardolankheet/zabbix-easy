@@ -1096,7 +1096,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		itemId := fmt.Sprintf("%v", item["itemid"])
 		itemName := fmt.Sprintf("%v", item["name"])
 		itemError := fmt.Sprintf("%v", item["error"])
-		hostsArr := item["hosts"].([]interface{})
+		// comma-ok como em todos os outros acessos a "hosts" no arquivo: sem a
+		// guarda, um item.get que não traga o campo derruba o processo inteiro
+		// com "interface conversion: interface {} is nil, not []interface {}".
+		hostsArr, _ := item["hosts"].([]interface{})
 		itemHostName := ""
 		itemHostId := ""
 		if len(hostsArr) > 0 {
@@ -1784,6 +1787,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	//      valor sai "-". Por isso a checagem não pode depender de len(map)==0.
 	//   b) o host existe mas não tem nenhum dos itens de processo.
 	hostidNaoResolve := serverHost != "" && !serverHostExists
+	// Mensagem para linha sem dados de trend/history. "Processo não habilitado" é
+	// a leitura correta só quando o host é válido — aí a ausência de dado de fato
+	// sugere o processo desligado. Se o hostid nem resolve para um host, a
+	// ausência já está explicada e chamar de desabilitado é afirmação falsa.
+	semDadosMsg := "<span data-i18n='process.disabled'></span>"
+	if hostidNaoResolve {
+		semDadosMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+	}
 	semItensDeProcesso := len(serverItemsMap) == 0 && len(allServerNames) > 0
 	if hostidNaoResolve || semItensDeProcesso {
 		key := "warn.server_items_not_found"
@@ -1826,8 +1837,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
-			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+			if hostidNaoResolve {
+				pr.DisabledMsg = semDadosMsg
 			} else if majorV < 7 {
 				switch baseName {
 				case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
@@ -1899,8 +1910,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
-			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+			if hostidNaoResolve {
+				pr.DisabledMsg = semDadosMsg
 			} else {
 				pr.DisabledMsg = "<span data-i18n='process.disabled'></span>"
 			}
@@ -1974,13 +1985,13 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = semDadosMsg }
 		} else {
 			pr := &procRows[ref.idx]
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = semDadosMsg }
 		}
 	}
 	// Ordena por Vavg desc (rows desabilitadas com Vavg=-1 vão para o fim)
