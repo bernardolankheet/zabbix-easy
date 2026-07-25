@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Security
+- With `APP_DEBUG=1` the full JSON-RPC body was written to the log on every call, exposing the API token in clear text on each request (88 occurrences in a single 3-second report run), plus the `user.login` password and the session token it returns. Debug bodies are now redacted; report data and the Zabbix version are still logged. (code: `app/cmd/app/main.go` — `redactSecrets`, tests: `app/cmd/app/redact_test.go`)
+
+### Fixed
+- Crash: `item["hosts"].([]interface{})` was the only unguarded type assertion of that field in the file (every sibling uses comma-ok). An `item.get` response without the `hosts` field panics the whole process with `interface conversion: interface {} is nil, not []interface {}` — taking the container down, not just the report. (code: `app/cmd/app/main.go`)
+- Server process tables mixed two contradictory explanations in the same run: rows whose item was matched showed "process not enabled", rows whose item was not matched showed "hostid not found" — same root cause, two answers. "Not enabled" is only a valid reading when the host is valid; when the hostid does not resolve to a host, the missing data is already explained and calling the process disabled is simply false. (code: `app/cmd/app/main.go`)
+
+- When no Zabbix Server internal process item is found, the report showed all 38 process rows as "disabled" with no warning — indistinguishable from a Zabbix Server with everything actually turned off, when the real cause is `ZABBIX_SERVER_HOSTID` pointing at the wrong host. The report now warns explicitly. (code: `app/cmd/app/main.go`, i18n: `warn.server_items_not_found`)
+
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
