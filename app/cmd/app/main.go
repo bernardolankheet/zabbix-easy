@@ -41,10 +41,26 @@ func redactSecrets(body string, loginResult bool) string {
 	}
 	return body
 }
-// useBearerAuth is set to true when the detected Zabbix version is >= 7.2.
-// In that case all API calls (except user.login) must authenticate via
-// "Authorization: Bearer <token>" HTTP header instead of the JSON-RPC "auth" field.
-var useBearerAuth bool = false
+// bearerAuthByUrl guarda, por URL de API, se a autenticação vai no header
+// "Authorization: Bearer" (Zabbix >= 7.2) ou no campo "auth" do JSON-RPC.
+//
+// Era um bool global escrito por generateZabbixReport e lido por
+// zabbixApiRequest — corrida de dados quando dois relatórios rodam ao mesmo
+// tempo, e pior: dois Zabbix de versões diferentes se sobrescreviam, fazendo um
+// deles autenticar pelo transporte errado. Chavear por URL resolve os dois
+// problemas de uma vez, já que zabbixApiRequest sempre recebe a apiUrl.
+var bearerAuthByUrl sync.Map // apiUrl -> bool
+
+func setBearerAuth(apiUrl string, bearer bool) { bearerAuthByUrl.Store(apiUrl, bearer) }
+
+func useBearerAuthFor(apiUrl string) bool {
+	if v, ok := bearerAuthByUrl.Load(apiUrl); ok {
+		if b, ok2 := v.(bool); ok2 {
+			return b
+		}
+	}
+	return false
+}
 // CHECKTRENDTIME controls how far back getLastTrend queries trends.
 // Format examples: 15d, 1d, 12h, 10m (days/hours/minutes). Defaults to 15d.
 var checkTrendDurationSeconds int64 = 15 * 24 * 60 * 60
@@ -116,23 +132,31 @@ var httpClient *http.Client
 // Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
 var itemLookupCache sync.Map
 
+// httpClientOnce garante uma inicialização só. O "if httpClient == nil { init }"
+// anterior era lido e escrito sem sincronização: com dois relatórios simultâneos
+// ambos viam nil, ambos construíam um Transport, e o ponteiro global trocava
+// embaixo de requisições em voo. Um http.Transport é seguro para uso
+// concorrente, mas *trocá-lo* durante o uso não é — e os mapas internos dele
+// (pool de conexões idle) são exatamente o tipo de estrutura cuja corrupção
+// aparece depois como pânico em lugar nenhum relacionado.
+var httpClientOnce sync.Once
+
 func initHttpClient() {
-	if httpClient != nil {
-		return
-	}
-	// Timeout padrão de 60s: trend.get e history.get em ambientes grandes podem levar 30-50s.
-	// Configurável via ENV API_TIMEOUT_SECONDS para ajuste sem rebuild.
-	timeoutSec := 60
-	if v := os.Getenv("API_TIMEOUT_SECONDS"); v != "" {
-		if n, e := strconv.Atoi(v); e == nil && n > 0 { timeoutSec = n }
-	}
-	log.Printf("[DEBUG] HTTP client timeout=%ds (API_TIMEOUT_SECONDS)", timeoutSec)
-	httpTransport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost: 8,
-		IdleConnTimeout:     30 * time.Second,
-	}
-	httpClient = &http.Client{Transport: httpTransport, Timeout: time.Duration(timeoutSec) * time.Second}
+	httpClientOnce.Do(func() {
+		// Timeout padrão de 60s: trend.get e history.get em ambientes grandes podem levar 30-50s.
+		// Configurável via ENV API_TIMEOUT_SECONDS para ajuste sem rebuild.
+		timeoutSec := 60
+		if v := os.Getenv("API_TIMEOUT_SECONDS"); v != "" {
+			if n, e := strconv.Atoi(v); e == nil && n > 0 { timeoutSec = n }
+		}
+		log.Printf("[DEBUG] HTTP client timeout=%ds (API_TIMEOUT_SECONDS)", timeoutSec)
+		httpTransport = &http.Transport{
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+			MaxIdleConnsPerHost: 8,
+			IdleConnTimeout:     30 * time.Second,
+		}
+		httpClient = &http.Client{Transport: httpTransport, Timeout: time.Duration(timeoutSec) * time.Second}
+	})
 }
 
 // isIdleConnError detecta erros transientes de conexão idle que ocorrem quando
@@ -191,16 +215,15 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	// Zabbix < 7.2: token vai no campo "auth" do JSON-RPC.
 	// Zabbix >= 7.2: token vai no header HTTP "Authorization: Bearer <token>".
 	// user.login passa token vazio, então nenhum dos dois ramos se aplica.
-	if token != "" && !useBearerAuth {
+	if token != "" && !useBearerAuthFor(apiUrl) {
 		req["auth"] = token
 	}
 	reqBytes, _ := json.Marshal(req)
 	if debugApi {
 		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, redactSecrets(string(reqBytes), false))
 	}
-	if httpClient == nil {
-		initHttpClient()
-	}
+	// idempotente (sync.Once) — barato o bastante para chamar sempre
+	initHttpClient()
 	// Função para tentar uma requisição e repetir se for um erro de idle connection (conexão fechada pelo servidor antes de concluirr a requisição). Limite de 3 tentativas para evitar loops infinitos.
 	const maxRetries = 3
 	var resp *http.Response
@@ -213,7 +236,7 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 		req, reqErr := http.NewRequest("POST", apiUrl, strings.NewReader(string(reqBytes)))
 		if reqErr != nil { err = reqErr; break }
 		req.Header.Set("Content-Type", "application/json")
-		if useBearerAuth && token != "" {
+		if useBearerAuthFor(apiUrl) && token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		if attempt > 1 {
@@ -760,8 +783,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	// A partir do Zabbix 7.2 a autenticação é via Bearer token no header HTTP.
 	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
-	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
-	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
+	useBearer := majorV > 7 || (majorV == 7 && minorV >= 2)
+	setBearerAuth(apiUrl, useBearer)
+	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearer)
 
 	// ─── hostid do Zabbix Server ──────────────────────────────────────────────
 	// ZABBIX_SERVER_HOSTID segue sendo o override explícito, como sempre foi.

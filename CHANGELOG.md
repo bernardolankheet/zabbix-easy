@@ -7,6 +7,12 @@
 - Removed `-e ZABBIX_SERVER_HOSTID=10084` from the README quick-start commands — the value only holds on a fresh install and is no longer needed.
 
 ### Fixed
+- Data races on three package-level globals read and written inside `zabbixApiRequest`, which two concurrent reports hit at once:
+  - `httpClient`/`httpTransport` were lazily initialised with an unsynchronised `if httpClient == nil`. Both reports saw `nil`, both built a `Transport`, and the global pointer swapped underneath in-flight requests. A `http.Transport` is safe to *share* concurrently but not to *replace* while in use, and its internal idle-connection maps are exactly the kind of structure whose corruption later surfaces as a panic somewhere unrelated — the `fatal error: concurrent map writes` seen in a container running against Zabbix 8.0 crashed inside an unrelated `json.Unmarshal`. Now initialised through `sync.Once`.
+  - `useBearerAuth` was a global bool written per report. Beyond the race, it was a logic bug: two Zabbix servers of different versions overwrote each other, so one of them authenticated over the wrong transport. Replaced with a `sync.Map` keyed by API URL.
+
+  Reproduced with the race detector against a stub returning the 8.0 `trend.get` error plus large `history.get` payloads: 6 races over 4 concurrent reports before, 0 over 12 after, with each URL keeping its own auth transport. (code: `app/cmd/app/main.go`, tests: `app/cmd/app/concurrency_test.go`)
+
 - The report blamed `ZABBIX_SERVER_HOSTID` even when detection had already proven no host could work. "Detection found nothing" and "detection failed" were collapsed into one branch that logged a bare `<nil>` error and pointed the user at the env var. When no monitored `zabbix[process,...]` item exists on any host, the Zabbix Server simply is not monitoring itself and no hostid resolves it — the report now says that instead. (code: `app/cmd/app/main.go`, i18n: `warn.server_not_monitored`)
 
 - A URL typed without a scheme (`zabbix.example.com`) failed with `unsupported protocol scheme`, which says nothing to the user. `https://` is now assumed when no scheme is given. (code: `app/cmd/app/main.go`)
