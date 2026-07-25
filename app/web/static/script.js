@@ -76,23 +76,27 @@ function setLang(lang) {
 })();
 
 // =============================================================================
-// Toggle show/hide token with eye icon
-const toggleToken = document.getElementById('toggle-token');
-const tokenInput = document.getElementById('zabbix_token');
-const eyeIcon = document.getElementById('eye-icon');
-let isVisible = false;
-toggleToken.addEventListener('click', function() {
-    isVisible = !isVisible;
-    tokenInput.type = isVisible ? 'text' : 'password';
-    eyeIcon.innerHTML = isVisible
-        ? '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><line x1="1" y1="1" x2="23" y2="23" stroke="#888" stroke-width="2"/>'
-        : '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>';
-});
-toggleToken.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleToken.click();
-    }
+// Toggle show/hide of the secret fields (token, password) with the eye icon
+[['toggle-token', 'zabbix_token', 'eye-icon'],
+ ['toggle-password', 'zabbix_password', 'eye-icon-password']].forEach(function(ids) {
+    const toggle = document.getElementById(ids[0]);
+    const input = document.getElementById(ids[1]);
+    const icon = document.getElementById(ids[2]);
+    if (!toggle || !input || !icon) return;
+    let isVisible = false;
+    toggle.addEventListener('click', function() {
+        isVisible = !isVisible;
+        input.type = isVisible ? 'text' : 'password';
+        icon.innerHTML = isVisible
+            ? '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><line x1="1" y1="1" x2="23" y2="23" stroke="#888" stroke-width="2"/>'
+            : '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>';
+    });
+    toggle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle.click();
+        }
+    });
 });
 
 // Wire header lang selector
@@ -114,11 +118,21 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
 
     var url = document.getElementById('zabbix_url').value;
     var token = document.getElementById('zabbix_token').value;
+    var user = document.getElementById('zabbix_user').value;
+    var password = document.getElementById('zabbix_password').value;
+
+    // Sem token, usuário e senha são obrigatórios (o campo token não é mais `required`)
+    if (!token.trim() && (!user.trim() || !password)) {
+        document.getElementById('progress-bar').style.display = 'none';
+        document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_missing_auth') + '</div>';
+        document.getElementById('report-area').style.display = 'block';
+        return;
+    }
 
     fetch('/api/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zabbix_url: url, zabbix_token: token })
+        body: JSON.stringify({ zabbix_url: url, zabbix_token: token, zabbix_user: user, zabbix_password: password })
     })
     .then(res => res.json())
     .then(data => {

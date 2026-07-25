@@ -196,6 +196,14 @@ label {
     line-height: 32px;
 }
 
+#zabbix-form .auth-separator {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #e3e3e3;
+    font-size: 0.9em;
+    color: #777;
+}
+
 .password-wrapper { box-sizing: border-box; }
 
 #zabbix-form .password-wrapper {
