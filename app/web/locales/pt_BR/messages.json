@@ -4,6 +4,12 @@
   "placeholder_url": "http://zabbix.com ou http://IP",
   "placeholder_token": "Token API",
   "aria_toggle_token": "Mostrar/Ocultar token",
+  "label_or_credentials": "ou, se não houver token, informe usuário e senha:",
+  "label_user": "Usuário:",
+  "placeholder_user": "Usuário do Zabbix",
+  "label_password": "Senha:",
+  "placeholder_password": "Senha do Zabbix",
+  "aria_toggle_password": "Mostrar/Ocultar senha",
   "btn_generate": "Gerar Relatório",
   "title_saved_reports": "Relatórios Salvos",
   "tooltip_reload": "Recarregar lista do banco",
@@ -69,7 +75,11 @@
   ,"error.read_history": "Erro ao ler histórico"
   ,"error.create_requiredperformance_key": "Criar chave zabbix[requiredperformance] no Template do Zabbix"
   ,"error.search_item": "Erro ao procurar item"
+  ,"error.not_zabbix_endpoint": "Esta URL não responde a API do Zabbix (apiinfo.version não retornou versão). Confira o endereço — precisa ser o frontend do Zabbix, ex: https://zabbix.exemplo.com ou https://zabbix.exemplo.com/zabbix."
   ,"error.invalid_token": "Token Inválido"
+  ,"error.invalid_credentials": "Usuário ou senha inválidos"
+  ,"error_missing_auth": "Informe um token de API, ou usuário e senha"
+  ,"progress.authenticating": "Autenticando com usuário e senha..."
   ,"error.fetch_data": "Erro ao obter dados"
   ,"table.description": "Descrição"
   ,"table.quantity": "Quantidade"

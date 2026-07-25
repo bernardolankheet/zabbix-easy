@@ -675,18 +675,19 @@ func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[
 // O código em generateZabbixReport verifica os campos "operating_mode" (v7)
 // e "status" (v6) para determinar o tipo (Active/Passive), e "state" para
 // determinar o estado (Online/Offline/Unknown).
-func generateZabbixReport(url, token string, progressCb func(string)) (string, error) {
+func generateZabbixReport(url, token, username, password string, progressCb func(string)) (string, error) {
 		nItemsNaoSuportados := "-"
 	if strings.TrimSpace(url) == "" {
 		return "", fmt.Errorf("zabbix URL is required")
 	}
-	if strings.TrimSpace(token) == "" {
-		return "", fmt.Errorf("zabbix API token is required")
+	if strings.TrimSpace(token) == "" && (strings.TrimSpace(username) == "" || password == "") {
+		return "", fmt.Errorf("zabbix API token or username/password is required")
 	}
 
  	// Normalize inputs so validation and usage operate on the same values
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
+ 	username = strings.TrimSpace(username)
 
 	// restore apiUrl and html builder variables
 	apiUrl := url
@@ -716,9 +717,15 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	sem := make(chan struct{}, maxConcurrent)
 
 	// get Zabbix API version (apiinfo.version)
-	zabbixVersion := ""
-	if v, err := collector.CollectZabbixVersion(apiUrl, zabbixApiRequest); err == nil {
-		zabbixVersion = v
+	// apiinfo.version não exige autenticação e existe em toda versão suportada.
+	// Se ela não responde uma versão, a URL não é uma API do Zabbix — abortar
+	// aqui evita seguir com majorV=0, que escolhe o transporte de auth errado
+	// para 7.2+ e transforma um erro de URL em erros confusos lá na frente
+	// (ex.: apontar para um Grafana devolve o 401 dele no lugar do login).
+	zabbixVersion, versionErr := collector.CollectZabbixVersion(apiUrl, zabbixApiRequest)
+	if versionErr != nil || strings.TrimSpace(zabbixVersion) == "" {
+		log.Printf("[ERROR] apiinfo.version não retornou versão para %s: %v", apiUrl, versionErr)
+		return "", fmt.Errorf("not a Zabbix API endpoint: %s", apiUrl)
 	}
 	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
@@ -736,6 +743,24 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
 	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
 	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
+
+	// Sem token de API: autentica com usuário e senha (user.login) e encerra a
+	// sessão ao final. Útil em frontends somente-leitura, onde não é possível
+	// criar um API token (issue #96).
+	if token == "" {
+		if progressCb != nil { progressCb("progress.authenticating") }
+		tok, err := collector.Authenticate(apiUrl, username, password, zabbixApiRequest)
+		if err != nil {
+			log.Printf("[ERROR] user.login falhou para o usuário %q: %v", username, err)
+			return "", fmt.Errorf("login failed: %w", err)
+		}
+		token = tok
+		defer func() {
+			if _, err := zabbixApiRequest(apiUrl, token, "user.logout", []string{}); err != nil {
+				log.Printf("[WARN] user.logout falhou: %v", err)
+			}
+		}()
+	}
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
 	formatInt := func(n int) string {
@@ -4529,8 +4554,10 @@ func main() {
 
 	r.POST("/api/start", func(c *gin.Context) {
 		type Req struct {
-			ZabbixURL   string `json:"zabbix_url"`
-			ZabbixToken string `json:"zabbix_token"`
+			ZabbixURL      string `json:"zabbix_url"`
+			ZabbixToken    string `json:"zabbix_token"`
+			ZabbixUser     string `json:"zabbix_user"`
+			ZabbixPassword string `json:"zabbix_password"`
 		}
 		var req Req
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -4539,22 +4566,26 @@ func main() {
 			return
 		}
 		if debugApi {
-			log.Printf("[DEBUG] Requisição recebida: url=%s, token=<redacted>", req.ZabbixURL)
+			log.Printf("[DEBUG] Requisição recebida: url=%s, user=%s, token/senha=<redacted>", req.ZabbixURL, req.ZabbixUser)
 		}
 		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
 		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "progress.starting_collection"})
-		go func(taskID string, url, token string) {
+		go func(taskID string, url, token, username, password string) {
 			setProgress := func(msg string) {
 				if t := getTask(taskID); t != nil { t.ProgressMsg = msg }
 			}
 			setProgress("progress.detecting_version")
-			report, err := generateZabbixReportWithProgress(url, token, setProgress)
+			report, err := generateZabbixReportWithProgress(url, token, username, password, setProgress)
 			if err != nil {
 				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
 				if t := getTask(taskID); t != nil {
 					tasksMu.Lock()
 					t.Status = "error"
-					if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
+					if strings.HasPrefix(err.Error(), "not a Zabbix API endpoint") {
+						t.Report = "<div style='color:red;'><span data-i18n='error.not_zabbix_endpoint'></span></div>"
+					} else if strings.HasPrefix(err.Error(), "login failed") {
+						t.Report = "<div style='color:red;'><span data-i18n='error.invalid_credentials'></span></div>"
+					} else if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
 						t.Report = "<div style='color:red;'><span data-i18n='error.invalid_token'></span></div>"
 					} else {
 						t.Report = "<div style='color:red;'><span data-i18n='error_server'></span> " + htmlpkg.EscapeString(err.Error()) + "</div>"
@@ -4581,7 +4612,7 @@ func main() {
 				}
 			}
 			return
-		}(id, req.ZabbixURL, req.ZabbixToken)
+		}(id, req.ZabbixURL, req.ZabbixToken, req.ZabbixUser, req.ZabbixPassword)
 		c.JSON(http.StatusOK, gin.H{"task_id": id})
 	})
 
@@ -4733,9 +4764,9 @@ func main() {
 			}
 
 // Wrapper para gerar progresso do relatorio
-			func generateZabbixReportWithProgress(url, token string, setProgress func(string)) (string, error) {
+			func generateZabbixReportWithProgress(url, token, username, password string, setProgress func(string)) (string, error) {
 				if setProgress != nil { setProgress("progress.detecting_version") }
-				return generateZabbixReport(url, token, setProgress)
+				return generateZabbixReport(url, token, username, password, setProgress)
 			}
 
 //Se chegou até aqui, parabens!

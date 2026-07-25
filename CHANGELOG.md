@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Fixed
+- Pointing the tool at a URL that is not a Zabbix API (a Grafana, a wrong vhost) was not detected: `apiinfo.version` failing was silently ignored, collection carried on with `majorV=0` — which also picks the wrong auth transport for Zabbix >= 7.2 — and surfaced as a confusing downstream error instead of "this is not the Zabbix API". The report now stops at version detection with a clear message. (code: `app/cmd/app/main.go`, i18n: `error.not_zabbix_endpoint`, tests: `app/cmd/app/endpoint_test.go`)
+
+
+## [Unreleased]
+
+### Added
+- Authentication with username and password as an alternative to the API token. When `zabbix_token` is empty, the app performs a `user.login` with `zabbix_user`/`zabbix_password` and uses the resulting session token, calling `user.logout` when the report finishes. Useful on read-only frontends where an API token cannot be created. Issue #96 (code: `app/cmd/app/main.go`, `app/internal/collector/collect_auth.go`, docs: `docs/pt_BR/collectors/authenticate.md`, `docs/en/collectors/authenticate.md`)
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
