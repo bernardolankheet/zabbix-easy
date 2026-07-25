@@ -76,23 +76,27 @@ function setLang(lang) {
 })();
 
 // =============================================================================
-// Toggle show/hide token with eye icon
-const toggleToken = document.getElementById('toggle-token');
-const tokenInput = document.getElementById('zabbix_token');
-const eyeIcon = document.getElementById('eye-icon');
-let isVisible = false;
-toggleToken.addEventListener('click', function() {
-    isVisible = !isVisible;
-    tokenInput.type = isVisible ? 'text' : 'password';
-    eyeIcon.innerHTML = isVisible
-        ? '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><line x1="1" y1="1" x2="23" y2="23" stroke="#888" stroke-width="2"/>'
-        : '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>';
-});
-toggleToken.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleToken.click();
-    }
+// Toggle show/hide of the secret fields (token, password) with the eye icon
+[['toggle-token', 'zabbix_token', 'eye-icon'],
+ ['toggle-password', 'zabbix_password', 'eye-icon-password']].forEach(function(ids) {
+    const toggle = document.getElementById(ids[0]);
+    const input = document.getElementById(ids[1]);
+    const icon = document.getElementById(ids[2]);
+    if (!toggle || !input || !icon) return;
+    let isVisible = false;
+    toggle.addEventListener('click', function() {
+        isVisible = !isVisible;
+        input.type = isVisible ? 'text' : 'password';
+        icon.innerHTML = isVisible
+            ? '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><line x1="1" y1="1" x2="23" y2="23" stroke="#888" stroke-width="2"/>'
+            : '<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>';
+    });
+    toggle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle.click();
+        }
+    });
 });
 
 // Wire header lang selector
@@ -114,11 +118,21 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
 
     var url = document.getElementById('zabbix_url').value;
     var token = document.getElementById('zabbix_token').value;
+    var user = document.getElementById('zabbix_user').value;
+    var password = document.getElementById('zabbix_password').value;
+
+    // Sem token, usuário e senha são obrigatórios (o campo token não é mais `required`)
+    if (!token.trim() && (!user.trim() || !password)) {
+        document.getElementById('progress-bar').style.display = 'none';
+        document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_missing_auth') + '</div>';
+        document.getElementById('report-area').style.display = 'block';
+        return;
+    }
 
     fetch('/api/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zabbix_url: url, zabbix_token: token })
+        body: JSON.stringify({ zabbix_url: url, zabbix_token: token, zabbix_user: user, zabbix_password: password })
     })
     .then(res => res.json())
     .then(data => {
@@ -131,6 +145,23 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
         }
     });
 });
+
+// Id da tarefa do relatório em tela, quando ele veio de uma geração ao vivo.
+// Relatórios abertos do banco não têm tarefa em memória — daí o null.
+var currentTaskId = null;
+
+// Volta da tela de relatório para o formulário. Compartilhado por "Novo
+// Relatório" e "Sair" — o Sair faz isto e mais a limpeza de credenciais.
+function backToForm() {
+    const ra = document.getElementById('report-area');
+    if (ra) { ra.style.display = 'none'; ra.innerHTML = ''; }
+    const pb = document.getElementById('progress-bar');
+    if (pb) pb.style.display = 'none';
+    const form = document.getElementById('zabbix-form');
+    if (form) form.style.display = '';
+    try { document.body.classList.add('show-login'); } catch(e) {}
+    window.scrollTo(0, 0);
+}
 
 // ---------------------------------------------------------------------------
 // renderReport(html, titleHint)
@@ -182,6 +213,9 @@ function renderReport(html, titleHint, createdAt) {
         </button>
         <button class="btn small icon-btn" data-action="print" data-i18n-aria="aria_print_pdf" data-i18n-title="aria_print_pdf" aria-label="${t('aria_print_pdf')}" title="${t('aria_print_pdf')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9V3h12v6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="6" y="13" width="12" height="8" rx="2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn small icon-btn" data-action="logout" data-i18n-aria="aria_logout" data-i18n-title="aria_logout" aria-label="${t('aria_logout')}" title="${t('aria_logout')}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 17 21 12 16 7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         </button>`;
 
     // place action group inside the report frame header
@@ -198,6 +232,7 @@ function renderReport(html, titleHint, createdAt) {
         if (btns[0]) btns[0].id = 'btn-new-report';
         if (btns[1]) btns[1].id = 'btn-export-html';
         if (btns[2]) btns[2].id = 'btn-print';
+        if (btns[3]) btns[3].id = 'btn-logout';
     } catch(e) {}
 
     // assemble container
@@ -306,15 +341,26 @@ function renderReport(html, titleHint, createdAt) {
 
     // wire Novo Relatório button — returns to the generation form
     const btnNewReport = document.getElementById('btn-new-report');
-    if (btnNewReport) btnNewReport.addEventListener('click', function() {
-        const ra = document.getElementById('report-area');
-        if (ra) { ra.style.display = 'none'; ra.innerHTML = ''; }
-        const pb = document.getElementById('progress-bar');
-        if (pb) pb.style.display = 'none';
-        const form = document.getElementById('zabbix-form');
-        if (form) form.style.display = '';
-        try { document.body.classList.add('show-login'); } catch(e) {}
-        window.scrollTo(0, 0);
+    if (btnNewReport) btnNewReport.addEventListener('click', function() { backToForm(); });
+
+    // wire Sair button — same reset, but also drops the report from the server's
+    // memory and wipes the credentials from the form, so nothing usable is left
+    // behind on a shared machine.
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) btnLogout.addEventListener('click', function() {
+        if (currentTaskId) {
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id: currentTaskId })
+            }).catch(function() {});
+            currentTaskId = null;
+        }
+        ['zabbix_token', 'zabbix_user', 'zabbix_password'].forEach(function(id) {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        backToForm();
     });
 
     // wire Print button
@@ -379,7 +425,7 @@ function renderReport(html, titleHint, createdAt) {
     });
 
     // keyboard accessibility for all action buttons
-    ['btn-new-report', 'btn-print', 'btn-export-html'].forEach(id => {
+    ['btn-new-report', 'btn-print', 'btn-export-html', 'btn-logout'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         el.setAttribute('tabindex', '0');
@@ -400,6 +446,7 @@ function checkProgress(taskId, progress) {
                         }
                     }
             if (data.status === 'done') {
+                currentTaskId = taskId;
                 document.querySelector('.progress').style.width = '100%';
                 fetch('/api/report/' + taskId)
                     .then(res => res.text())
@@ -475,6 +522,7 @@ document.getElementById('btn-open-db').addEventListener('click', function() {
     const id = sel.value;
     if (!id) return alert(t('alert_select_report'));
     // ?raw=1 causes Go handler to return only the HTML fragment so renderReport can assemble the layout
+    currentTaskId = null;
     fetch('/api/reportdb/' + id + '?raw=1')
         .then(res => {
             if (!res.ok) throw new Error(t('error_report_not_found'));

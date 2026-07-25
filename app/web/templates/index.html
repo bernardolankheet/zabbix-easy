@@ -28,9 +28,19 @@
             <input type="text" id="zabbix_url" name="zabbix_url" data-i18n-placeholder="placeholder_url" placeholder="http://zabbix.com ou http://IP" required>
             <label for="zabbix_token" data-i18n="label_token">Token de Autenticação:</label>
             <div class="password-wrapper">
-                <input type="password" id="zabbix_token" name="zabbix_token" data-i18n-placeholder="placeholder_token" placeholder="Token API" required>
+                <input type="password" id="zabbix_token" name="zabbix_token" data-i18n-placeholder="placeholder_token" placeholder="Token API">
                 <span id="toggle-token" class="toggle-eye" tabindex="0" data-i18n-aria="aria_toggle_token" aria-label="Mostrar/Ocultar token">
                     <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg>
+                </span>
+            </div>
+            <div class="auth-separator" data-i18n="label_or_credentials">ou, se não houver token, informe usuário e senha:</div>
+            <label for="zabbix_user" data-i18n="label_user">Usuário:</label>
+            <input type="text" id="zabbix_user" name="zabbix_user" autocomplete="username" data-i18n-placeholder="placeholder_user" placeholder="Usuário do Zabbix">
+            <label for="zabbix_password" data-i18n="label_password">Senha:</label>
+            <div class="password-wrapper">
+                <input type="password" id="zabbix_password" name="zabbix_password" autocomplete="current-password" data-i18n-placeholder="placeholder_password" placeholder="Senha do Zabbix">
+                <span id="toggle-password" class="toggle-eye" tabindex="0" data-i18n-aria="aria_toggle_password" aria-label="Mostrar/Ocultar senha">
+                    <svg id="eye-icon-password" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg>
                 </span>
             </div>
             <button type="submit" data-i18n="btn_generate">Gerar Relatório</button>

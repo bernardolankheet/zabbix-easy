@@ -6,7 +6,7 @@ lang: en_US
 ## Usage
 
 1. Open the web UI
-2. Enter the Zabbix API URL and token
+2. Enter the Zabbix API URL and **either an API token** *or* **a username and password**
 3. Wait for the report to be generated
 4. Export or print the report as needed
 
@@ -28,7 +28,7 @@ These variables affect the behavior of the entire report generation:
 
 ## Overall generation flow
 
-The main function is `generateZabbixReport(url, token string, progressCb func(string))` in `cmd/app/main.go`.
+The main function is `generateZabbixReport(url, token, username, password string, progressCb func(string))` in `cmd/app/main.go`.
 
 - `url` and `token` must be non-empty — the function returns an error immediately if either is empty.
 - `url` may be provided as `http://host/` or `http://host/api_jsonrpc.php` — both are accepted; the `/api_jsonrpc.php` suffix is added only when necessary.
@@ -37,7 +37,7 @@ The main function is `generateZabbixReport(url, token string, progressCb func(st
 ```
 POST /api/start
   → validate url and token (returns 400 if empty)
-  → create in-memory Task → goroutine: generateZabbixReport(url, token, progressCb)
+  → create in-memory Task → goroutine: generateZabbixReport(url, token, username, password, progressCb)
       → progressCb() updates progress messages (argument, not global)
       → returns HTML fragment
       → saves to PostgreSQL (if DB_HOST configured)
@@ -1311,7 +1311,7 @@ For external integrations or automation, the available endpoints are:
 
 | Endpoint | Method | Database required | Description |
 |----------|--------|-------------------|-------------|
-| `POST /api/start` | POST | No | Starts generation; body `{"zabbix_url":"...","zabbix_token":"..."}` → returns `{"task_id":"..."}` |
+| `POST /api/start` | POST | No | Starts generation; body `{"zabbix_url":"...","zabbix_token":"..."}` or `{"zabbix_url":"...","zabbix_user":"...","zabbix_password":"..."}` → returns `{"task_id":"..."}` |
 | `GET /api/progress/:id` | GET | No | Polls task status → `{"status":"done\|running\|error","progress_msg":"..."}` |
 | `GET /api/report/:id` | GET | No | Returns the HTML of the report in the current session (in-memory, lost on restart) |
 | `GET /api/db-status` | GET | No | Informs the frontend whether the database is active → `{"db_enabled": true\|false}` |
@@ -1435,7 +1435,7 @@ Each process in the list queries the **pre-loaded map** by `CollectProcessItemsB
 ### Go function responsible
 
 **File:** `cmd/app/main.go`  
-**Function:** `generateZabbixReport(url, token string)` — the tab block starts around the line marked with `// --- Processos e Threads Zabbix Server ---`
+**Function:** `generateZabbixReport(url, token, username, password string)` — the tab block starts around the line marked with `// --- Processos e Threads Zabbix Server ---`
 
 #### Helpers used
 
