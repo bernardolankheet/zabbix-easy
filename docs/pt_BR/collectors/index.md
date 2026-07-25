@@ -10,6 +10,7 @@ Esta seção documenta os coletores tipados em `app/internal/collector` usados p
 Coletores incluídos:
 
 - [CollectZabbixVersion](collect_zabbix_version.md) — detecção de versão (`apiinfo.version`)
+- [CollectServerHostId](collect_server_hostid.md) — descobre o hostid do Zabbix Server pelos itens `zabbix[process,...]`
 - [Authenticate](authenticate.md) — helper para `user.login`
 - [CollectRawList](collect_raw_list.md) — genérico para métodos que retornam listas (`item.get`, `history.get`, `trend.get`)
 - [CollectCount](collect_count.md) — consultas com `countOutput:true`

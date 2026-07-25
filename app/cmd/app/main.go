@@ -17,12 +17,30 @@ import (
 	neturl "net/url"
 	"sync"
 	"os"
+	"regexp"
 	"database/sql"
 	_ "github.com/lib/pq"
 )
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
 var debugApi bool = false
+
+// secretJsonFields casa os campos do JSON-RPC que carregam credenciais: o token
+// de API ("auth"), a senha enviada no user.login e o token de sessão que o
+// user.login devolve em "result". Com APP_DEBUG=1 o corpo inteiro das
+// requisições ia para o log, expondo o token em texto puro em toda chamada.
+var secretJsonFields = regexp.MustCompile(`"(auth|password|token|sessionid)"\s*:\s*"[^"]*"`)
+
+// redactSecrets mascara credenciais em um corpo JSON antes de mandá-lo ao log.
+// loginResult mascara também o campo "result" — só faz sentido para user.login,
+// onde o result É o token de sessão (nas demais chamadas result são dados).
+func redactSecrets(body string, loginResult bool) string {
+	body = secretJsonFields.ReplaceAllString(body, `"$1":"<redacted>"`)
+	if loginResult {
+		body = regexp.MustCompile(`"result"\s*:\s*"[^"]*"`).ReplaceAllString(body, `"result":"<redacted>"`)
+	}
+	return body
+}
 // useBearerAuth is set to true when the detected Zabbix version is >= 7.2.
 // In that case all API calls (except user.login) must authenticate via
 // "Authorization: Bearer <token>" HTTP header instead of the JSON-RPC "auth" field.
@@ -178,7 +196,7 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	}
 	reqBytes, _ := json.Marshal(req)
 	if debugApi {
-		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, string(reqBytes))
+		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, redactSecrets(string(reqBytes), false))
 	}
 	if httpClient == nil {
 		initHttpClient()
@@ -223,7 +241,7 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	defer resp.Body.Close()
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	if debugApi {
-		b := string(bodyBytes)
+		b := redactSecrets(string(bodyBytes), method == "user.login")
 		if len(b) > 4096 { b = b[:4096] + "...(truncated)" }
 		log.Printf("[ZABBIX DEBUG] Response %s <- status=%s body=%s", method, resp.Status, b)
 	}
@@ -688,6 +706,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
 
+	// URL sem esquema ("zabbix.exemplo.com") faria o http.NewRequest falhar com
+	// "unsupported protocol scheme", erro que não diz nada ao usuário. Assume
+	// https, que é o caso comum; quem precisa de http informa o esquema.
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		url = "https://" + url
+		log.Printf("[DEBUG] URL sem esquema, assumindo https: %s", url)
+	}
+
 	// restore apiUrl and html builder variables
 	apiUrl := url
 	html := ""
@@ -736,6 +762,39 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
 	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
 	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
+
+	// ─── hostid do Zabbix Server ──────────────────────────────────────────────
+	// ZABBIX_SERVER_HOSTID segue sendo o override explícito, como sempre foi.
+	// Sem ela, o host é descoberto pelos próprios itens zabbix[process,...] em
+	// vez do 10084 fixo: hostid é atribuído por instalação e esse valor só vale
+	// em instalação nova — numa instalação antiga ele aponta para outro host
+	// qualquer, e o relatório sai com a aba do Server inteira vazia.
+	// Resolvido uma vez só e reusado nos dois pontos que antes liam a env
+	// separadamente (NVPS e pollers/processos).
+	serverHostId := strings.TrimSpace(os.Getenv("ZABBIX_SERVER_HOSTID"))
+	serverHostIdFromEnv := serverHostId != ""
+	// Descoberta sem sucesso tem dois significados bem diferentes, e confundi-los
+	// leva o relatório a culpar a variável de ambiente quando o problema está no
+	// Zabbix: "" sem erro significa que NÃO EXISTE item de processo monitorado em
+	// host nenhum — o Zabbix Server não está se monitorando.
+	serverNaoMonitorado := false
+	if serverHostIdFromEnv {
+		log.Printf("[DEBUG] hostid do Zabbix Server=%s (override via ZABBIX_SERVER_HOSTID)", serverHostId)
+	} else {
+		hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest)
+		switch {
+		case herr != nil:
+			serverHostId = "10084"
+			log.Printf("[WARN] a descoberta do hostid do Zabbix Server falhou (%v) — usando o padrão histórico %s", herr, serverHostId)
+		case hid == "":
+			serverHostId = "10084"
+			serverNaoMonitorado = true
+			log.Printf("[WARN] nenhum item zabbix[process,...] monitorado em host algum — o Zabbix Server não está se monitorando (host desabilitado, template não vinculado ou itens desabilitados). Nenhum ZABBIX_SERVER_HOSTID resolve isso.")
+		default:
+			serverHostId = hid
+			log.Printf("[DEBUG] hostid do Zabbix Server=%s (descoberto automaticamente)", serverHostId)
+		}
+	}
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
 	formatInt := func(n int) string {
@@ -975,9 +1034,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
 	nvps := "N/A"
-	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	if requiredHost == "" { requiredHost = "10084" }
-	log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for item.get", requiredHost)
+	requiredHost := serverHostId
+	log.Printf("[DEBUG] hostid do Zabbix Server=%s will be used for item.get", requiredHost)
 	if item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", requiredHost); err == nil {
 		if item != nil {
 			log.Printf("[DEBUG] Found requiredperformance item: itemid=%v hostid=%v value_type=%v key=%v", item["itemid"], item["hostid"], item["value_type"], item["key_"])
@@ -1078,7 +1136,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		itemId := fmt.Sprintf("%v", item["itemid"])
 		itemName := fmt.Sprintf("%v", item["name"])
 		itemError := fmt.Sprintf("%v", item["error"])
-		hostsArr := item["hosts"].([]interface{})
+		// comma-ok como em todos os outros acessos a "hosts" no arquivo: sem a
+		// guarda, um item.get que não traga o campo derruba o processo inteiro
+		// com "interface conversion: interface {} is nil, not []interface {}".
+		hostsArr, _ := item["hosts"].([]interface{})
 		itemHostName := ""
 		itemHostId := ""
 		if len(hostsArr) > 0 {
@@ -1673,9 +1734,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	       }
 	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
 		html += `<h2 class='tab-print-title' data-i18n='tabs.server'></h2>`
-	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	       if serverHost == "" { serverHost = "10084" }
-	       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
+	       serverHost := serverHostId
+	       log.Printf("[DEBUG] hostid do Zabbix Server=%s will be used for pollers", serverHost)
 	       // build poller list conditionally based on Zabbix major version
 	       pollerNames := []string{}
 	       // pollers available in both 6 and 7
@@ -1748,6 +1808,25 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		serverItemsMap = map[string]map[string]interface{}{}
 	}
 	log.Printf("[DEBUG] bulk process item.get: %d matches for %d names", len(serverItemsMap), len(allServerNames))
+	// Override explícito que não casa nada: a aba do Server sairia inteira vazia.
+	// Tenta descobrir o host de verdade e refaz a busca — o valor da env pode ter
+	// vindo do exemplo do README, que só vale em instalação nova.
+	if len(serverItemsMap) == 0 && serverHostIdFromEnv {
+		hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest)
+		switch {
+		case herr == nil && hid == "":
+			// Nem o override nem a descoberta acham item: o problema não é a variável.
+			serverNaoMonitorado = true
+			log.Printf("[WARN] nem ZABBIX_SERVER_HOSTID=%s nem a descoberta acharam item de processo — o Zabbix Server não está se monitorando", serverHost)
+		case herr == nil && hid != serverHost:
+			log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%s não casou nenhum item de processo; usando o hostid descoberto %s", serverHost, hid)
+			serverHost = hid
+			if m, merr := collector.CollectProcessItemsBulk(apiUrl, token, allServerNames, serverHost, zabbixApiRequest); merr == nil {
+				serverItemsMap = m
+				log.Printf("[DEBUG] bulk process item.get (hostid descoberto): %d matches for %d names", len(serverItemsMap), len(allServerNames))
+			}
+		}
+	}
 	// Check host existence once — reused in DisabledMsg across both goroutine loops
 	serverHostExists := false
 	if serverHost != "" {
@@ -1755,6 +1834,41 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if arr, err := collector.CollectRawList(apiUrl, token, "host.get", hostParams, zabbixApiRequest); err == nil {
 			if len(arr) > 0 { serverHostExists = true }
 		}
+	}
+	// Sem este aviso as duas tabelas abaixo saem com todas as linhas vazias ou
+	// como "Desativado", o que se lê como um problema no Zabbix Server quando na
+	// verdade é ZABBIX_SERVER_HOSTID mal configurado. Dois casos distintos:
+	//
+	//   a) o hostid não resolve para nenhum host — tipicamente é o id de um
+	//      TEMPLATE. item.get ainda casa os itens do template, então a contagem
+	//      de matches vem > 0, mas template não tem histórico nem trend e todo
+	//      valor sai "-". Por isso a checagem não pode depender de len(map)==0.
+	//   b) o host existe mas não tem nenhum dos itens de processo.
+	hostidNaoResolve := serverHost != "" && !serverHostExists
+	// Mensagem para linha sem dados de trend/history. "Processo não habilitado" é
+	// a leitura correta só quando o host é válido — aí a ausência de dado de fato
+	// sugere o processo desligado. Se o hostid nem resolve para um host, a
+	// ausência já está explicada e chamar de desabilitado é afirmação falsa.
+	semDadosMsg := "<span data-i18n='process.disabled'></span>"
+	if hostidNaoResolve {
+		semDadosMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+	}
+	semItensDeProcesso := len(serverItemsMap) == 0 && len(allServerNames) > 0
+	if hostidNaoResolve || semItensDeProcesso {
+		// Ordem de precisão: culpar a variável de ambiente só quando ela é de fato
+		// a causa. Se a descoberta varreu a instância inteira e não achou item de
+		// processo monitorado em host nenhum, mandar "conferir o hostid" é
+		// conselho errado — não existe hostid que resolva.
+		key := "warn.server_items_not_found"
+		switch {
+		case serverNaoMonitorado:
+			key = "warn.server_not_monitored"
+		case hostidNaoResolve:
+			key = "error.hostid_not_found"
+		}
+		log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%q: host existe=%v, itens de processo casados=%d de %d — tabelas do Server virão sem dados",
+			serverHost, serverHostExists, len(serverItemsMap), len(allServerNames))
+		html += `<div class='como-corrigir' data-i18n='` + key + `' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></div>`
 	}
 		html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|"+checkTrendDisplay)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
@@ -1788,8 +1902,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
-			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+			if hostidNaoResolve {
+				pr.DisabledMsg = semDadosMsg
 			} else if majorV < 7 {
 				switch baseName {
 				case "agent poller", "browser poller", "http agent poller", "snmp poller", "configuration syncer worker":
@@ -1861,8 +1975,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		item := serverItemsMap[baseName]
 		if item == nil {
 			pr.Disabled = true
-			if serverHost != "" && !serverHostExists {
-				pr.DisabledMsg = `<span data-i18n='error.hostid_not_found' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></span>`
+			if hostidNaoResolve {
+				pr.DisabledMsg = semDadosMsg
 			} else {
 				pr.DisabledMsg = "<span data-i18n='process.disabled'></span>"
 			}
@@ -1936,13 +2050,13 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = semDadosMsg }
 		} else {
 			pr := &procRows[ref.idx]
 			pr.Smin, pr.Savg, pr.Smax = smin, savg, smax
 			pr.Vavg, pr.Vmax = vavg, vmx
 			pr.StatusText, pr.StatusStyle = stText, stStyle
-			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = "<span data-i18n='process.disabled'></span>" }
+			if vavg < 0 { pr.Disabled = true; pr.DisabledMsg = semDadosMsg }
 		}
 	}
 	// Ordena por Vavg desc (rows desabilitadas com Vavg=-1 vão para o fim)
