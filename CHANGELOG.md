@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Added
+- Authentication with username and password as an alternative to the API token. When `zabbix_token` is empty, the app performs a `user.login` with `zabbix_user`/`zabbix_password` and uses the resulting session token, calling `user.logout` when the report finishes. Useful on read-only frontends where an API token cannot be created. Issue #96 (code: `app/cmd/app/main.go`, `app/internal/collector/collect_auth.go`, docs: `docs/pt_BR/collectors/authenticate.md`, `docs/en/collectors/authenticate.md`)
+
 ## [0.1.1] - 2026-04-23
 
 ### Added

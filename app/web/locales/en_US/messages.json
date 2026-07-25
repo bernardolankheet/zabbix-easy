@@ -4,6 +4,12 @@
   "placeholder_url": "http://zabbix.com or http://IP",
   "placeholder_token": "API Token",
   "aria_toggle_token": "Show/Hide token",
+  "label_or_credentials": "or, if you have no token, enter username and password:",
+  "label_user": "Username:",
+  "placeholder_user": "Zabbix username",
+  "label_password": "Password:",
+  "placeholder_password": "Zabbix password",
+  "aria_toggle_password": "Show/Hide password",
   "btn_generate": "Generate Report",
   "title_saved_reports": "Saved Reports",
   "tooltip_reload": "Reload list from database",
@@ -70,6 +76,9 @@
   ,"error.create_requiredperformance_key": "Create zabbix[requiredperformance] key in the Zabbix template"
   ,"error.search_item": "Error searching for item"
   ,"error.invalid_token": "Invalid token"
+  ,"error.invalid_credentials": "Invalid username or password"
+  ,"error_missing_auth": "Enter an API token, or a username and password"
+  ,"progress.authenticating": "Authenticating with username and password..."
   ,"error.fetch_data": "Error fetching data"
   ,"table.description": "Description"
   ,"table.quantity": "Quantity"

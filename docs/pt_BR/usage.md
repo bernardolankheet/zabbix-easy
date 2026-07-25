@@ -6,7 +6,7 @@ lang: pt_BR
 # Utilização
 
 1. Acesse a interface web
-2. Informe a URL e o token do Zabbix
+2. Informe a URL do Zabbix e **um token de API** *ou* **usuário e senha**
 3. Aguarde a geração do relatório
 4. Exporte ou imprima o relatório conforme necessário
 
@@ -28,16 +28,18 @@ Estas variáveis afetam o comportamento de toda a geração do relatório:
 
 ## Fluxo geral de geração
 
-A função principal é `generateZabbixReport(url, token string, progressCb func(string))` em `cmd/app/main.go`.
+A função principal é `generateZabbixReport(url, token, username, password string, progressCb func(string))` em `cmd/app/main.go`.
 
-- `url` e `token` devem ser não-vazios — a função retorna erro imediatamente se qualquer um estiver vazio.
+- `url` deve ser não-vazia, e é preciso informar `token` **ou** `username`+`password` — a função retorna erro imediatamente caso contrário.
+- Se `token` estiver vazio, a função faz `user.login` com `username`/`password` para obter um token de sessão e chama `user.logout` no final (via `defer`).
 - `url` pode ser fornecida como `http://host/` ou `http://host/api_jsonrpc.php` — ambas são aceitas, o sufixo `/api_jsonrpc.php` é adicionado apenas quando necessário.
 - `progressCb` é passada como parâmetro (não global), tornando chamadas concorrentes completamente isoladas.
 
 ```
 POST /api/start
-  → valida url e token (retorna 400 se vazios)
-  → cria Task em memória → goroutine: generateZabbixReport(url, token, progressCb)
+  → valida url e credenciais (token, ou usuário+senha)
+  → cria Task em memória → goroutine: generateZabbixReport(url, token, username, password, progressCb)
+      → se token vazio: user.login → token de sessão (user.logout ao final)
       → progressCb() atualiza mensagem de progresso (parâmetro, não global)
       → retorna HTML fragment
       → salva no PostgreSQL (se DB_HOST configurado)
@@ -1427,7 +1429,7 @@ Para integrações externas ou automações, os endpoints disponíveis são:
 
 | Endpoint | Método | Banco necessário | Descrição |
 |----------|--------|------------------|-----------|
-| `POST /api/start` | POST | Não | Inicia geração; corpo `{"zabbix_url":"...","zabbix_token":"..."}` → retorna `{"task_id":"..."}` |
+| `POST /api/start` | POST | Não | Inicia geração; corpo `{"zabbix_url":"...","zabbix_token":"..."}` ou `{"zabbix_url":"...","zabbix_user":"...","zabbix_password":"..."}` → retorna `{"task_id":"..."}` |
 | `GET /api/progress/:id` | GET | Não | Polling do status da tarefa → `{"status":"done\|running\|error","progress_msg":"..."}` |
 | `GET /api/report/:id` | GET | Não | Retorna o HTML do relatório da sessão atual (in-memory, perde ao reiniciar) |
 | `GET /api/db-status` | GET | Não | Informa ao frontend se o banco está ativo → `{"db_enabled": true\|false}` |
