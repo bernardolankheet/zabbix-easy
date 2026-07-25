@@ -1774,16 +1774,24 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 			if len(arr) > 0 { serverHostExists = true }
 		}
 	}
-	// Nenhum item de processo encontrado: sem este aviso as duas tabelas abaixo
-	// saem com TODAS as linhas como "Desativado", o que se lê como um problema
-	// no Zabbix Server quando na verdade é ZABBIX_SERVER_HOSTID apontando para
-	// o host errado (ou para um host que existe mas não é o Zabbix Server).
-	if len(serverItemsMap) == 0 && len(allServerNames) > 0 {
+	// Sem este aviso as duas tabelas abaixo saem com todas as linhas vazias ou
+	// como "Desativado", o que se lê como um problema no Zabbix Server quando na
+	// verdade é ZABBIX_SERVER_HOSTID mal configurado. Dois casos distintos:
+	//
+	//   a) o hostid não resolve para nenhum host — tipicamente é o id de um
+	//      TEMPLATE. item.get ainda casa os itens do template, então a contagem
+	//      de matches vem > 0, mas template não tem histórico nem trend e todo
+	//      valor sai "-". Por isso a checagem não pode depender de len(map)==0.
+	//   b) o host existe mas não tem nenhum dos itens de processo.
+	hostidNaoResolve := serverHost != "" && !serverHostExists
+	semItensDeProcesso := len(serverItemsMap) == 0 && len(allServerNames) > 0
+	if hostidNaoResolve || semItensDeProcesso {
 		key := "warn.server_items_not_found"
-		if serverHost != "" && !serverHostExists {
+		if hostidNaoResolve {
 			key = "error.hostid_not_found"
 		}
-		log.Printf("[WARN] nenhum item de processo encontrado para ZABBIX_SERVER_HOSTID=%q (host existe=%v) — tabelas do Server sairão vazias", serverHost, serverHostExists)
+		log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%q: host existe=%v, itens de processo casados=%d de %d — tabelas do Server virão sem dados",
+			serverHost, serverHostExists, len(serverItemsMap), len(allServerNames))
 		html += `<div class='como-corrigir' data-i18n='` + key + `' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></div>`
 	}
 		html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|"+checkTrendDisplay)
