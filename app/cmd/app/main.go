@@ -990,6 +990,12 @@ func generateZabbixReport(url, token, username, password string, progressCb func
 		if tok, terr := collector.Authenticate(apiUrl, "Admin", "zabbix", zabbixApiRequest); terr == nil {
 			if strings.TrimSpace(tok) != "" {
 				adminDefaultPasswordValid = true
+				// O token era descartado sem user.logout: cada relatório contra um
+				// Zabbix com a senha padrão deixava uma sessão órfã aberta, viva até
+				// o timeout de sessão.
+				if _, lerr := zabbixApiRequest(apiUrl, tok, "user.logout", []string{}); lerr != nil {
+					log.Printf("[WARN] user.logout do teste de senha padrão falhou: %v", lerr)
+				}
 			}
 		} else {
 			// non-fatal: just log at debug level
@@ -4551,6 +4557,12 @@ func main() {
 		tasksMu.Lock(); defer tasksMu.Unlock()
 		tasks[id] = t
 	}
+	delTask := func(id string) bool {
+		tasksMu.Lock(); defer tasksMu.Unlock()
+		_, ok := tasks[id]
+		delete(tasks, id)
+		return ok
+	}
 
 	r.POST("/api/start", func(c *gin.Context) {
 		type Req struct {
@@ -4637,6 +4649,28 @@ func main() {
 						return
 					}
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(task.Report))
+				})
+
+				// logout: descarta o relatório desta sessão da memória do servidor.
+				//
+				// A sessão no Zabbix em si já é encerrada ao fim de cada relatório —
+				// com usuário e senha o user.logout roda via defer em
+				// generateZabbixReport, e um token de API não tem sessão para
+				// encerrar (só é revogável no próprio Zabbix). O que sobrevive é o
+				// HTML do relatório no mapa em memória, servido por /api/report/:id
+				// até o processo reiniciar. É isso que este endpoint apaga; o
+				// frontend complementa limpando os campos de credencial do browser.
+				r.POST("/api/logout", func(c *gin.Context) {
+					var req struct {
+						TaskID string `json:"task_id"`
+					}
+					if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.TaskID) == "" {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "task_id obrigatório"})
+						return
+					}
+					removed := delTask(req.TaskID)
+					log.Printf("[DEBUG] logout: tarefa %s descartada da memória (existia=%v)", req.TaskID, removed)
+					c.JSON(http.StatusOK, gin.H{"cleared": removed})
 				})
 
 				// db-status: informa ao frontend se o banco está configurado

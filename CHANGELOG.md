@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- Sign-out button on the report screen. It clears the token/username/password fields (keeping the URL), discards the report from the server's in-memory task store via the new `POST /api/logout`, and returns to the form. Until now "New report" left the credentials filled in and the report retrievable at `/api/report/:id` until the process restarted. (code: `app/cmd/app/main.go`, `app/web/static/script.js`, i18n: `aria_logout`)
+
+### Fixed
+- The default-Admin-password check ran `user.login` and discarded the token without calling `user.logout`, leaving an orphan session open on every report run against a Zabbix that still uses the default password. (code: `app/cmd/app/main.go`)
+
+
+## [Unreleased]
+
 ### Fixed
 - Pointing the tool at a URL that is not a Zabbix API (a Grafana, a wrong vhost) was not detected: `apiinfo.version` failing was silently ignored, collection carried on with `majorV=0` — which also picks the wrong auth transport for Zabbix >= 7.2 — and surfaced as a confusing downstream error instead of "this is not the Zabbix API". The report now stops at version detection with a clear message. (code: `app/cmd/app/main.go`, i18n: `error.not_zabbix_endpoint`, tests: `app/cmd/app/endpoint_test.go`)
 

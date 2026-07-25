@@ -76,6 +76,7 @@
   ,"error.create_requiredperformance_key": "Create zabbix[requiredperformance] key in the Zabbix template"
   ,"error.search_item": "Error searching for item"
   ,"error.not_zabbix_endpoint": "This URL does not answer the Zabbix API (apiinfo.version returned nothing). Check the address — it must be the Zabbix frontend, e.g. https://zabbix.example.com or https://zabbix.example.com/zabbix."
+  ,"aria_logout": "Sign out — clears the credentials and discards the report from the server"
   ,"error.invalid_token": "Invalid token"
   ,"error.invalid_credentials": "Invalid username or password"
   ,"error_missing_auth": "Enter an API token, or a username and password"
