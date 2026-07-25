@@ -771,16 +771,29 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// qualquer, e o relatório sai com a aba do Server inteira vazia.
 	// Resolvido uma vez só e reusado nos dois pontos que antes liam a env
 	// separadamente (NVPS e pollers/processos).
-	serverHostIdFromEnv := strings.TrimSpace(os.Getenv("ZABBIX_SERVER_HOSTID")) != ""
 	serverHostId := strings.TrimSpace(os.Getenv("ZABBIX_SERVER_HOSTID"))
+	serverHostIdFromEnv := serverHostId != ""
+	// Descoberta sem sucesso tem dois significados bem diferentes, e confundi-los
+	// leva o relatório a culpar a variável de ambiente quando o problema está no
+	// Zabbix: "" sem erro significa que NÃO EXISTE item de processo monitorado em
+	// host nenhum — o Zabbix Server não está se monitorando.
+	serverNaoMonitorado := false
 	if serverHostIdFromEnv {
 		log.Printf("[DEBUG] hostid do Zabbix Server=%s (override via ZABBIX_SERVER_HOSTID)", serverHostId)
-	} else if hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest); herr == nil && hid != "" {
-		serverHostId = hid
-		log.Printf("[DEBUG] hostid do Zabbix Server=%s (descoberto automaticamente)", serverHostId)
 	} else {
-		serverHostId = "10084"
-		log.Printf("[WARN] não foi possível descobrir o hostid do Zabbix Server (%v) — usando o padrão histórico %s", herr, serverHostId)
+		hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest)
+		switch {
+		case herr != nil:
+			serverHostId = "10084"
+			log.Printf("[WARN] a descoberta do hostid do Zabbix Server falhou (%v) — usando o padrão histórico %s", herr, serverHostId)
+		case hid == "":
+			serverHostId = "10084"
+			serverNaoMonitorado = true
+			log.Printf("[WARN] nenhum item zabbix[process,...] monitorado em host algum — o Zabbix Server não está se monitorando (host desabilitado, template não vinculado ou itens desabilitados). Nenhum ZABBIX_SERVER_HOSTID resolve isso.")
+		default:
+			serverHostId = hid
+			log.Printf("[DEBUG] hostid do Zabbix Server=%s (descoberto automaticamente)", serverHostId)
+		}
 	}
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
@@ -1799,7 +1812,13 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Tenta descobrir o host de verdade e refaz a busca — o valor da env pode ter
 	// vindo do exemplo do README, que só vale em instalação nova.
 	if len(serverItemsMap) == 0 && serverHostIdFromEnv {
-		if hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest); herr == nil && hid != "" && hid != serverHost {
+		hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest)
+		switch {
+		case herr == nil && hid == "":
+			// Nem o override nem a descoberta acham item: o problema não é a variável.
+			serverNaoMonitorado = true
+			log.Printf("[WARN] nem ZABBIX_SERVER_HOSTID=%s nem a descoberta acharam item de processo — o Zabbix Server não está se monitorando", serverHost)
+		case herr == nil && hid != serverHost:
 			log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%s não casou nenhum item de processo; usando o hostid descoberto %s", serverHost, hid)
 			serverHost = hid
 			if m, merr := collector.CollectProcessItemsBulk(apiUrl, token, allServerNames, serverHost, zabbixApiRequest); merr == nil {
@@ -1836,8 +1855,15 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	semItensDeProcesso := len(serverItemsMap) == 0 && len(allServerNames) > 0
 	if hostidNaoResolve || semItensDeProcesso {
+		// Ordem de precisão: culpar a variável de ambiente só quando ela é de fato
+		// a causa. Se a descoberta varreu a instância inteira e não achou item de
+		// processo monitorado em host nenhum, mandar "conferir o hostid" é
+		// conselho errado — não existe hostid que resolva.
 		key := "warn.server_items_not_found"
-		if hostidNaoResolve {
+		switch {
+		case serverNaoMonitorado:
+			key = "warn.server_not_monitored"
+		case hostidNaoResolve:
 			key = "error.hostid_not_found"
 		}
 		log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%q: host existe=%v, itens de processo casados=%d de %d — tabelas do Server virão sem dados",

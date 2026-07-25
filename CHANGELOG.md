@@ -7,6 +7,8 @@
 - Removed `-e ZABBIX_SERVER_HOSTID=10084` from the README quick-start commands — the value only holds on a fresh install and is no longer needed.
 
 ### Fixed
+- The report blamed `ZABBIX_SERVER_HOSTID` even when detection had already proven no host could work. "Detection found nothing" and "detection failed" were collapsed into one branch that logged a bare `<nil>` error and pointed the user at the env var. When no monitored `zabbix[process,...]` item exists on any host, the Zabbix Server simply is not monitoring itself and no hostid resolves it — the report now says that instead. (code: `app/cmd/app/main.go`, i18n: `warn.server_not_monitored`)
+
 - A URL typed without a scheme (`zabbix.example.com`) failed with `unsupported protocol scheme`, which says nothing to the user. `https://` is now assumed when no scheme is given. (code: `app/cmd/app/main.go`)
 
 
