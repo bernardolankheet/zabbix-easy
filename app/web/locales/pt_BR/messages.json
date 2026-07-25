@@ -336,7 +336,9 @@
   ,"tip.create_unsupported_key": "Criar chave zabbix[items_unsupported] no Template de Proxy"
   ,"process.disabled": "Processo não habilitado"
   ,"process.not_in_version": "Processo não disponível nesta versão do Zabbix"
-  ,"error.hostid_not_found": "Hostid %s não encontrado, informe o valor na ENV ZABBIX_SERVER_HOSTID."
+  ,"warn.server_items_not_found": "Nenhum item de processo interno do Zabbix Server foi encontrado para o hostid %s. As tabelas abaixo mostrarão todos os processos como desativados — verifique a variável ZABBIX_SERVER_HOSTID: ela precisa apontar para o host que contém os itens zabbix[process,...]."
+  ,"warn.server_not_monitored": "O Zabbix Server não parece estar se monitorando: nenhum item `zabbix[process,...]` monitorado foi encontrado em host algum. Vincule o template \"Zabbix server health\" ao host do Zabbix Server e confirme que o host e os itens estão habilitados. Definir ZABBIX_SERVER_HOSTID não resolve — não existe host com esses itens para apontar."
+  ,"error.hostid_not_found": "O hostid %s não corresponde a nenhum host — um engano comum é usar o id de um template. Aponte ZABBIX_SERVER_HOSTID para o host monitorado que contém os itens zabbix[process,...]."
   ,"fix.how_to_resolve": "Como resolver"
 
   ,"rec.desc.server_attention": "%d proc(s) média ≥ 60%"

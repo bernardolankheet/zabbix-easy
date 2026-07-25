@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Changed
+- `ZABBIX_SERVER_HOSTID` is now optional. Hostids are assigned per installation, and the hardcoded `10084` fallback — also used in the README's `docker run` examples — is only the "Zabbix server" host on a **fresh** install; anywhere else it silently points at an unrelated host and the whole Server tab comes out empty. The host is now discovered from its own `zabbix[process,...]` items, which works on any Zabbix 6.0–8.0 install. The variable still works as an explicit override, and when it is set the detection call is skipped entirely; if the override matches no process item, detection runs as a fallback and wins. The two duplicated `os.Getenv` reads with the same magic default were collapsed into a single resolution. (code: `app/cmd/app/main.go`, `app/internal/collector/collect_server_hostid.go`, docs: `docs/*/collectors/collect_server_hostid.md`)
+- Removed `-e ZABBIX_SERVER_HOSTID=10084` from the README quick-start commands — the value only holds on a fresh install and is no longer needed.
+
+### Fixed
+- Data races on three package-level globals read and written inside `zabbixApiRequest`, which two concurrent reports hit at once:
+  - `httpClient`/`httpTransport` were lazily initialised with an unsynchronised `if httpClient == nil`. Both reports saw `nil`, both built a `Transport`, and the global pointer swapped underneath in-flight requests. A `http.Transport` is safe to *share* concurrently but not to *replace* while in use, and its internal idle-connection maps are exactly the kind of structure whose corruption later surfaces as a panic somewhere unrelated — the `fatal error: concurrent map writes` seen in a container running against Zabbix 8.0 crashed inside an unrelated `json.Unmarshal`. Now initialised through `sync.Once`.
+  - `useBearerAuth` was a global bool written per report. Beyond the race, it was a logic bug: two Zabbix servers of different versions overwrote each other, so one of them authenticated over the wrong transport. Replaced with a `sync.Map` keyed by API URL.
+
+  Reproduced with the race detector against a stub returning the 8.0 `trend.get` error plus large `history.get` payloads: 6 races over 4 concurrent reports before, 0 over 12 after, with each URL keeping its own auth transport. (code: `app/cmd/app/main.go`, tests: `app/cmd/app/concurrency_test.go`)
+
+- The report blamed `ZABBIX_SERVER_HOSTID` even when detection had already proven no host could work. "Detection found nothing" and "detection failed" were collapsed into one branch that logged a bare `<nil>` error and pointed the user at the env var. When no monitored `zabbix[process,...]` item exists on any host, the Zabbix Server simply is not monitoring itself and no hostid resolves it — the report now says that instead. (code: `app/cmd/app/main.go`, i18n: `warn.server_not_monitored`)
+
+- A URL typed without a scheme (`zabbix.example.com`) failed with `unsupported protocol scheme`, which says nothing to the user. `https://` is now assumed when no scheme is given. (code: `app/cmd/app/main.go`)
+
+
+## [Unreleased]
+
+### Security
+- With `APP_DEBUG=1` the full JSON-RPC body was written to the log on every call, exposing the API token in clear text on each request (88 occurrences in a single 3-second report run), plus the `user.login` password and the session token it returns. Debug bodies are now redacted; report data and the Zabbix version are still logged. (code: `app/cmd/app/main.go` — `redactSecrets`, tests: `app/cmd/app/redact_test.go`)
+
+### Fixed
+- Crash: `item["hosts"].([]interface{})` was the only unguarded type assertion of that field in the file (every sibling uses comma-ok). An `item.get` response without the `hosts` field panics the whole process with `interface conversion: interface {} is nil, not []interface {}` — taking the container down, not just the report. (code: `app/cmd/app/main.go`)
+- Server process tables mixed two contradictory explanations in the same run: rows whose item was matched showed "process not enabled", rows whose item was not matched showed "hostid not found" — same root cause, two answers. "Not enabled" is only a valid reading when the host is valid; when the hostid does not resolve to a host, the missing data is already explained and calling the process disabled is simply false. (code: `app/cmd/app/main.go`)
+
+- When no Zabbix Server internal process item is found, the report showed all 38 process rows as "disabled" with no warning — indistinguishable from a Zabbix Server with everything actually turned off, when the real cause is `ZABBIX_SERVER_HOSTID` pointing at the wrong host. The report now warns explicitly. (code: `app/cmd/app/main.go`, i18n: `warn.server_items_not_found`)
+
+
 ## [0.1.1] - 2026-04-23
 
 ### Added

@@ -18,7 +18,7 @@ These variables affect the behavior of the entire report generation:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZABBIX_SERVER_HOSTID` | _(empty)_ | ID of the Zabbix Server host. Used to filter item calls by host. If unset, searches are performed without host filter. |
+| `ZABBIX_SERVER_HOSTID` | _(auto)_ | Host ID of the Zabbix Server. **Optional** — when unset the host is discovered automatically from its own `zabbix[process,...]` items, which works on any installation. Set it only to override that detection; if the value matches no process item, detection runs anyway and wins. |
 | `CHECKTRENDTIME` | `30d` | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
 | `MAX_CCONCURRENT` | `4` | Max number of concurrent goroutines making Zabbix API calls. Lower to `2`–`3` if the Zabbix server becomes slow or returns timeouts. |
 | `API_TIMEOUT_SECONDS` | `60` | HTTP request timeout in seconds for each Zabbix API call. Network timeouts are logged and not retried. Increase to `90`–`120` in large environments. |
@@ -1365,7 +1365,7 @@ For each process, the **minimum**, **average** and **maximum** utilization (%) i
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZABBIX_SERVER_HOSTID` | _(empty)_ | Host ID of the Zabbix Server in Zabbix. If not set, the search ignores the host filter and may return any host that has the key. Recommended to set for accuracy. |
+| `ZABBIX_SERVER_HOSTID` | _(auto)_ | Host ID of the Zabbix Server. Optional: discovered automatically when unset. |
 | `CHECKTRENDTIME` | `30d` | Time window for trend/history analysis. Accepts suffix `d` (days), `h` (hours), `m` (minutes). E.g. `7d`, `24h`. |
 | `MAX_CCONCURRENT` | `6` | Number of processes that can run concurrently in parallel Zabbix API calls. |
 

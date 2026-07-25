@@ -18,7 +18,7 @@ Estas variáveis afetam o comportamento de toda a geração do relatório:
 
 | Variável              | Padrão  | Descrição                                                                                   |
 |-----------------------|---------|---------------------------------------------------------------------------------------------|
-| `ZABBIX_SERVER_HOSTID`| _(vazio)_ | ID do host do Zabbix Server. Usado para filtrar chamadas de item por host. Se não definido, a busca ocorre sem filtro de host. |
+| `ZABBIX_SERVER_HOSTID`| _(auto)_ | ID do host do Zabbix Server. **Opcional** — sem ela o host é descoberto automaticamente pelos próprios itens `zabbix[process,...]`, o que funciona em qualquer instalação. Defina apenas para forçar um valor; se o valor não casar nenhum item de processo, a descoberta roda mesmo assim e prevalece. |
 | `CHECKTRENDTIME`      | `30d`   | Janela de tempo para análise de trends/histórico. Aceita sufixo `d` (dias), `h` (horas), `m` (minutos). Ex: `7d`, `24h`. |
 | `MAX_CCONCURRENT`     | `4`     | Número máximo de goroutines paralelas fazendo chamadas à API do Zabbix simultaneamente. Reduzir para `2`–`3` se o Zabbix ficar lento ou retornar timeouts. |
 | `API_TIMEOUT_SECONDS` | `60`    | Timeout em segundos de cada requisição HTTP à API do Zabbix. Timeouts de rede são registrados em log e não tentam retry. Aumentar para `90`–`120` em ambientes com muitos hosts/itens. |
