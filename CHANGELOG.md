@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+- `ZABBIX_SERVER_HOSTID` is now optional. Hostids are assigned per installation, and the hardcoded `10084` fallback — also used in the README's `docker run` examples — is only the "Zabbix server" host on a **fresh** install; anywhere else it silently points at an unrelated host and the whole Server tab comes out empty. The host is now discovered from its own `zabbix[process,...]` items, which works on any Zabbix 6.0–8.0 install. The variable still works as an explicit override, and when it is set the detection call is skipped entirely; if the override matches no process item, detection runs as a fallback and wins. The two duplicated `os.Getenv` reads with the same magic default were collapsed into a single resolution. (code: `app/cmd/app/main.go`, `app/internal/collector/collect_server_hostid.go`, docs: `docs/*/collectors/collect_server_hostid.md`)
+- Removed `-e ZABBIX_SERVER_HOSTID=10084` from the README quick-start commands — the value only holds on a fresh install and is no longer needed.
+
+### Fixed
+- A URL typed without a scheme (`zabbix.example.com`) failed with `unsupported protocol scheme`, which says nothing to the user. `https://` is now assumed when no scheme is given. (code: `app/cmd/app/main.go`)
+
+
+## [Unreleased]
+
 ### Security
 - With `APP_DEBUG=1` the full JSON-RPC body was written to the log on every call, exposing the API token in clear text on each request (88 occurrences in a single 3-second report run), plus the `user.login` password and the session token it returns. Debug bodies are now redacted; report data and the Zabbix version are still logged. (code: `app/cmd/app/main.go` — `redactSecrets`, tests: `app/cmd/app/redact_test.go`)
 

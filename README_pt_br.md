@@ -38,7 +38,7 @@ Compatibilidade Zabbix:
 ### 1) Usando Docker (mais simples):
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
 # open http://localhost:8080
 ```
 
@@ -46,7 +46,7 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 
 ```bash
 docker compose --profile db up --build -d
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
 # Acesse http://localhost:8080
 ```
 

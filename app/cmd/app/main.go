@@ -706,6 +706,14 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
 
+	// URL sem esquema ("zabbix.exemplo.com") faria o http.NewRequest falhar com
+	// "unsupported protocol scheme", erro que não diz nada ao usuário. Assume
+	// https, que é o caso comum; quem precisa de http informa o esquema.
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		url = "https://" + url
+		log.Printf("[DEBUG] URL sem esquema, assumindo https: %s", url)
+	}
+
 	// restore apiUrl and html builder variables
 	apiUrl := url
 	html := ""
@@ -754,6 +762,26 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
 	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
 	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
+
+	// ─── hostid do Zabbix Server ──────────────────────────────────────────────
+	// ZABBIX_SERVER_HOSTID segue sendo o override explícito, como sempre foi.
+	// Sem ela, o host é descoberto pelos próprios itens zabbix[process,...] em
+	// vez do 10084 fixo: hostid é atribuído por instalação e esse valor só vale
+	// em instalação nova — numa instalação antiga ele aponta para outro host
+	// qualquer, e o relatório sai com a aba do Server inteira vazia.
+	// Resolvido uma vez só e reusado nos dois pontos que antes liam a env
+	// separadamente (NVPS e pollers/processos).
+	serverHostIdFromEnv := strings.TrimSpace(os.Getenv("ZABBIX_SERVER_HOSTID")) != ""
+	serverHostId := strings.TrimSpace(os.Getenv("ZABBIX_SERVER_HOSTID"))
+	if serverHostIdFromEnv {
+		log.Printf("[DEBUG] hostid do Zabbix Server=%s (override via ZABBIX_SERVER_HOSTID)", serverHostId)
+	} else if hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest); herr == nil && hid != "" {
+		serverHostId = hid
+		log.Printf("[DEBUG] hostid do Zabbix Server=%s (descoberto automaticamente)", serverHostId)
+	} else {
+		serverHostId = "10084"
+		log.Printf("[WARN] não foi possível descobrir o hostid do Zabbix Server (%v) — usando o padrão histórico %s", herr, serverHostId)
+	}
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
 	formatInt := func(n int) string {
@@ -993,9 +1021,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// get NVPS (Required server performance, new values per second)
 	if progressCb != nil { progressCb("progress.collecting_nvps") }
 	nvps := "N/A"
-	requiredHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	if requiredHost == "" { requiredHost = "10084" }
-	log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for item.get", requiredHost)
+	requiredHost := serverHostId
+	log.Printf("[DEBUG] hostid do Zabbix Server=%s will be used for item.get", requiredHost)
 	if item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", requiredHost); err == nil {
 		if item != nil {
 			log.Printf("[DEBUG] Found requiredperformance item: itemid=%v hostid=%v value_type=%v key=%v", item["itemid"], item["hostid"], item["value_type"], item["key_"])
@@ -1694,9 +1721,8 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	       }
 	       html += `<div id='tab-processos' class='tab-panel' style='display:none;'>`
 		html += `<h2 class='tab-print-title' data-i18n='tabs.server'></h2>`
-	       serverHost := os.Getenv("ZABBIX_SERVER_HOSTID")
-	       if serverHost == "" { serverHost = "10084" }
-	       log.Printf("[DEBUG] ZABBIX_SERVER_HOSTID=%s will be used for pollers", serverHost)
+	       serverHost := serverHostId
+	       log.Printf("[DEBUG] hostid do Zabbix Server=%s will be used for pollers", serverHost)
 	       // build poller list conditionally based on Zabbix major version
 	       pollerNames := []string{}
 	       // pollers available in both 6 and 7
@@ -1769,6 +1795,19 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		serverItemsMap = map[string]map[string]interface{}{}
 	}
 	log.Printf("[DEBUG] bulk process item.get: %d matches for %d names", len(serverItemsMap), len(allServerNames))
+	// Override explícito que não casa nada: a aba do Server sairia inteira vazia.
+	// Tenta descobrir o host de verdade e refaz a busca — o valor da env pode ter
+	// vindo do exemplo do README, que só vale em instalação nova.
+	if len(serverItemsMap) == 0 && serverHostIdFromEnv {
+		if hid, herr := collector.CollectServerHostId(apiUrl, token, zabbixApiRequest); herr == nil && hid != "" && hid != serverHost {
+			log.Printf("[WARN] ZABBIX_SERVER_HOSTID=%s não casou nenhum item de processo; usando o hostid descoberto %s", serverHost, hid)
+			serverHost = hid
+			if m, merr := collector.CollectProcessItemsBulk(apiUrl, token, allServerNames, serverHost, zabbixApiRequest); merr == nil {
+				serverItemsMap = m
+				log.Printf("[DEBUG] bulk process item.get (hostid descoberto): %d matches for %d names", len(serverItemsMap), len(allServerNames))
+			}
+		}
+	}
 	// Check host existence once — reused in DisabledMsg across both goroutine loops
 	serverHostExists := false
 	if serverHost != "" {

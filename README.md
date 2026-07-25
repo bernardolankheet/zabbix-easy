@@ -40,7 +40,7 @@ These collector helpers are used by the backend to avoid ad-hoc JSON parsing in 
 ### 1) Using Docker:
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
 # open http://localhost:8080
 ```
 
@@ -48,7 +48,7 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 
 ```bash
 docker compose --profile db up --build -d
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
 # open http://localhost:8080
 ```
 
