@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Security
+- With `APP_DEBUG=1` the full JSON-RPC body was written to the log on every call, exposing the API token in clear text on each request (88 occurrences in a single 3-second report run), plus the `user.login` password and the session token it returns. Debug bodies are now redacted; report data and the Zabbix version are still logged. (code: `app/cmd/app/main.go` — `redactSecrets`, tests: `app/cmd/app/redact_test.go`)
+
+### Fixed
+- When no Zabbix Server internal process item is found, the report showed all 38 process rows as "disabled" with no warning — indistinguishable from a Zabbix Server with everything actually turned off, when the real cause is `ZABBIX_SERVER_HOSTID` pointing at the wrong host. The report now warns explicitly. (code: `app/cmd/app/main.go`, i18n: `warn.server_items_not_found`)
+
+
 ## [0.1.1] - 2026-04-23
 
 ### Added

@@ -17,12 +17,30 @@ import (
 	neturl "net/url"
 	"sync"
 	"os"
+	"regexp"
 	"database/sql"
 	_ "github.com/lib/pq"
 )
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
 var debugApi bool = false
+
+// secretJsonFields casa os campos do JSON-RPC que carregam credenciais: o token
+// de API ("auth"), a senha enviada no user.login e o token de sessão que o
+// user.login devolve em "result". Com APP_DEBUG=1 o corpo inteiro das
+// requisições ia para o log, expondo o token em texto puro em toda chamada.
+var secretJsonFields = regexp.MustCompile(`"(auth|password|token|sessionid)"\s*:\s*"[^"]*"`)
+
+// redactSecrets mascara credenciais em um corpo JSON antes de mandá-lo ao log.
+// loginResult mascara também o campo "result" — só faz sentido para user.login,
+// onde o result É o token de sessão (nas demais chamadas result são dados).
+func redactSecrets(body string, loginResult bool) string {
+	body = secretJsonFields.ReplaceAllString(body, `"$1":"<redacted>"`)
+	if loginResult {
+		body = regexp.MustCompile(`"result"\s*:\s*"[^"]*"`).ReplaceAllString(body, `"result":"<redacted>"`)
+	}
+	return body
+}
 // useBearerAuth is set to true when the detected Zabbix version is >= 7.2.
 // In that case all API calls (except user.login) must authenticate via
 // "Authorization: Bearer <token>" HTTP header instead of the JSON-RPC "auth" field.
@@ -178,7 +196,7 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	}
 	reqBytes, _ := json.Marshal(req)
 	if debugApi {
-		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, string(reqBytes))
+		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, redactSecrets(string(reqBytes), false))
 	}
 	if httpClient == nil {
 		initHttpClient()
@@ -223,7 +241,7 @@ func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[str
 	defer resp.Body.Close()
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	if debugApi {
-		b := string(bodyBytes)
+		b := redactSecrets(string(bodyBytes), method == "user.login")
 		if len(b) > 4096 { b = b[:4096] + "...(truncated)" }
 		log.Printf("[ZABBIX DEBUG] Response %s <- status=%s body=%s", method, resp.Status, b)
 	}
@@ -1755,6 +1773,18 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		if arr, err := collector.CollectRawList(apiUrl, token, "host.get", hostParams, zabbixApiRequest); err == nil {
 			if len(arr) > 0 { serverHostExists = true }
 		}
+	}
+	// Nenhum item de processo encontrado: sem este aviso as duas tabelas abaixo
+	// saem com TODAS as linhas como "Desativado", o que se lê como um problema
+	// no Zabbix Server quando na verdade é ZABBIX_SERVER_HOSTID apontando para
+	// o host errado (ou para um host que existe mas não é o Zabbix Server).
+	if len(serverItemsMap) == 0 && len(allServerNames) > 0 {
+		key := "warn.server_items_not_found"
+		if serverHost != "" && !serverHostExists {
+			key = "error.hostid_not_found"
+		}
+		log.Printf("[WARN] nenhum item de processo encontrado para ZABBIX_SERVER_HOSTID=%q (host existe=%v) — tabelas do Server sairão vazias", serverHost, serverHostExists)
+		html += `<div class='como-corrigir' data-i18n='` + key + `' data-i18n-args='` + htmlpkg.EscapeString(serverHost) + `'></div>`
 	}
 		html += titleWithInfo("h3", "i18n:section.pollers", "i18n:tip.pollers|"+checkTrendDisplay)
 	html += `<div class='table-responsive'><table class='modern-table'><thead><tr><th data-i18n='table.process'></th><th data-i18n='table.value_min'></th><th data-i18n='table.value_avg'></th><th data-i18n='table.value_max'></th><th data-i18n='table.status'></th></tr></thead><tbody>`
