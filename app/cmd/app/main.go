@@ -717,9 +717,15 @@ func generateZabbixReport(url, token, username, password string, progressCb func
 	sem := make(chan struct{}, maxConcurrent)
 
 	// get Zabbix API version (apiinfo.version)
-	zabbixVersion := ""
-	if v, err := collector.CollectZabbixVersion(apiUrl, zabbixApiRequest); err == nil {
-		zabbixVersion = v
+	// apiinfo.version não exige autenticação e existe em toda versão suportada.
+	// Se ela não responde uma versão, a URL não é uma API do Zabbix — abortar
+	// aqui evita seguir com majorV=0, que escolhe o transporte de auth errado
+	// para 7.2+ e transforma um erro de URL em erros confusos lá na frente
+	// (ex.: apontar para um Grafana devolve o 401 dele no lugar do login).
+	zabbixVersion, versionErr := collector.CollectZabbixVersion(apiUrl, zabbixApiRequest)
+	if versionErr != nil || strings.TrimSpace(zabbixVersion) == "" {
+		log.Printf("[ERROR] apiinfo.version não retornou versão para %s: %v", apiUrl, versionErr)
+		return "", fmt.Errorf("not a Zabbix API endpoint: %s", apiUrl)
 	}
 	// Detecta versão do zabbix para ajustar chamadas, funcão para chamadas zabbix 6 e 7, foi uma forma que pensei para ter suporte a ambas.
 	majorV := 0
@@ -4575,7 +4581,9 @@ func main() {
 				if t := getTask(taskID); t != nil {
 					tasksMu.Lock()
 					t.Status = "error"
-					if strings.HasPrefix(err.Error(), "login failed") {
+					if strings.HasPrefix(err.Error(), "not a Zabbix API endpoint") {
+						t.Report = "<div style='color:red;'><span data-i18n='error.not_zabbix_endpoint'></span></div>"
+					} else if strings.HasPrefix(err.Error(), "login failed") {
 						t.Report = "<div style='color:red;'><span data-i18n='error.invalid_credentials'></span></div>"
 					} else if strings.Contains(err.Error(), "Not authorized") || strings.Contains(err.Error(), "Not authorised") {
 						t.Report = "<div style='color:red;'><span data-i18n='error.invalid_token'></span></div>"
