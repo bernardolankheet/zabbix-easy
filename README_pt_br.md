@@ -35,20 +35,35 @@ Compatibilidade Zabbix:
 
 ## Início rápido — executar localmente
 
-### 1) Usando Docker (mais simples):
+### 1) Usando Docker (recomendado):
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
-# open http://localhost:8080
+docker compose up --build -d
+# Acesse http://localhost:8080
+```
+
+Ou com a imagem publicada:
+
+```bash
+docker run -d --name zabbix-easy -p 8080:8080 \
+  -e MAX_CONCURRENT=10 \
+  -e ZABBIX_SERVER_HOSTID=10084 \
+  -e CHECKTRENDTIME=15d \
+  bernardolankheet/zabbix-easy:latest
 ```
 
 ### 2) Rodando com persistência de dados (Postgres):
 
 ```bash
 docker compose --profile db up --build -d
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
-# Acesse http://localhost:8080
 ```
+
+## Configuração de segurança
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `APP_API_KEY` | _(vazio)_ | Protege geração de relatório e rotas DELETE. Header `X-API-Key`. |
+| `ZABBIX_TLS_VERIFY` | `false` | `true` verifica certificado TLS ao chamar a API Zabbix. |
 
 ## Documentação
 - [https://bernardolankheet.github.io/zabbix-easy](https://bernardolankheet.github.io/zabbix-easy)
@@ -62,3 +77,4 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 
 ## Notas
 - Para detalhes das novas funcionalidades e mudanças veja `CHANGELOG.md`.
+- Para o histórico completo de implementações desta base (incluindo análise por host, refatoração e segurança), veja **[README_ATUALIZACOES.md](README_ATUALIZACOES.md)**.

@@ -3,8 +3,20 @@ package collector
 // CollectItems performs an `item.get` call and returns the list of items
 // as []map[string]interface{} for callers to aggregate or inspect.
 func CollectItems(apiUrl, token string, req ApiRequester) ([]map[string]interface{}, error) {
+	return collectItems(apiUrl, token, "", req)
+}
+
+// CollectItemsByHost returns items for a single host only.
+func CollectItemsByHost(apiUrl, token, hostID string, req ApiRequester) ([]map[string]interface{}, error) {
+	return collectItems(apiUrl, token, hostID, req)
+}
+
+func collectItems(apiUrl, token, hostID string, req ApiRequester) ([]map[string]interface{}, error) {
 	params := map[string]interface{}{
 		"output": []string{"itemid", "name", "hostid", "key_", "value_type"},
+	}
+	if hostID != "" {
+		params["hostids"] = hostID
 	}
 	resp, err := req(apiUrl, token, "item.get", params)
 	if err != nil {

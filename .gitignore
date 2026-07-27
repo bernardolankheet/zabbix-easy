@@ -19,6 +19,9 @@ node_modules/
 *.bak
 *.tmp
 *.out
+/app/go-zabbix-app
+/app/app
+zabbix-easy-report.tar.gz
 /.venv
 
 venv/
