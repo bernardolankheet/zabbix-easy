@@ -1,6 +1,9 @@
 package collector
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ProxySummary summarizes proxy counts and names by state/mode.
 type ProxySummary struct {
@@ -74,6 +77,39 @@ func SummarizeProxies(proxies []map[string]interface{}) ProxySummary {
 		// If we couldn't classify, leave it in total but don't increment active/passive
 	}
 	return s
+}
+
+// ResolvedHost holds the hostid and display name matched from a filter string.
+type ResolvedHost struct {
+	HostID string
+	Name   string
+}
+
+// ResolveHostByFilter finds a host by hostid, exact name, or a single unambiguous partial match.
+func ResolveHostByFilter(hosts []map[string]interface{}, hostFilter string) (ResolvedHost, error) {
+	result := ResolveHostsByFilter(hosts, hostFilter)
+	switch result.Status {
+	case "empty":
+		return ResolvedHost{}, fmt.Errorf("host filter is required")
+	case "ok":
+		return result.Host, nil
+	case "ambiguous":
+		names := make([]string, len(result.Hosts))
+		for i, h := range result.Hosts {
+			names[i] = h.Name
+		}
+		return ResolvedHost{}, fmt.Errorf("multiple hosts match %q: %s", strings.TrimSpace(hostFilter), strings.Join(names, ", "))
+	default:
+		return ResolvedHost{}, fmt.Errorf("host not found")
+	}
+}
+
+func hostFromMap(h map[string]interface{}) ResolvedHost {
+	name := fmtValue(h["host"])
+	if name == "" {
+		name = fmtValue(h["name"])
+	}
+	return ResolvedHost{HostID: fmtValue(h["hostid"]), Name: name}
 }
 
 func fmtValue(v interface{}) string {

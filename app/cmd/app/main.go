@@ -3,15 +3,15 @@
 import (
 	"github.com/gin-gonic/gin"
 	collector "go-zabbix-report/internal/collector"
+	"go-zabbix-report/internal/report"
+	"go-zabbix-report/internal/server"
+	"go-zabbix-report/internal/zabbix"
 	"net/http"
-	"crypto/tls"
 	"fmt"
 	"time"
 	"strings"
 	htmlpkg "html"
-	"encoding/json"
 	"log"
-	"io"
 	"strconv"
 	"sort"
 	neturl "net/url"
@@ -23,31 +23,58 @@ import (
 
 // Debug flag controlled by ENV APP_DEBUG (true/1/yes to enable)
 var debugApi bool = false
-// useBearerAuth is set to true when the detected Zabbix version is >= 7.2.
-// In that case all API calls (except user.login) must authenticate via
-// "Authorization: Bearer <token>" HTTP header instead of the JSON-RPC "auth" field.
-var useBearerAuth bool = false
-// CHECKTRENDTIME controls how far back getLastTrend queries trends.
-// Format examples: 15d, 1d, 12h, 10m (days/hours/minutes). Defaults to 15d.
+// CHECKTRENDTIME controls how far back trend queries look.
 var checkTrendDurationSeconds int64 = 15 * 24 * 60 * 60
 
-// parseCheckTrendEnv lê a variável de ambiente CHECKTRENDTIME e converte o valor
-// para segundos, armazenando em checkTrendDurationSeconds.
-//
-// Formatos aceitos (case-insensitive):
-//
-//	"15d"  → 15 dias  (1296000 s)   ← padrão se a variável não estiver definida
-//	"12h"  → 12 horas (43200 s)
-//	"90m"  → 90 minutos (5400 s)
-//	"3600" → sem sufixo = minutos (3600 minutos)
-//
-// checkTrendDurationSeconds é usado por getLastTrend, getTrendsBulkStats e
-// getHistoryStats para determinar o intervalo time_from/time_to nas chamadas
-// à API do Zabbix.
-//
-// ─── Como alterar o padrão ────────────────────────────────────────────────
-// O valor padrão (15d) é definido na declaração de checkTrendDurationSeconds
-// no topo do arquivo. Altere lá caso queira um padrão diferente sem usar ENV.
+// hostReportOptions carries optional host-analysis parameters from the API/form.
+type hostReportOptions struct {
+	HostFilterB    string
+	MetricItemKeys map[string]string
+}
+
+// zbxClient is the shared Zabbix API client (see internal/zabbix).
+var zbxClient *zabbix.Client
+
+func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
+	return zbxClient.APIRequest(apiUrl, token, method, params)
+}
+
+func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, error) {
+	return zbxClient.GetItemByKey(apiUrl, token, key, hostid)
+}
+
+func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string, error) {
+	return zbxClient.GetLastHistoryValue(apiUrl, token, itemid, historyType)
+}
+
+func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[string]interface{}, error) {
+	return zbxClient.GetHistoryStats(apiUrl, token, itemid, histType, days)
+}
+
+func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{}, error) {
+	return zbxClient.GetLastTrend(apiUrl, token, itemid, days)
+}
+
+func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[string]interface{}, error) {
+	return zbxClient.GetTrendsBulkStats(apiUrl, token, itemids)
+}
+
+func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[string]map[string]interface{}, error) {
+	return zbxClient.GetHistoryStatsBulkByType(apiUrl, token, items)
+}
+
+func normalizeZabbixAPIUrl(url string) string {
+	url = strings.TrimSpace(url)
+	if strings.HasSuffix(url, "/api_jsonrpc.php") {
+		return url
+	}
+	if strings.HasSuffix(url, "/") {
+		return url + "api_jsonrpc.php"
+	}
+	return url + "/api_jsonrpc.php"
+}
+
+// parseCheckTrendEnv reads CHECKTRENDTIME and stores seconds in checkTrendDurationSeconds.
 func parseCheckTrendEnv() {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHECKTRENDTIME")))
 	if v == "" { v = "15d" }
@@ -83,599 +110,13 @@ func parseCheckTrendEnv() {
 		       return
 	       }
 	log.Printf("[DEBUG] CHECKTRENDTIME set to %s -> %d seconds", v, checkTrendDurationSeconds)
+	if zbxClient != nil {
+		zbxClient.SetTrendWindowSeconds(checkTrendDurationSeconds)
+	}
 
 }
 
-// parseCountResult interpreta o campo result de uma resposta JSON-RPC do Zabbix
-// para consultas com `countOutput:true`. Suporta `[]interface{}` (retorno antigo),
-// números (float64) e strings que contenham números.
-// NOTE: count parsing centralized in collector.CollectCount; old helper removed.
-
-// Reusable HTTP client to improve performance (connection reuse)
-var httpClient *http.Client
-	var httpTransport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-
-// Simple cache for item lookups: key is key+"|"+hostid -> map[string]interface{}
-var itemLookupCache sync.Map
-
-func initHttpClient() {
-	if httpClient != nil {
-		return
-	}
-	// Timeout padrão de 60s: trend.get e history.get em ambientes grandes podem levar 30-50s.
-	// Configurável via ENV API_TIMEOUT_SECONDS para ajuste sem rebuild.
-	timeoutSec := 60
-	if v := os.Getenv("API_TIMEOUT_SECONDS"); v != "" {
-		if n, e := strconv.Atoi(v); e == nil && n > 0 { timeoutSec = n }
-	}
-	log.Printf("[DEBUG] HTTP client timeout=%ds (API_TIMEOUT_SECONDS)", timeoutSec)
-	httpTransport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost: 8,
-		IdleConnTimeout:     30 * time.Second,
-	}
-	httpClient = &http.Client{Transport: httpTransport, Timeout: time.Duration(timeoutSec) * time.Second}
-}
-
-// isIdleConnError detecta erros transientes de conexão idle que ocorrem quando
-// o servidor fecha uma conexão keep-alive antes que o cliente tente reutilizá-la.
-// Nesse caso é seguro retentar a mesma requisição com uma conexão nova.
-func isIdleConnError(err error) bool {
-	if err == nil {
-		return false
-	}
-	s := err.Error()
-	return strings.Contains(s, "server closed idle connection") ||
-		strings.Contains(s, "EOF") ||
-		strings.Contains(s, "connection reset by peer") ||
-		strings.Contains(s, "broken pipe")
-}
-
-// isDeadlineError detecta erros de timeout do cliente HTTP.
-// NÃO se deve retentar nesses casos: a API já está sob carga;
-// retentar aumentaria a pressão e pioraria o problema.
-func isDeadlineError(err error) bool {
-	if err == nil { return false }
-	s := err.Error()
-	return strings.Contains(s, "context deadline exceeded") ||
-		strings.Contains(s, "Client.Timeout exceeded") ||
-		strings.Contains(s, "i/o timeout")
-}
-
-// zabbixApiRequest é o ponto central de comunicação com a API JSON-RPC do Zabbix.
-// Toda chamada à API (item.get, trend.get, host.get, etc.) passa por aqui.
-//
-// Parâmetros:
-//
-//	token   — token de autenticação (campo "auth" no JSON-RPC). Passe "" para
-//	           chamadas que não requerem autenticação, como apiinfo.version.
-//	method  — método da API Zabbix, ex: "item.get", "trend.get", "host.get"
-//	params  — qualquer struct/map que será serializado como o campo "params" do JSON-RPC
-//
-// Retorno:
-//
-//	map[string]interface{} com a resposta completa do JSON-RPC (inclui "result").
-//	Erro se a requisição HTTP falhar, se o JSON não puder ser parseado, ou se
-//	a resposta contiver o campo "error" (erro da própria API Zabbix).
-//
-// Observações:
-//
-//	• Usa httpClient global (reutilização de conexão, TLS sem verificação).
-//	• Se APP_DEBUG=1, loga o request e os primeiros 4096 bytes da resposta.
-//	• Sempre loga o tempo de execução de cada chamada.
-func zabbixApiRequest(apiUrl, token, method string, params interface{}) (map[string]interface{}, error) {
-	req := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"method":  method,
-		"params":  params,
-		"id":      1,
-	}
-	// Zabbix < 7.2: token vai no campo "auth" do JSON-RPC.
-	// Zabbix >= 7.2: token vai no header HTTP "Authorization: Bearer <token>".
-	// user.login passa token vazio, então nenhum dos dois ramos se aplica.
-	if token != "" && !useBearerAuth {
-		req["auth"] = token
-	}
-	reqBytes, _ := json.Marshal(req)
-	if debugApi {
-		log.Printf("[ZABBIX DEBUG] Request %s -> %s", method, string(reqBytes))
-	}
-	if httpClient == nil {
-		initHttpClient()
-	}
-	// Função para tentar uma requisição e repetir se for um erro de idle connection (conexão fechada pelo servidor antes de concluirr a requisição). Limite de 3 tentativas para evitar loops infinitos.
-	const maxRetries = 3
-	var resp *http.Response
-	var err error
-	start := time.Now()
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Para forçar uma nova conexão TCP no retry (sem afetar as conexões das outras goroutines),
-		// adicionamos "Connection: close" no retry — o servidor fecha após responder e o Go não
-		// recoloca a conexão no pool, evitando reusar stale connections sem CloseIdleConnections() global.
-		req, reqErr := http.NewRequest("POST", apiUrl, strings.NewReader(string(reqBytes)))
-		if reqErr != nil { err = reqErr; break }
-		req.Header.Set("Content-Type", "application/json")
-		if useBearerAuth && token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		if attempt > 1 {
-			req.Header.Set("Connection", "close")
-		}
-		resp, err = httpClient.Do(req)
-		if err == nil {
-			break // sucesso
-		}
-		if isDeadlineError(err) {
-			log.Printf("[ZABBIX API] %s timeout (tentativa %d/%d) — n\u00e3o retenta (API sobrecarregada): %v", method, attempt, maxRetries, err)
-			break
-		}
-		if isIdleConnError(err) && attempt < maxRetries {
-			log.Printf("[ZABBIX API] %s idle-conn error (tentativa %d/%d), repetindo: %v", method, attempt, maxRetries, err)
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-			continue
-		}
-		break
-	}
-	if err != nil {
-		log.Printf("[ZABBIX API] %s failed after %s: %v", method, time.Since(start), err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	if debugApi {
-		b := string(bodyBytes)
-		if len(b) > 4096 { b = b[:4096] + "...(truncated)" }
-		log.Printf("[ZABBIX DEBUG] Response %s <- status=%s body=%s", method, resp.Status, b)
-	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		log.Printf("[ZABBIX API] %s unmarshal failed after %s: %v", method, time.Since(start), err)
-		return nil, err
-	}
-	if errObj, ok := result["error"]; ok {
-		log.Printf("[ZABBIX API] %s returned error after %s: %v", method, time.Since(start), errObj)
-		return nil, fmt.Errorf("API error: %v", errObj)
-	}
-	log.Printf("[ZABBIX API] %s completed in %s, status=%s", method, time.Since(start), resp.Status)
-	return result, nil
-}
-
-// getItemByKey busca um item específico pela chave exata (key_) e, opcionalmente,
-// filtra pelo hostid. Retorna o primeiro resultado ou nil se não encontrado.
-//
-// Uso típico:
-//
-//	item, err := getItemByKey(apiUrl, token, "zabbix[requiredperformance]", hostid)
-//	if item != nil {
-//	    itemid := fmt.Sprintf("%v", item["itemid"])
-//	}
-//
-// Resultado é cacheado em itemLookupCache (sync.Map) usando "key|hostid" como
-// chave do cache — chamadas subsequentes com os mesmos parâmetros não fazem
-// nova requisição à API.
-//
-// ─── Diferença em relação a getProcessItemsBulk ───────────────────────────
-// Esta função usa filter exato (key_ == valor). Use-a para chaves conhecidas
-// e fixas (ex: "zabbix[requiredperformance]").
-// Use getProcessItemsBulk quando quiser buscar múltiplos processos de uma vez
-// com padrões wildcard.
-func getItemByKey(apiUrl, token, key, hostid string) (map[string]interface{}, error) {
-	// check cache first
-	cacheKey := key + "|" + hostid
-	if v, ok := itemLookupCache.Load(cacheKey); ok {
-		if m, ok2 := v.(map[string]interface{}); ok2 {
-			return m, nil
-		}
-	}
-
-	params := map[string]interface{}{
-		"output": []string{"itemid", "hostid", "name", "key_", "value_type"},
-		// use exact filter for key_ to avoid partial matches and extra work
-		"filter": map[string]interface{}{"key_": key},
-		"limit": 1,
-	}
-	if hostid != "" {
-		params["hostids"] = hostid
-	}
-	arr, err := collector.CollectRawList(apiUrl, token, "item.get", params, zabbixApiRequest)
-	if err != nil { return nil, err }
-	if len(arr) > 0 {
-		m := arr[0]
-		itemLookupCache.Store(cacheKey, m)
-		return m, nil
-	}
-	return nil, nil
-}
-
-// getProcessItemsBulk busca itens de processo para o Zabbix Server em UMA única
-// chamada item.get usando wildcard (searchWildcardsEnabled + searchByAny).
-//
-// Retorna map[nomeEmMinúsculas] → item (os campos itemid, key_, name, value_type).
-//
-// Estratégia de resolução de conflitos ("mais específico vence"):
-//
-//	Se dois padrões batem no mesmo item (ex: "*poller*" e "*agent*poller*"),
-//	o padrão com mais palavras tem prioridade. Isso evita que o padrão genérico
-//	"*poller*" roube o item do "*agent*poller*".
-//
-// Parâmetros:
-//
-//	names  — lista de nomes de processo (ex: ["agent poller", "history syncer"])
-//	hostid — se não vazio, filtra pelo host (use ZABBIX_SERVER_HOSTID)
-//
-// ─── Diferença em relação a getProxyProcessItems ──────────────────────────
-// Esta função usa search.key_ wildcard: funciona bem quando as chaves seguem
-// um padrão previsível. Para proxies, prefira getProxyProcessItems, que busca
-// todos os itens type=5 e faz o match client-side — mais robusto a variações
-// de formato de chave entre versões do Zabbix.
-//
-// ─── Como adicionar um processo novo ─────────────────────────────────────
-// Inclua o nome em pollerNames ou procNames dentro de generateZabbixReport.
-// Esta função é chamada automaticamente com a lista completa.
-// process/proxy helpers migrated to app/internal/collector; wrappers removed.
-
-// getLastHistoryValue retorna o valor mais recente do histórico de um item
-// (history.get com sortorder DESC, limit 1).
-//
-// Parâmetros:
-//
-//	itemid      — ID do item no Zabbix
-//	historyType — tipo de histórico (value_type do item):
-//	               0 = float, 1 = char/string, 2 = log, 3 = integer, 4 = text
-//
-// Retorna o valor como string (ex: "3.14", "200") ou "" se não houver dados.
-//
-// Uso típico: obter o último valor de NVPS (zabbix[requiredperformance]).
-//
-// ─── Diferença em relação a getHistoryStats ───────────────────────────────
-// Esta função retorna apenas o último ponto (limit:1). Use getHistoryStats
-// quando precisar de min/avg/max em um intervalo de tempo.
-func getLastHistoryValue(apiUrl, token, itemid string, historyType int) (string, error) {
-	params := map[string]interface{}{
-		"output": "extend",
-		"history": historyType,
-		"itemids": itemid,
-		"sortfield": "clock",
-		"sortorder": "DESC",
-		"limit": 1,
-	}
-	arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
-	if err != nil { return "", err }
-	if len(arr) > 0 {
-		hist := arr[0]
-		return fmt.Sprintf("%v", hist["value"]), nil
-	}
-	return "", nil
-}
-
-// getHistoryStats é o fallback de trend para UM único item: busca até 2000 pontos
-// do histórico no período configurado (CHECKTRENDTIME) e calcula min/avg/max.
-//
-// Quando usar:
-//
-//	• Quando getLastTrend retorna nil (item com trends=0, período curto ou
-//	  retenção de trend expirada).
-//	• Para itens do Zabbix Server (processados individualmente em goroutines).
-//
-// Parâmetros:
-//
-//	itemid  — ID do item
-//	hisType — tipo de histórico (0=float, 3=int, …)
-//	days    — fallback de intervalo em dias SE checkTrendDurationSeconds == 0
-//	          (normalmente checkTrendDurationSeconds > 0 e days é ignorado)
-//
-// Retorna map com "value_min", "value_avg", "value_max" como strings float,
-// ou nil se não houver dados.
-//
-// ─── Diferença em relação a getHistoryStatsBulkByType ────────────────────
-// Esta função processa UM item por chamada à API. Para proxies (múltiplos
-// itens de uma vez), use getHistoryStatsBulkByType.
-func getHistoryStats(apiUrl, token, itemid string, histType int, days int) (map[string]interface{}, error) {
-	now := time.Now().Unix()
-	var from int64
-	if checkTrendDurationSeconds > 0 {
-		from = now - checkTrendDurationSeconds
-	} else {
-		from = now - int64(days*24*60*60)
-	}
-	params := map[string]interface{}{
-		"output":    []string{"value"},
-		"history":   histType,
-		"itemids":   []string{itemid},
-		"time_from": from,
-		"time_till": now, // history.get usa time_till (não time_to) no Zabbix 6 e 7
-		"sortfield": "clock",
-		"sortorder": "ASC",
-		"limit":     2000,
-	}
-	arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
-	if err != nil { return nil, err }
-	if len(arr) == 0 { return nil, nil }
-	var vals []float64
-	for _, m := range arr {
-		if m == nil { continue }
-		if v, ok := m["value"]; ok {
-			if f, err := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); err == nil {
-				vals = append(vals, f)
-			}
-		}
-	}
-	if len(vals) == 0 { return nil, nil }
-	vmin, vmax := vals[0], vals[0]
-	sum := 0.0
-	for _, v := range vals {
-		if v < vmin { vmin = v }
-		if v > vmax { vmax = v }
-		sum += v
-	}
-	vavg := sum / float64(len(vals))
-	return map[string]interface{}{
-		"value_min": fmt.Sprintf("%f", vmin),
-		"value_avg": fmt.Sprintf("%f", vavg),
-		"value_max": fmt.Sprintf("%f", vmax),
-	}, nil
-}
-
-// getLastTrend busca o registro mais recente de trend para UM único item dentro
-// do período configurado (CHECKTRENDTIME) usando trend.get.
-//
-// Retorna map com "value_min", "value_avg", "value_max" (strings float)
-// ou nil se não houver trend disponível (→ usar getHistoryStats como fallback).
-//
-// Parâmetros:
-//
-//	itemid — ID do item
-//	days   — fallback de intervalo em dias SE checkTrendDurationSeconds == 0
-//	         (normalmente ignorado pois checkTrendDurationSeconds é preenchido
-//	          por parseCheckTrendEnv ao iniciar o servidor)
-//
-// Usado pelos goroutines de pollers e processos do Zabbix Server.
-// Para processos de proxy (múltiplos itens de uma vez), use getTrendsBulkStats.
-//
-// ─── Fluxo recomendado ────────────────────────────────────────────────────
-//
-//	trendData, _ := getLastTrend(apiUrl, token, itemid, 30)
-//	if trendData == nil {
-//	    trendData, _ = getHistoryStats(apiUrl, token, itemid, histType, 30)
-//	}
-func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{}, error) {
-	now := time.Now().Unix()
-	// compute 'from' based on CHECKTRENDTIME if provided, otherwise use days param (in days)
-	var from int64
-	if checkTrendDurationSeconds > 0 {
-		from = now - checkTrendDurationSeconds
-	} else {
-		from = now - int64(days*24*60*60)
-	}
-	params := map[string]interface{}{
-		"output":    []string{"itemid", "clock", "value_min", "value_avg", "value_max"},
-		"itemids":   []string{itemid},
-		"time_from": from,
-		"time_to":   now,
-	}
-	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
-	if err != nil { return nil, err }
-	if len(arr) == 0 { return nil, nil }
-	// Agrega todos os registros do período: min=menor, avg=média dos avgs, max=maior
-	type aggState struct {
-		vmin, vmax float64
-		vavgSum    float64
-		count      int
-	}
-	var agg *aggState
-	parseF := func(row map[string]interface{}, k string) (float64, bool) {
-		if v, ok2 := row[k]; ok2 {
-			if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
-		}
-		return 0, false
-	}
-	for _, row := range arr {
-		if row == nil { continue }
-		vmin, ok1 := parseF(row, "value_min")
-		vavg, ok2 := parseF(row, "value_avg")
-		vmax, ok3 := parseF(row, "value_max")
-		if !ok1 && !ok2 && !ok3 { continue }
-		if agg == nil {
-			agg = &aggState{vmin: vmin, vmax: vmax, vavgSum: vavg, count: 1}
-		} else {
-			if ok1 && vmin < agg.vmin { agg.vmin = vmin }
-			if ok3 && vmax > agg.vmax { agg.vmax = vmax }
-			if ok2 { agg.vavgSum += vavg; agg.count++ }
-		}
-	}
-	if agg == nil { return nil, nil }
-	vavgFinal := 0.0
-	if agg.count > 0 { vavgFinal = agg.vavgSum / float64(agg.count) }
-	return map[string]interface{}{
-		"value_min": fmt.Sprintf("%f", agg.vmin),
-		"value_avg": fmt.Sprintf("%f", vavgFinal),
-		"value_max": fmt.Sprintf("%f", agg.vmax),
-	}, nil
-}
-
-// getTrendsBulkStats busca dados de trend para TODOS os itemids em UMA única
-// chamada trend.get e agrega os resultados por item.
-//
-// Agregação por item (quando há múltiplos registros de trend no período):
-//
-//	value_min → menor de todos os value_min
-//	value_avg → média de todos os value_avg
-//	value_max → maior de todos os value_max
-//
-// Retorna map[itemid] → {"value_min", "value_avg", "value_max"} como strings.
-// Items sem dados no período não aparecem no mapa (use esse ausência como
-// sinal para acionar o fallback getHistoryStatsBulkByType).
-//
-// O intervalo de tempo é controlado por checkTrendDurationSeconds (CHECKTRENDTIME).
-//
-// ─── Fluxo recomendado para proxies ───────────────────────────────────────
-//
-//	trendMap, _ := getTrendsBulkStats(apiUrl, token, iids)
-//	// Para itens sem trend, usar fallback de history:
-//	missing := map[string]int{}
-//	for _, iid := range iids {
-//	    if _, ok := trendMap[iid]; !ok { missing[iid] = vtypes[iid] }
-//	}
-//	if len(missing) > 0 {
-//	    histStats, _ := getHistoryStatsBulkByType(apiUrl, token, missing)
-//	    for iid, s := range histStats { trendMap[iid] = s }
-//	}
-func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[string]interface{}, error) {
-	if len(itemids) == 0 { return map[string]map[string]interface{}{}, nil }
-	now := time.Now().Unix()
-	var from int64
-	if checkTrendDurationSeconds > 0 {
-		from = now - checkTrendDurationSeconds
-	} else {
-		from = now - 30*24*60*60
-	}
-	params := map[string]interface{}{
-		"output":    []string{"itemid", "value_min", "value_avg", "value_max"},
-		"itemids":   itemids,
-		"time_from": from,
-		"time_to":   now,
-	}
-	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
-	if err != nil { return nil, err }
-	type aggState struct {
-		vmin, vmaxV float64
-		vavgSum     float64
-		count       int
-	}
-	agg := map[string]*aggState{}
-	for _, row := range arr {
-		if row == nil { continue }
-		iid := fmt.Sprintf("%v", row["itemid"])
-		parseF := func(k string) (float64, bool) {
-			if v, ok2 := row[k]; ok2 {
-				if f, e := strconv.ParseFloat(fmt.Sprintf("%v", v), 64); e == nil { return f, true }
-			}
-			return 0, false
-		}
-		vmin, ok1 := parseF("value_min")
-		vavg, ok2 := parseF("value_avg")
-		vmax, ok3 := parseF("value_max")
-		if !ok1 && !ok2 && !ok3 { continue }
-		if agg[iid] == nil {
-			agg[iid] = &aggState{vmin: vmin, vmaxV: vmax, vavgSum: vavg, count: 1}
-		} else {
-			s := agg[iid]
-			if ok1 && vmin < s.vmin { s.vmin = vmin }
-			if ok3 && vmax > s.vmaxV { s.vmaxV = vmax }
-			if ok2 { s.vavgSum += vavg; s.count++ }
-		}
-	}
-	result := map[string]map[string]interface{}{}
-	for iid, s := range agg {
-		vavg := 0.0
-		if s.count > 0 { vavg = s.vavgSum / float64(s.count) }
-		result[iid] = map[string]interface{}{
-			"value_min": fmt.Sprintf("%f", s.vmin),
-			"value_avg": fmt.Sprintf("%f", vavg),
-			"value_max": fmt.Sprintf("%f", s.vmaxV),
-		}
-	}
-	return result, nil
-}
-
-// getHistoryStatsBulkByType é o fallback bulk de trend para MÚLTIPLOS itens.
-// Busca histórico agrupando os itemids por value_type e fazendo UMA chamada
-// history.get por tipo. Calcula min/avg/max a partir dos valores brutos.
-//
-// Parâmetros:
-//
-//	items — map[itemid] → value_type (0=float, 3=int, 1=char, …)
-//	         Inclua apenas os itens que não tiveram dados em getTrendsBulkStats.
-//
-// Limite de segurança: 500 pontos por item, máximo de 20.000 linhas por chamada
-// (para evitar respostas gigantes que sobrecarreguem a API ou a memória).
-//
-// Retorna map[itemid] → {"value_min", "value_avg", "value_max"} como strings.
-//
-// ─── Quando usar ──────────────────────────────────────────────────────────
-// Somente como fallback após getTrendsBulkStats, para os itens que não
-// retornaram dados de trend (trends=0 no item, período muito curto, etc.).
-// Para um único item (Zabbix Server), use getHistoryStats.
-func getHistoryStatsBulkByType(apiUrl, token string, items map[string]int) (map[string]map[string]interface{}, error) {
-	if len(items) == 0 { return map[string]map[string]interface{}{}, nil }
-	// Group itemids by value_type
-	byType := map[int][]string{}
-	for iid, vt := range items { byType[vt] = append(byType[vt], iid) }
-	now := time.Now().Unix()
-	var from int64
-	if checkTrendDurationSeconds > 0 {
-		from = now - checkTrendDurationSeconds
-	} else {
-		from = now - 30*24*60*60
-	}
-	result := map[string]map[string]interface{}{}
-	var mu sync.Mutex
-	for histType, iids := range byType {
-		// Cap limit to avoid huge responses: 500 rows per item
-		limit := len(iids) * 500
-		if limit > 20000 { limit = 20000 }
-		params := map[string]interface{}{
-			"output":    []string{"itemid", "value"},
-			"history":   histType,
-			"itemids":   iids,
-			"time_from": from,
-			"time_till": now, // history.get usa time_till (não time_to) no Zabbix 6 e 7
-			"sortfield": "clock",
-			"sortorder": "ASC",
-			"limit":     limit,
-		}
-		arr, err := collector.CollectRawList(apiUrl, token, "history.get", params, zabbixApiRequest)
-		if err != nil { continue }
-		type aggS struct{ vals []float64 }
-		agg := map[string]*aggS{}
-		for _, row := range arr {
-			if row == nil { continue }
-			iid := fmt.Sprintf("%v", row["itemid"])
-			if f, e := strconv.ParseFloat(fmt.Sprintf("%v", row["value"]), 64); e == nil {
-				if agg[iid] == nil { agg[iid] = &aggS{} }
-				agg[iid].vals = append(agg[iid].vals, f)
-			}
-		}
-		mu.Lock()
-		for iid, s := range agg {
-			if len(s.vals) == 0 { continue }
-			vmin, vmax, sum := s.vals[0], s.vals[0], 0.0
-			for _, v := range s.vals {
-				if v < vmin { vmin = v }
-				if v > vmax { vmax = v }
-				sum += v
-			}
-			result[iid] = map[string]interface{}{
-				"value_min": fmt.Sprintf("%f", vmin),
-				"value_avg": fmt.Sprintf("%f", sum/float64(len(s.vals))),
-				"value_max": fmt.Sprintf("%f", vmax),
-			}
-		}
-		mu.Unlock()
-	}
-	return result, nil
-}
-
-// getProxies retorna a lista completa de proxies configurados no Zabbix
-// com todos os campos disponíveis (output: extend).
-//
-// Os campos relevantes retornados (variam entre Zabbix 6 e 7):
-//
-//	Zabbix 6:
-//	  proxyid, host (nome), status (5=active, 6=passive), state (0=unknown, 1=offline, 2=online)
-//	Zabbix 7:
-//	  proxyid, name (nome), operating_mode (0=active, 1=passive), state (0=unknown, 1=offline, 2=online)
-//
-// A lista é usada em duas partes do relatório:
-//
-//	1. Tabela de resumo de proxies (status, tipo, fila, itens não suportados)
-//	2. Seção "Processos e Threads Zabbix Proxys" (goroutines por proxy)
-//
-// ─── Compatibilidade Zabbix 6 vs 7 ───────────────────────────────────────
-// O código em generateZabbixReport verifica os campos "operating_mode" (v7)
-// e "status" (v6) para determinar o tipo (Active/Passive), e "state" para
-// determinar o estado (Online/Offline/Unknown).
-func generateZabbixReport(url, token string, progressCb func(string)) (string, error) {
+func generateZabbixReport(url, token, hostFilter string, days int, progressCb func(string), ropts hostReportOptions) (string, error) {
 		nItemsNaoSuportados := "-"
 	if strings.TrimSpace(url) == "" {
 		return "", fmt.Errorf("zabbix URL is required")
@@ -687,6 +128,10 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
  	// Normalize inputs so validation and usage operate on the same values
  	url = strings.TrimSpace(url)
  	token = strings.TrimSpace(token)
+	hostFilter = strings.TrimSpace(hostFilter)
+	hostFilterB := strings.TrimSpace(ropts.HostFilterB)
+	if days <= 0 { days = 90 }
+	if days > 365 { days = 365 }
 
 	// restore apiUrl and html builder variables
 	apiUrl := url
@@ -705,13 +150,15 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	} else {
 		apiUrl += "/api_jsonrpc.php"
 	}
-	// Concurrency limit for parallel API calls (can be configured with env MAX_CCONCURRENT)
+	// Concurrency limit for parallel API calls (MAX_CONCURRENT or legacy MAX_CCONCURRENT)
 	// Default 4: evita sobrecarregar a API do Zabbix com muitas chamadas simultâneas.
 	maxConcurrent := 4
-	if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
+	if v := os.Getenv("MAX_CONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
+	} else if v := os.Getenv("MAX_CCONCURRENT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 { maxConcurrent = n }
 	}
-	log.Printf("[DEBUG] MAX_CCONCURRENT=%d", maxConcurrent)
+	log.Printf("[DEBUG] MAX_CONCURRENT=%d", maxConcurrent)
 	// semaphore channel used to bound concurrent API requests across sections
 	sem := make(chan struct{}, maxConcurrent)
 
@@ -734,8 +181,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	}
 	// A partir do Zabbix 7.2 a autenticação é via Bearer token no header HTTP.
 	// Versões anteriores usam o campo "auth" no corpo JSON-RPC.
-	useBearerAuth = majorV > 7 || (majorV == 7 && minorV >= 2)
-	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, useBearerAuth)
+	bearer := majorV > 7 || (majorV == 7 && minorV >= 2)
+	zbxClient.SetBearerAuth(bearer)
+	log.Printf("[DEBUG] Zabbix version=%s majorV=%d minorV=%d useBearerAuth=%v", zabbixVersion, majorV, minorV, bearer)
 
 	// Helper: Funcao para formatar inteiros com ponto como separador de milhares (e.g. 16573 -> 16.573)
 	formatInt := func(n int) string {
@@ -1309,6 +757,52 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	// Descrições moved to i18n locale files
 
+	// ── Coletar histórico de alertas por host (últimos N dias) ───────────────
+	var hostAlertHistory collector.HostAlertHistory
+	hostAlertHistoryStatus := ""
+	var hostDetailed collector.HostDetailedReport
+	hostDetailedStatus := ""
+	var hostCompare report.HostCompareData
+	hostFocusOpts := collector.HostFocusOptions{MetricItemKeys: ropts.MetricItemKeys}
+	if hostFilter != "" {
+		if progressCb != nil { progressCb("progress.collecting_host_focus") }
+		now := time.Now().Unix()
+		from := now - int64(days*24*60*60)
+		focus, err := collector.CollectHostFocusReport(apiUrl, token, hostFilter, from, now, zabbixApiRequest, hostFocusOpts)
+		if err != nil {
+			log.Printf("[WARN] failed to collect host focus report for %s: %v", hostFilter, err)
+			hostAlertHistoryStatus = err.Error()
+			hostDetailedStatus = err.Error()
+		} else {
+			hostAlertHistory = focus.AlertHistory
+			hostDetailed = focus.Detailed
+		}
+		if hostFilterB != "" {
+			if progressCb != nil { progressCb("progress.collecting_host_compare") }
+			focusB, errB := collector.CollectHostFocusReport(apiUrl, token, hostFilterB, from, now, zabbixApiRequest, hostFocusOpts)
+			hostCompare.Days = days
+			hostCompare.HostA = report.MetaAndFocus{
+				Meta:               buildHostMeta(hostFilter, hostAlertHistory, hostDetailed, days),
+				AlertHistory:       hostAlertHistory,
+				AlertHistoryStatus: hostAlertHistoryStatus,
+				Detailed:           hostDetailed,
+				DetailedStatus:     hostDetailedStatus,
+			}
+			if errB != nil {
+				hostCompare.HostB = report.MetaAndFocus{
+					Meta:               buildHostMeta(hostFilterB, collector.HostAlertHistory{}, collector.HostDetailedReport{}, days),
+					DetailedStatus:     errB.Error(),
+				}
+			} else {
+				hostCompare.HostB = report.MetaAndFocus{
+					Meta:               buildHostMeta(hostFilterB, focusB.AlertHistory, focusB.Detailed, days),
+					AlertHistory:       focusB.AlertHistory,
+					Detailed:           focusB.Detailed,
+				}
+			}
+		}
+	}
+
 	// ── Coletar Alertas de Ações (últimas 24h) ───────────────────────────────
 	if progressCb != nil { progressCb("progress.collecting_alerts") }
 	type alertActionRow struct {
@@ -1427,13 +921,18 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 		return mediaTypeRows[i].ErrorCount > mediaTypeRows[j].ErrorCount
 	})
 
+	var hostMeta report.HostMeta
+	if hostFilter != "" {
+		hostMeta = buildHostMeta(hostFilter, hostAlertHistory, hostDetailed, days)
+	}
+
 	// --- HTML ---
 	html += `<div class='zabbix-report-modern'>`
 		// Global tooltip CSS/JS (single copy) - info-icon + info-tooltip
 		html += `<style>
 		.info-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;cursor:pointer;margin-left:6px;position:relative}
 		.info-icon svg{display:block}
-		.info-tooltip{display:none;position:absolute;z-index:40;left:22px;top:50%;transform:translateY(-50%);background:#e3f2fd;color:#102a43;padding:8px 12px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.12);font-size:13px;min-width:360px;max-width:auto;white-space:normal;word-break:normal;overflow-wrap:break-word}
+		.info-tooltip{display:none;position:absolute;z-index:40;left:22px;top:50%;transform:translateY(-50%);background:#1e293b;color:#e2e8f0;padding:10px 14px;border-radius:10px;border:1px solid rgba(148,163,184,0.2);box-shadow:0 12px 32px rgba(0,0,0,0.35);font-size:13px;min-width:280px;max-width:420px;white-space:normal;word-break:normal;overflow-wrap:break-word}
 		.info-icon:focus .info-tooltip, .info-icon:hover .info-tooltip{display:block}
 		</style>
 		<script>
@@ -1504,19 +1003,26 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	verLabel := "N/A"
 	if zabbixVersion != "" { verLabel = zabbixVersion }
 
-	// Tabs UI (UX: simpler navigation, grouped content)
-	html += `<style>` +
-		`.tabs-container{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-top:12px;margin-bottom:14px;}` +
-		`.tab-btn{padding:10px 14px;border-radius:6px;border:1px solid #d1d5db;background:#ffffff;color:#102a43;font-weight:600;cursor:pointer;white-space:nowrap;}` +
-		`.tab-btn.active{background:#0b69d6;color:#fff;border-color:#0b69d6}` +
-		`.tab-panel{padding-top:12px;}` +
-	`</style>`
-	html += `<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;'>`
-	html += `<div style='font-size:14px;color:#1f2937;'><strong data-i18n='label_environment'></strong> ` + htmlpkg.EscapeString(ambienteUrl) + `</div>`
-	html += `<div style='font-size:14px;color:#1f2937;'><strong data-i18n='label_version'></strong> ` + htmlpkg.EscapeString(verLabel) + `</div>`
+	// Tabs UI (styles in web/static/custom.css)
+	html += `<aside class='report-sidebar'>`
+	html += `<div class='sidebar-panel'>`
+	html += `<div class='sidebar-brand'><strong>ZBX-Easy</strong></div>`
+	html += `<div class='report-env-meta'>`
+	html += `<div class='report-env-meta__item'><strong data-i18n='label_environment'></strong> <span class='report-env-meta__value'>` + htmlpkg.EscapeString(ambienteUrl) + `</span></div>`
+	html += `<div class='report-env-meta__item'><strong data-i18n='label_version'></strong> <span class='report-env-meta__value'>` + htmlpkg.EscapeString(verLabel) + `</span></div>`
+	if hostFilter != "" {
+		html += `<div class='report-env-meta__item host-filter-item host-filter-item--active'><strong data-i18n='host_focus.sidebar_active'></strong> <span class='report-env-meta__value'>` + hostMeta.NameEsc + ` · ` + fmt.Sprintf("%d", hostMeta.Days) + ` <span data-i18n='host_focus.days_suffix'></span></span></div>`
+	}
+	html += `</div>`
 	html += `</div>`
 	html += `<div class='tabs-container'>`
 	html += `<button class='tab-btn active' data-tab='tab-resumo' data-i18n='tabs.summary'></button>`
+	if hostFilter != "" {
+		html += `<button class='tab-btn tab-btn--host' data-tab='tab-host' data-i18n='tabs.host'></button>`
+	}
+	if hostFilter != "" && hostFilterB != "" {
+		html += `<button class='tab-btn tab-btn--host-compare' data-tab='tab-host-compare' data-i18n='tabs.host_compare'></button>`
+	}
 	html += `<button class='tab-btn' data-tab='tab-processos' data-i18n='tabs.server'></button>`
 	html += `<button class='tab-btn' data-tab='tab-proxys' data-i18n='tabs.proxys'></button>`
 	html += `<button class='tab-btn' data-tab='tab-items' data-i18n='tabs.items'></button>`
@@ -1527,6 +1033,7 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `<button class='tab-btn' data-tab='tab-usuarios' data-i18n='tabs.users'></button>`
 	html += `<button class='tab-btn' data-tab='tab-recomendacoes' data-i18n='tabs.recommendations'></button>`
 	html += `</div>`
+	html += `</aside>`
 
 	// Tab panels: resumo (visible), others hidden by default
 	html += `<div id='tab-resumo' class='tab-panel' style='display:block;'>`
@@ -1623,9 +1130,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Gauge area (pie/doughnut) - reserve space for multiple gauges later
 	html += `<div class='summary-gauges' style='display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:flex-start;'>`
 	// Hosts gauge (left)
-	html += `<div class='card' style='background:#fff;color:#222;padding:12px;border-radius:8px;min-width:220px;box-shadow:0 1px 6px rgba(0,0,0,0.04);'>`
-	html += `<h4 style='margin:0 0 8px 0;' data-i18n='gauge.hosts_disabled'></h4>`
-	html += `<canvas id='hosts-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", nTotalHosts) + `' data-unsupported='` + fmt.Sprintf("%d", nDisabledHosts) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ffcc66' data-color-supported='#66c2a5'></canvas>`
+	html += `<div class='card gauge-card'>`
+	html += `<h4 data-i18n='gauge.hosts_disabled'></h4>`
+	html += `<canvas id='hosts-gauge' width='200' height='200' data-total='` + fmt.Sprintf("%d", nTotalHosts) + `' data-unsupported='` + fmt.Sprintf("%d", nDisabledHosts) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ffcc66' data-color-supported='#66c2a5'></canvas>`
 	// legend lines: color swatches and separated lines (supported / disabled)
 	hostDisabledPct := 0.0
 	if nTotalHosts > 0 { hostDisabledPct = (float64(nDisabledHosts) * 100.0) / float64(nTotalHosts) }
@@ -1635,9 +1142,9 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	html += `</div>`
 	html += `</div>`
 	// Items gauge (right)
-	html += `<div class='card' style='background:#fff;color:#222;padding:12px;border-radius:8px;min-width:220px;box-shadow:0 1px 6px rgba(0,0,0,0.04);'>`
-	html += `<h4 style='margin:0 0 8px 0;' data-i18n='gauge.items_unsupported'></h4>`
-	html += `<canvas id='items-gauge' width='200' height='200' style='max-width:200px;' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
+	html += `<div class='card gauge-card'>`
+	html += `<h4 data-i18n='gauge.items_unsupported'></h4>`
+	html += `<canvas id='items-gauge' width='200' height='200' data-total='` + fmt.Sprintf("%d", totalItemsVal) + `' data-unsupported='` + fmt.Sprintf("%d", unsupportedVal) + `' data-unsupported-label='' data-supported-label='' data-color-unsupported='#ff7a7a' data-color-supported='#66c2a5'></canvas>`
 	// legend lines for items
 	itemsUnsupportedPct := 0.0
 	if totalItemsVal > 0 { itemsUnsupportedPct = (float64(unsupportedVal) * 100.0) / float64(totalItemsVal) }
@@ -1650,6 +1157,19 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 
 	html += `</div>` // end tab-resumo
+
+	if hostFilter != "" {
+		html += report.BuildHostTabHTML(report.HostTabData{
+			Meta:               hostMeta,
+			AlertHistory:       hostAlertHistory,
+			AlertHistoryStatus: hostAlertHistoryStatus,
+			Detailed:           hostDetailed,
+			DetailedStatus:     hostDetailedStatus,
+		})
+	}
+	if hostFilter != "" && hostFilterB != "" {
+		html += report.BuildHostCompareTabHTML(hostCompare)
+	}
 
 	// --- Processos e Threads Zabbix Server (Pollers + Internal) ---
 		if progressCb != nil { progressCb("progress.collecting_pollers_processes") }
@@ -3207,15 +2727,15 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Security alert: default Admin found. Highlight as CRITICAL when default password 'zabbix' is accepted.
 	if hasDefaultAdmin {
 		if adminDefaultPasswordValid {
-			html += `<div style='background:#fee2e2;border:1px solid #f43f5e;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			html += `<div class='alert-banner alert-banner--crit'>` +
 				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
-				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p>` +
-				`<p style='margin:8px 0 0;font-size:0.95em;color:#b91c1c;font-weight:700;' data-i18n='fix.default_admin_password_in_use'></p></div>` +
+				`<p data-i18n='users.default_admin_alert_desc'></p>` +
+				`<p><strong data-i18n='fix.default_admin_password_in_use'></strong></p></div>` +
 				`</div>`
 		} else {
-			html += `<div style='background:#fff1f0;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			html += `<div class='alert-banner alert-banner--warn'>` +
 				`<div><strong data-i18n='users.default_admin_alert_title'></strong>` +
-				`<p style='margin:4px 0 0;font-size:0.88em;color:#7f1d1d;' data-i18n='users.default_admin_alert_desc'></p></div>` +
+				`<p data-i18n='users.default_admin_alert_desc'></p></div>` +
 				`</div>`
 		}
 	}
@@ -3224,15 +2744,15 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 	// Only show guest-related messages in the Users tab when Guest exists AND is NOT already in the Disabled group.
 	if hasDefaultGuest && !guestInDisabledGroup {
 		if guestEnabled {
-			html += `<div style='background:#fff7f0;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			html += `<div class='alert-banner alert-banner--warn'>` +
 			`<div><strong data-i18n='users.default_guest_alert_title'></strong>` +
-			`<p style='margin:8px 0 0;font-size:0.95em;color:#b91c1c;font-weight:700;' data-i18n='users.default_guest_alert_desc'></p>` +
-			`<p style='margin:8px 0 0;font-size:0.95em;color:#92400e;font-weight:700;' data-i18n='fix.guest_must_be_disabled'></p></div>` +
+			`<p><strong data-i18n='users.default_guest_alert_desc'></strong></p>` +
+			`<p data-i18n='fix.guest_must_be_disabled'></p></div>` +
 			`</div>`
 		} else {
-			html += `<div style='background:#f8fafc;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;'>` +
+			html += `<div class='alert-banner alert-banner--info'>` +
 			`<div><strong data-i18n='users.guest_group_alert_title'></strong>` +
-			`<p style='margin:4px 0 0;font-size:0.88em;color:#0f172a;' data-i18n='users.guest_group_alert_desc'></p></div>` +
+			`<p data-i18n='users.guest_group_alert_desc'></p></div>` +
 			`</div>`
 		}
 	}
@@ -3546,35 +3066,35 @@ func generateZabbixReport(url, token string, progressCb func(string)) (string, e
 
 	html += `<style>
 .rec-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:20px}
-.kpi{padding:14px 16px;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;transition:box-shadow .15s;border-left:4px solid transparent}
-.kpi:hover{box-shadow:0 4px 14px rgba(0,0,0,.1)}
-.kpi .kpi-num{font-weight:800;font-size:24px;line-height:1;margin-bottom:2px}
-.kpi .kpi-label{font-size:11px;color:#5a6776;font-weight:500}
-.kpi-warn{border-left-color:#ffcc00}
-.kpi-crit{border-left-color:#ff6666}
-.kpi-ok{border-left-color:#16a34a}
+.kpi{padding:14px 16px;border-radius:12px;background:rgba(15,23,42,0.72);border:1px solid rgba(148,163,184,0.14);box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;transition:box-shadow .15s,border-color .15s;border-left:4px solid transparent}
+.kpi:hover{box-shadow:0 8px 24px rgba(2,8,23,0.25);border-color:rgba(79,140,255,0.25)}
+.kpi .kpi-num{font-weight:800;font-size:24px;line-height:1;margin-bottom:2px;color:#f8fafc}
+.kpi .kpi-label{font-size:11px;color:#94a3b8;font-weight:500}
+.kpi-warn{border-left-color:#f59e0b}
+.kpi-crit{border-left-color:#ef4444}
+.kpi-ok{border-left-color:#22c55e}
 .status-badge{padding:4px 8px;border-radius:999px;font-weight:600;font-size:12px}
-.status-badge.ok{background:#e6ffef;color:#065f46}
-.status-badge.warn{background:#fff7e6;color:#b26b00}
-.status-badge.crit{background:#fff1f0;color:#b02a2a}
-details.rec-section{border:1px solid rgba(0,0,0,.09);border-radius:10px;margin-bottom:12px;overflow:hidden;background:#fff}
-details.rec-section[open]{border-color:rgba(0,0,0,.18)}
-details.rec-section>summary{padding:13px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none}
+.status-badge.ok{background:rgba(22,163,74,0.15);color:#86efac}
+.status-badge.warn{background:rgba(245,158,11,0.15);color:#fcd34d}
+.status-badge.crit{background:rgba(239,68,68,0.15);color:#fca5a5}
+details.rec-section{border:1px solid rgba(148,163,184,0.14);border-radius:12px;margin-bottom:12px;overflow:hidden;background:rgba(15,23,42,0.55)}
+details.rec-section[open]{border-color:rgba(79,140,255,0.25)}
+details.rec-section>summary{padding:13px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none;color:#f1f5f9}
 details.rec-section>summary::-webkit-details-marker{display:none}
-details.rec-section>summary:hover{background:rgba(0,0,0,.02)}
+details.rec-section>summary:hover{background:rgba(255,255,255,0.03)}
 .rec-sec-icon{font-size:17px;flex-shrink:0}
 .rec-sec-text{flex:1;min-width:0}
-.rec-sec-title{font-size:14px;font-weight:600}
-.rec-sec-desc{font-size:12px;color:#64748b;margin-top:1px}
-.rec-sec-arrow{color:#94a3b8;font-size:10px;transition:transform .2s;flex-shrink:0}
+.rec-sec-title{font-size:14px;font-weight:600;color:#f1f5f9}
+.rec-sec-desc{font-size:12px;color:#94a3b8;margin-top:1px}
+.rec-sec-arrow{color:#64748b;font-size:10px;transition:transform .2s;flex-shrink:0}
 details.rec-section[open] .rec-sec-arrow{transform:rotate(90deg)}
-.rec-sec-body{padding:0 16px 16px}
-.fix-box{background:rgba(25,118,210,.04);border:1px solid rgba(25,118,210,.15);border-radius:8px;padding:12px 14px;margin-top:14px}
-.fix-box-title{font-size:11px;font-weight:700;color:#1565c0;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
-.fix-box pre{background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.08);border-radius:5px;padding:10px;font-size:11px;overflow-x:auto;font-family:'Courier New',monospace;line-height:1.6;margin:6px 0;color:#1a2332;white-space:pre}
-.fix-box code{background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px;font-family:'Courier New',monospace;font-size:11px}
+.rec-sec-body{padding:0 16px 16px;color:#cbd5e1}
+.fix-box{background:rgba(79,140,255,0.08);border:1px solid rgba(79,140,255,0.2);border-radius:10px;padding:12px 14px;margin-top:14px}
+.fix-box-title{font-size:11px;font-weight:700;color:#93c5fd;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.fix-box pre{background:rgba(2,8,23,0.55);border:1px solid rgba(148,163,184,0.16);border-radius:8px;padding:10px;font-size:11px;overflow-x:auto;font-family:'Courier New',monospace;line-height:1.6;margin:6px 0;color:#e2e8f0;white-space:pre}
+.fix-box code{background:rgba(2,8,23,0.45);padding:1px 4px;border-radius:3px;font-family:'Courier New',monospace;font-size:11px;color:#e2e8f0}
 .fix-box ul{padding-left:16px;margin:4px 0}
-.fix-box li{font-size:12px;color:#475569;margin-bottom:3px}
+.fix-box li{font-size:12px;color:#94a3b8;margin-bottom:3px}
 </style>`
 
 
@@ -4374,18 +3894,6 @@ fetch('/locales/'+(_lang||'pt_BR')+'/messages.json?cb='+Date.now()).then(functio
 
 	html += `</div>` // fecha tab-recomendacoes \O/
 
-	// small JS to handle tab switching (keeps markup simple and UX clean)
-	html += `<script>` +
-		`function showTab(id){` +
-			`var panels=document.querySelectorAll('.tab-panel');` +
-			`panels.forEach(function(p){p.style.display='none';});` +
-			`var el=document.getElementById(id); if(el) el.style.display='block';` +
-			`var btns=document.querySelectorAll('.tab-btn');` +
-			`btns.forEach(function(b){b.classList.remove('active');});` +
-			`var active=document.querySelector(".tab-btn[data-tab='"+id+"']"); if(active){ active.classList.add('active'); }` +
-		`}` +
-		`document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click', function(){ showTab(this.getAttribute('data-tab')); }); });` +
-	`</script>`
 	html += `</div>`
 	return html, nil
 }
@@ -4399,6 +3907,10 @@ func main() {
 	}
 	// initialize trend window from ENV CHECKTRENDTIME
 	parseCheckTrendEnv()
+	zbxClient = zabbix.NewClient(zabbix.Config{
+		Debug:              debugApi,
+		TrendWindowSeconds: checkTrendDurationSeconds,
+	})
 	r := gin.Default()
 
 	r.Static("/static", "./web/static")
@@ -4406,8 +3918,25 @@ func main() {
 	r.LoadHTMLGlob("web/templates/*")
 
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"api_key_required": server.APIKeyRequired(),
+		})
 	})
+
+	r.GET("/api/config", func(c *gin.Context) {
+		tlsVerify := false
+		if v := strings.ToLower(strings.TrimSpace(os.Getenv("ZABBIX_TLS_VERIFY"))); v == "true" || v == "1" || v == "yes" {
+			tlsVerify = true
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"api_key_required": server.APIKeyRequired(),
+			"tls_verify":       tlsVerify,
+		})
+	})
+
+	api := r.Group("/api")
+	api.Use(server.APIKeyMiddleware())
+	api.Use(server.StartRateLimitMiddleware())
 
 	// initialize Postgres (optional) using ENV vars
 	var db *sql.DB
@@ -4515,22 +4044,79 @@ func main() {
 		Report      string
 		ProgressMsg string // mensagem de progresso
 		DBID        int
+		CreatedAt   time.Time
 	}
 	var tasks = make(map[string]*Task)
 	var tasksMu sync.RWMutex
+	evictOldTasks := func() {
+		cutoff := time.Now().Add(-2 * time.Hour)
+		tasksMu.Lock()
+		defer tasksMu.Unlock()
+		for id, t := range tasks {
+			if t.CreatedAt.Before(cutoff) {
+				delete(tasks, id)
+			}
+		}
+	}
 	getTask := func(id string) *Task {
 		tasksMu.RLock(); defer tasksMu.RUnlock()
 		return tasks[id]
 	}
 	setTask := func(id string, t *Task) {
-		tasksMu.Lock(); defer tasksMu.Unlock()
+		tasksMu.Lock()
 		tasks[id] = t
+		tasksMu.Unlock()
+		evictOldTasks()
 	}
 
-	r.POST("/api/start", func(c *gin.Context) {
+	api.POST("/hosts/resolve", func(c *gin.Context) {
 		type Req struct {
 			ZabbixURL   string `json:"zabbix_url"`
 			ZabbixToken string `json:"zabbix_token"`
+			HostFilter  string `json:"host_filter"`
+		}
+		var req Req
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+			return
+		}
+		apiUrl := normalizeZabbixAPIUrl(req.ZabbixURL)
+		hosts, err := collector.CollectHosts(apiUrl, strings.TrimSpace(req.ZabbixToken), zabbixApiRequest)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		result := collector.ResolveHostsByFilter(hosts, req.HostFilter)
+		if result.Status == "ok" {
+			c.JSON(http.StatusOK, gin.H{
+				"status": "ok",
+				"host": gin.H{"hostid": result.Host.HostID, "name": result.Host.Name},
+			})
+			return
+		}
+		if result.Status == "ambiguous" {
+			hostsOut := make([]gin.H, 0, len(result.Hosts))
+			for _, h := range result.Hosts {
+				hostsOut = append(hostsOut, gin.H{"hostid": h.HostID, "name": h.Name})
+			}
+			c.JSON(http.StatusOK, gin.H{"status": "ambiguous", "hosts": hostsOut})
+			return
+		}
+		if result.Status == "empty" {
+			c.JSON(http.StatusOK, gin.H{"status": "empty"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "not_found"})
+	})
+
+	api.POST("/start", func(c *gin.Context) {
+		type Req struct {
+			ZabbixURL      string            `json:"zabbix_url"`
+			ZabbixToken    string            `json:"zabbix_token"`
+			HostFilter     string            `json:"host_filter"`
+			HostFilterB    string            `json:"host_filter_b"`
+			Days           int               `json:"days"`
+			MetricItemKeys map[string]string `json:"metric_item_keys"`
 		}
 		var req Req
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -4538,17 +4124,22 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
 			return
 		}
+		log.Printf("[DEBUG] Requisição recebida: url=%s, host_filter=%q, host_filter_b=%q, days=%d", req.ZabbixURL, req.HostFilter, req.HostFilterB, req.Days)
 		if debugApi {
-			log.Printf("[DEBUG] Requisição recebida: url=%s, token=<redacted>", req.ZabbixURL)
+			log.Printf("[DEBUG] Token recebido: <redacted>")
+		}
+		reportOpts := hostReportOptions{
+			HostFilterB:    req.HostFilterB,
+			MetricItemKeys: req.MetricItemKeys,
 		}
 		id := fmt.Sprintf("task-%d", time.Now().UnixNano())
-		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "progress.starting_collection"})
+		setTask(id, &Task{ID: id, Status: "processing", ProgressMsg: "progress.starting_collection", CreatedAt: time.Now()})
 		go func(taskID string, url, token string) {
 			setProgress := func(msg string) {
 				if t := getTask(taskID); t != nil { t.ProgressMsg = msg }
 			}
 			setProgress("progress.detecting_version")
-			report, err := generateZabbixReportWithProgress(url, token, setProgress)
+			report, err := generateZabbixReportWithProgress(url, token, req.HostFilter, req.Days, setProgress, reportOpts)
 			if err != nil {
 				log.Printf("[ERROR] Erro na tarefa %s: %v", taskID, err)
 				if t := getTask(taskID); t != nil {
@@ -4694,8 +4285,7 @@ func main() {
 					c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(full))
 				})
 
-				// Deletar um único relatório por id
-				r.DELETE("/api/reportdb/:id", func(c *gin.Context) {
+	api.DELETE("/reportdb/:id", func(c *gin.Context) {
 					if db == nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
 						return
@@ -4714,8 +4304,7 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"deleted": id})
 				})
 
-				// Deletar todos os relatórios
-				r.DELETE("/api/reports", func(c *gin.Context) {
+	api.DELETE("/reports", func(c *gin.Context) {
 					if db == nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "DB not configured"})
 						return
@@ -4733,9 +4322,34 @@ func main() {
 			}
 
 // Wrapper para gerar progresso do relatorio
-			func generateZabbixReportWithProgress(url, token string, setProgress func(string)) (string, error) {
+			func generateZabbixReportWithProgress(url, token, hostFilter string, days int, setProgress func(string), ropts hostReportOptions) (string, error) {
 				if setProgress != nil { setProgress("progress.detecting_version") }
-				return generateZabbixReport(url, token, setProgress)
+				return generateZabbixReport(url, token, hostFilter, days, setProgress, ropts)
 			}
 
+func buildHostMeta(hostFilter string, history collector.HostAlertHistory, detailed collector.HostDetailedReport, days int) report.HostMeta {
+	meta := report.HostMeta{
+		FilterEsc: htmlpkg.EscapeString(hostFilter),
+		NameEsc:   htmlpkg.EscapeString(hostFilter),
+		Days:      days,
+	}
+	if history.Name != "" {
+		meta.NameEsc = htmlpkg.EscapeString(history.Name)
+	}
+	if detailed.Host != nil {
+		if actualName, ok := detailed.Host["name"]; ok && actualName != "" {
+			meta.NameEsc = htmlpkg.EscapeString(actualName)
+		}
+		if hid, ok := detailed.Host["hostid"]; ok && hid != "" {
+			meta.HostIDEsc = htmlpkg.EscapeString(hid)
+		}
+	}
+	if meta.HostIDEsc == "" && history.HostID != "" {
+		meta.HostIDEsc = htmlpkg.EscapeString(history.HostID)
+	}
+	meta.NameDiff = meta.NameEsc != meta.FilterEsc
+	return meta
+}
+
+//Se chegou até aqui, parabens!
 //Se chegou até aqui, parabens!

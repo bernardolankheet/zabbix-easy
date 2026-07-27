@@ -40,16 +40,40 @@ These collector helpers are used by the backend to avoid ad-hoc JSON parsing in 
 ### 1) Using Docker:
 
 ```bash
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
+docker compose up --build -d
 # open http://localhost:8080
+```
+
+Or with the published image:
+
+```bash
+docker run -d --name zabbix-easy -p 8080:8080 \
+  -e MAX_CONCURRENT=10 \
+  -e ZABBIX_SERVER_HOSTID=10084 \
+  -e CHECKTRENDTIME=15d \
+  bernardolankheet/zabbix-easy:latest
 ```
 
 ### 2) Running with data persistence (Postgres):
 
 ```bash
 docker compose --profile db up --build -d
-docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SERVER_HOSTID=10084 -e CHECKTRENDTIME=15d bernardolankheet/zabbix-easy:latest
-# open http://localhost:8080
+```
+
+## Security configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_API_KEY` | _(empty)_ | When set, protects report generation and destructive API routes. Send header `X-API-Key` from the UI or API clients. |
+| `ZABBIX_TLS_VERIFY` | `false` | Set to `true` to verify TLS certificates when calling the Zabbix API. Enable this when your Zabbix endpoint uses a trusted certificate. |
+
+Example with API key and TLS verification:
+
+```bash
+docker compose up --build -d
+# in docker-compose.yml set:
+#   APP_API_KEY=your-secret-key
+#   ZABBIX_TLS_VERIFY=true
 ```
 
 ## Documentation
@@ -64,3 +88,4 @@ docker run -d --name zabbix-easy -p 8080:8080 -e MAX_CCONCURRENT=10 -e ZABBIX_SE
 
 ## Changelog
 - See `CHANGELOG.md` for recent changes and upgrade notes.
+- For the full implementation history of this workspace (host analysis, refactoring, security), see **[README_ATUALIZACOES.md](README_ATUALIZACOES.md)** (Portuguese).

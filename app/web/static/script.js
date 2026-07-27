@@ -73,7 +73,36 @@ function setLang(lang) {
             applyI18n();
         })
         .catch(function() {});
+    initTheme();
 })();
+
+function applyTheme(theme) {
+    var body = document.body;
+    if (!body) return;
+    body.classList.toggle('theme-light', theme === 'light');
+    body.classList.toggle('theme-dark', theme === 'dark');
+    var toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+        toggle.textContent = theme === 'light' ? '🌞' : '🌙';
+        toggle.title = theme === 'light' ? 'Modo claro' : 'Modo escuro';
+        toggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+    }
+}
+
+function setTheme(theme) {
+    if (theme !== 'light' && theme !== 'dark') theme = 'dark';
+    try { localStorage.setItem('zbx-theme', theme); } catch(e) {}
+    applyTheme(theme);
+}
+
+function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem('zbx-theme'); } catch(e) { saved = null; }
+    if (saved !== 'light' && saved !== 'dark') {
+        saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    setTheme(saved);
+}
 
 // =============================================================================
 // Toggle show/hide token with eye icon
@@ -102,35 +131,308 @@ toggleToken.addEventListener('keydown', function(e) {
         sel.classList.add('zbx-lang-select');
         sel.addEventListener('change', function() { setLang(this.value); });
     }
+    var themeBtn = document.getElementById('theme-toggle');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', function() {
+            var current = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+            setTheme(current === 'light' ? 'dark' : 'light');
+        });
+    }
 })();
 
-// --- AJAX para submit, progress, report ---
-document.getElementById('zabbix-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    document.getElementById('report-area').style.display = 'none';
-    document.getElementById('progress-bar').style.display = 'block';
-    document.querySelector('.progress').style.width = '0%';
-    document.getElementById('progress-text').textContent = t('generating');
+function setProgressUI(message, percent, badgeText) {
+    const bar = document.getElementById('progress-bar');
+    const progressEl = bar ? bar.querySelector('.progress') : null;
+    const labelEl = document.getElementById('progress-text');
+    const badgeEl = document.getElementById('progress-badge');
+    if (bar) bar.style.display = 'block';
+    if (progressEl) progressEl.style.width = Math.max(0, Math.min(100, percent)) + '%';
+    if (labelEl) labelEl.textContent = message || t('generating');
+    if (badgeEl) badgeEl.textContent = badgeText || 'Em andamento';
+}
 
-    var url = document.getElementById('zabbix_url').value;
-    var token = document.getElementById('zabbix_token').value;
+function showInlineMessage(title, message, kind) {
+    const reportArea = document.getElementById('report-area');
+    if (!reportArea) return;
+    reportArea.className = 'report-area';
+    reportArea.style.display = 'block';
+    if (kind === 'error') {
+        reportArea.classList.add('report-error-state');
+        reportArea.innerHTML = '<div class="report-empty-icon">⚠️</div><h3>' + title + '</h3><p>' + message + '</p>';
+    } else {
+        reportArea.classList.add('report-empty-state');
+        reportArea.innerHTML = '<div class="report-empty-icon">📊</div><h3>' + title + '</h3><p>' + message + '</p>';
+    }
+}
 
+var _appConfig = { api_key_required: false, tls_verify: false };
+
+function getAppApiKey() {
+    var el = document.getElementById('app_api_key');
+    if (el && el.value) {
+        try { localStorage.setItem('zbx-app-api-key', el.value); } catch(e) {}
+        return el.value;
+    }
+    try { return localStorage.getItem('zbx-app-api-key') || ''; } catch(e) { return ''; }
+}
+
+function apiHeaders(extra) {
+    var h = { 'Content-Type': 'application/json' };
+    var key = getAppApiKey();
+    if (key) h['X-API-Key'] = key;
+    if (extra) {
+        Object.keys(extra).forEach(function(k) { h[k] = extra[k]; });
+    }
+    return h;
+}
+
+function loadAppConfig() {
+    return fetch('/api/config')
+        .then(function(r) { return r.json(); })
+        .then(function(cfg) {
+            _appConfig = cfg || _appConfig;
+            if (_appConfig.api_key_required) {
+                var row = document.getElementById('app-api-key-row');
+                if (row) row.style.display = '';
+                try {
+                    var saved = localStorage.getItem('zbx-app-api-key');
+                    var input = document.getElementById('app_api_key');
+                    if (saved && input) input.value = saved;
+                } catch(e) {}
+            }
+        })
+        .catch(function() {});
+}
+
+function showHostPicker(hosts) {
+    return new Promise(function(resolve) {
+        var modal = document.getElementById('host-picker-modal');
+        var list = document.getElementById('host-picker-list');
+        var cancelBtn = document.getElementById('host-picker-cancel');
+        if (!modal || !list) { resolve(null); return; }
+        list.innerHTML = '';
+        hosts.forEach(function(h) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'host-picker-item';
+            btn.innerHTML = '<strong>' + (h.name || h.hostid) + '</strong><span>ID ' + (h.hostid || '') + '</span>';
+            btn.addEventListener('click', function() {
+                modal.hidden = true;
+                modal.setAttribute('aria-hidden', 'true');
+                resolve(h);
+            });
+            list.appendChild(btn);
+        });
+        function onCancel() {
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(null);
+        }
+        cancelBtn.addEventListener('click', onCancel);
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        try { applyI18n(); } catch(e) {}
+    });
+}
+
+function startReportGeneration(url, token, hostFilter, days, hostFilterB, metricItemKeys) {
+    var payload = {
+        zabbix_url: url,
+        zabbix_token: token,
+        host_filter: hostFilter,
+        host_filter_b: hostFilterB || '',
+        days: days,
+        metric_item_keys: metricItemKeys || {}
+    };
     fetch('/api/start', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zabbix_url: url, zabbix_token: token })
+        headers: apiHeaders(),
+        body: JSON.stringify(payload)
     })
-    .then(res => res.json())
-    .then(data => {
+    .then(function(res) {
+        if (res.status === 429) {
+            document.getElementById('progress-bar').style.display = 'none';
+            showInlineMessage(t('error_rate_limit'), t('error_rate_limit'), 'error');
+            return null;
+        }
+        return res.json();
+    })
+    .then(function(data) {
+        if (!data) return;
         if (data.task_id) {
             checkProgress(data.task_id, 0);
         } else {
             document.getElementById('progress-bar').style.display = 'none';
-            document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_start_task') + '</div>';
-            document.getElementById('report-area').style.display = 'block';
+            var msg = (data && data.error) ? data.error : t('error_start_task');
+            showInlineMessage(t('error_start_task'), msg, 'error');
         }
+    })
+    .catch(function() {
+        document.getElementById('progress-bar').style.display = 'none';
+        showInlineMessage(t('error_start_task'), t('error_start_task'), 'error');
+    });
+}
+
+function collectMetricItemKeys() {
+    var keys = {};
+    var cpu = (document.getElementById('host_metric_cpu') && document.getElementById('host_metric_cpu').value || '').trim();
+    var mem = (document.getElementById('host_metric_memory') && document.getElementById('host_metric_memory').value || '').trim();
+    var net = (document.getElementById('host_metric_net') && document.getElementById('host_metric_net').value || '').trim();
+    if (cpu) keys.cpu = cpu;
+    if (mem) keys.memory = mem;
+    if (net) keys.net = net;
+    return keys;
+}
+
+function resolveHostFilter(url, token, hostFilter) {
+    if (!hostFilter) return Promise.resolve('');
+    return fetch('/api/hosts/resolve', {
+        method: 'POST',
+        headers: apiHeaders(),
+        body: JSON.stringify({ zabbix_url: url, zabbix_token: token, host_filter: hostFilter })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.status === 'ambiguous' && data.hosts && data.hosts.length) {
+            document.getElementById('progress-bar').style.display = 'none';
+            return showHostPicker(data.hosts).then(function(selected) {
+                if (!selected) return null;
+                return selected.name || selected.hostid || hostFilter;
+            });
+        }
+        if (data.status === 'not_found') {
+            document.getElementById('progress-bar').style.display = 'none';
+            showInlineMessage(t('host_picker.not_found'), t('host_picker.not_found'), 'error');
+            return null;
+        }
+        if (data.error) {
+            document.getElementById('progress-bar').style.display = 'none';
+            showInlineMessage(t('error_start_task'), data.error, 'error');
+            return null;
+        }
+        if (data.status === 'ok' && data.host) {
+            return data.host.name || data.host.hostid || hostFilter;
+        }
+        return hostFilter;
+    });
+}
+
+loadAppConfig();
+
+// --- AJAX para submit, progress, report ---
+document.getElementById('zabbix-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const reportArea = document.getElementById('report-area');
+    if (reportArea) {
+        reportArea.className = 'report-area report-empty-state';
+        reportArea.innerHTML = '<div class="report-empty-icon">⏳</div><h3>Preparando análise</h3><p>Estamos iniciando a coleta dos dados do Zabbix para gerar seu relatório.</p>';
+        reportArea.style.display = 'block';
+    }
+    setProgressUI(t('generating'), 8, 'Iniciando');
+
+    var url = document.getElementById('zabbix_url').value;
+    var token = document.getElementById('zabbix_token').value;
+    var hostFilter = (document.getElementById('host_filter').value || '').trim();
+    var hostFilterB = (document.getElementById('host_filter_b') && document.getElementById('host_filter_b').value || '').trim();
+    var days = parseInt(document.getElementById('alert_days').value, 10) || 90;
+    var metricKeys = collectMetricItemKeys();
+
+    if (_appConfig.api_key_required && !getAppApiKey()) {
+        document.getElementById('progress-bar').style.display = 'none';
+        showInlineMessage(t('error_api_key_required'), t('error_api_key_required'), 'error');
+        return;
+    }
+
+    resolveHostFilter(url, token, hostFilter).then(function(resolvedA) {
+        if (resolvedA === null) return;
+        if (!hostFilterB) {
+            startReportGeneration(url, token, resolvedA || '', days, '', metricKeys);
+            return;
+        }
+        resolveHostFilter(url, token, hostFilterB).then(function(resolvedB) {
+            if (resolvedB === null) return;
+            setProgressUI(t('generating'), 8, 'Iniciando');
+            startReportGeneration(url, token, resolvedA || '', days, resolvedB || '', metricKeys);
+        });
+    }).catch(function() {
+        document.getElementById('progress-bar').style.display = 'none';
+        showInlineMessage(t('error_start_task'), t('error_start_task'), 'error');
     });
 });
+
+// ---------------------------------------------------------------------------
+// initReportTabs(root) — tab switching (works even when inline scripts fail)
+// ---------------------------------------------------------------------------
+function initReportTabs(root) {
+    if (!root) return;
+    window.showTab = function(id) {
+        var scope = root.closest('.report-main') || root;
+        scope.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+        var el = scope.querySelector('#' + id) || document.getElementById(id);
+        if (el) el.style.display = 'block';
+        scope.querySelectorAll('.tab-btn').forEach(function(b) {
+            b.classList.toggle('active', b.getAttribute('data-tab') === id);
+        });
+        try {
+            var panel = el;
+            if (panel) initGauges(panel);
+            if (id === 'tab-host') {
+                if (typeof window.zbxFlushHostCharts === 'function') {
+                    window.zbxFlushHostCharts(panel);
+                }
+                if (typeof window.zbxResizeChartsIn === 'function') {
+                    setTimeout(function() { window.zbxResizeChartsIn(panel); }, 30);
+                }
+            }
+        } catch(e) {}
+    };
+    root.querySelectorAll('.tab-btn').forEach(function(b) {
+        if (b._tabBound) return;
+        b._tabBound = true;
+        b.addEventListener('click', function() { window.showTab(this.getAttribute('data-tab')); });
+    });
+}
+
+// ---------------------------------------------------------------------------
+// enhanceReportUI(root) — KPI cards on summary tab + dark-theme helpers
+// ---------------------------------------------------------------------------
+function enhanceReportUI(root) {
+    if (!root) return;
+    var tab = root.querySelector('#tab-resumo');
+    if (!tab || tab.querySelector('.summary-kpi-grid')) return;
+    var rows = tab.querySelectorAll('.modern-table tbody tr');
+    if (!rows.length) return;
+
+    var grid = document.createElement('div');
+    grid.className = 'summary-kpi-grid';
+    rows.forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        if (cells.length < 2) return;
+        var card = document.createElement('article');
+        card.className = 'summary-kpi-card';
+        var labelEl = cells[0].cloneNode(true);
+        var valueEl = document.createElement('strong');
+        valueEl.className = 'summary-kpi-value';
+        valueEl.textContent = cells[1].textContent.trim();
+        card.appendChild(labelEl);
+        labelEl.className = 'summary-kpi-label';
+        card.appendChild(valueEl);
+        if (cells[2] && cells[2].textContent.trim()) {
+            var detail = document.createElement('span');
+            detail.className = 'summary-kpi-detail';
+            detail.textContent = cells[2].textContent.trim();
+            card.appendChild(detail);
+        }
+        grid.appendChild(card);
+    });
+
+    var tableWrap = tab.querySelector('.table-responsive');
+    if (tableWrap && grid.children.length) {
+        tab.insertBefore(grid, tableWrap);
+        tableWrap.classList.add('summary-table-compact');
+    }
+}
 
 // ---------------------------------------------------------------------------
 // renderReport(html, titleHint)
@@ -140,6 +442,7 @@ document.getElementById('zabbix-form').addEventListener('submit', function(e) {
 // ---------------------------------------------------------------------------
 function renderReport(html, titleHint, createdAt) {
     const reportArea = document.getElementById('report-area');
+    reportArea.className = 'report-area';
     reportArea.style.display = 'block';
 
     const container = document.createElement('div');
@@ -160,6 +463,23 @@ function renderReport(html, titleHint, createdAt) {
 
     const right = document.createElement('aside');
     right.className = 'report-side';
+
+    let sidebar = left.querySelector('.report-sidebar');
+    const envMeta = left.querySelector('.report-env-meta');
+    const tabs = left.querySelector('.tabs-container');
+    if (!sidebar) {
+        sidebar = document.createElement('aside');
+        sidebar.className = 'report-sidebar';
+    }
+    if (envMeta && envMeta.parentNode !== sidebar) {
+        sidebar.appendChild(envMeta);
+    }
+    if (tabs && tabs.parentNode !== sidebar) {
+        sidebar.appendChild(tabs);
+    }
+    if (sidebar.parentNode && sidebar.parentNode !== right) {
+        right.appendChild(sidebar);
+    }
 
     // build action buttons reusing existing markup / CSS classes
     const actionGroup = document.createElement('div');
@@ -202,13 +522,18 @@ function renderReport(html, titleHint, createdAt) {
 
     // assemble container
     container.appendChild(header);
+    const contentShell = document.createElement('div');
+    contentShell.className = 'report-content-shell';
     const cols = document.createElement('div');
     cols.className = 'report-layout-cols';
-    cols.appendChild(left);
     if (right.children && right.children.length > 0) {
         cols.appendChild(right);
+    } else {
+        cols.classList.add('report-layout-cols--full');
     }
-    container.appendChild(cols);
+    cols.appendChild(left);
+    contentShell.appendChild(cols);
+    container.appendChild(contentShell);
 
     reportArea.innerHTML = '';
     reportArea.appendChild(container);
@@ -219,7 +544,13 @@ function renderReport(html, titleHint, createdAt) {
     // hide the input form when report is displayed
     const form = document.getElementById('zabbix-form');
     if (form) form.style.display = 'none';
-    try { document.body.classList.remove('show-login'); } catch(e) {}
+    try {
+        document.body.classList.remove('show-login');
+        document.body.classList.add('report-active');
+        document.querySelectorAll('.side-hero, .panel-header, .hero-copy').forEach(function(el) {
+            el.style.display = 'none';
+        });
+    } catch(e) {}
 
     // execute any inline scripts included in the inserted HTML
     (function executeInsertedScripts(el) {
@@ -235,6 +566,14 @@ function renderReport(html, titleHint, createdAt) {
     initGauges(left);
     // initialize table search / sort / pagination
     initTableEnhancements(left);
+    initHostAlertFilters(left);
+    initReportTabs(container);
+    enhanceReportUI(left);
+
+    var hostTab = container.querySelector('#tab-host[data-auto-open="1"]');
+    if (hostTab && typeof window.showTab === 'function') {
+        setTimeout(function() { window.showTab('tab-host'); }, 50);
+    }
 
     // helper: extract the Ambiente name from report text for use in filenames
     function extractAmbienteName(leftEl) {
@@ -295,6 +634,8 @@ function renderReport(html, titleHint, createdAt) {
             `new Chart(canvas.getContext('2d'),{type:'doughnut',data:{labels:[canvas.getAttribute('data-unsupported-label')||'${t('label_unsupported')}',canvas.getAttribute('data-supported-label')||'${t('label_supported')}'],datasets:[{data:[uns,sup],backgroundColor:[canvas.getAttribute('data-color-unsupported')||'#ff7a7a',canvas.getAttribute('data-color-supported')||'#66c2a5']}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{enabled:false,external:extTT}}}});` +
             `canvas.addEventListener('mouseleave',function(){var el=document.getElementById('cj-gauge-tooltip')||ttEl;if(el)el.style.opacity='0';});` +
             `}catch(e){}});` +
+            `if(window.zbxFlushHostCharts){window.zbxFlushHostCharts(document);}` +
+            `if(window.zbxResizeChartsIn){setTimeout(function(){window.zbxResizeChartsIn(document);},60);}` +
             `}catch(e){}});</` + `script>`;
         return head + bodyInner + chartsInit + `</body></html>`;
     }
@@ -313,7 +654,13 @@ function renderReport(html, titleHint, createdAt) {
         if (pb) pb.style.display = 'none';
         const form = document.getElementById('zabbix-form');
         if (form) form.style.display = '';
-        try { document.body.classList.add('show-login'); } catch(e) {}
+        try {
+            document.body.classList.add('show-login');
+            document.body.classList.remove('report-active');
+            document.querySelectorAll('.side-hero, .panel-header, .hero-copy').forEach(function(el) {
+                el.style.display = '';
+            });
+        } catch(e) {}
         window.scrollTo(0, 0);
     });
 
@@ -363,7 +710,11 @@ function renderReport(html, titleHint, createdAt) {
     const btnExport = document.getElementById('btn-export-html');
     if (btnExport) btnExport.addEventListener('click', function() {
         try {
-            fetch('/static/style.css').then(r => r.text()).catch(() => '').then(cssText => {
+            Promise.all([
+                fetch('/static/style.css?v=3').then(r => r.text()).catch(() => ''),
+                fetch('/static/custom.css?v=3').then(r => r.text()).catch(() => '')
+            ]).then(function(cssParts) {
+                const cssText = cssParts.filter(Boolean).join('\n');
                 const fullHtml = buildFullDocumentHTML_fromContainer(container, cssText, documentTitleEscaped);
                 const blob = new Blob([fullHtml], { type: 'text/html' });
                 const url  = URL.createObjectURL(blob);
@@ -391,16 +742,15 @@ function checkProgress(taskId, progress) {
     fetch('/api/progress/' + taskId)
         .then(res => res.json())
         .then(data => {
-                    if (data.progress_msg) {
-                        var pm = data.progress_msg || '';
-                        if (pm && _i18n[pm] !== undefined) {
-                            document.getElementById('progress-text').textContent = t(pm);
-                        } else {
-                            document.getElementById('progress-text').textContent = pm;
-                        }
-                    }
+            var pm = '';
+            if (data.progress_msg) {
+                pm = data.progress_msg || '';
+                if (pm && _i18n[pm] !== undefined) {
+                    pm = t(pm);
+                }
+            }
             if (data.status === 'done') {
-                document.querySelector('.progress').style.width = '100%';
+                setProgressUI(pm || 'Relatório concluído', 100, 'Concluído');
                 fetch('/api/report/' + taskId)
                     .then(res => res.text())
                     .then(html => {
@@ -408,18 +758,16 @@ function checkProgress(taskId, progress) {
                         renderReport(html, '');
                     });
             } else if (data.status === 'processing') {
-                progress = Math.min(progress + 20, 90);
-                document.querySelector('.progress').style.width = progress + '%';
+                progress = Math.min(progress + 18, 92);
+                setProgressUI(pm || t('generating'), progress, 'Processando');
                 setTimeout(function() { checkProgress(taskId, progress); }, 800);
             } else if (data.status === 'error') {
                 document.getElementById('progress-bar').style.display = 'none';
-                document.getElementById('report-area').innerHTML = data.report || '<div style="color:red;">' + t('error_process_task') + '</div>';
-                document.getElementById('report-area').style.display = 'block';
+                showInlineMessage(t('error_process_task'), data.report || t('error_process_task'), 'error');
                 try { applyI18n(); } catch(e) {}
             } else {
                 document.getElementById('progress-bar').style.display = 'none';
-                document.getElementById('report-area').innerHTML = '<div style="color:red;">' + t('error_process_task') + '</div>';
-                document.getElementById('report-area').style.display = 'block';
+                showInlineMessage(t('error_process_task'), t('error_process_task'), 'error');
             }
         });
 }
@@ -520,7 +868,7 @@ document.getElementById('btn-delete-db').addEventListener('click', function() {
     if (!id) return alert(t('alert_select_to_delete'));
     const label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : id;
     if (!confirm(t('confirm_delete_report', label))) return;
-    fetch('/api/reportdb/' + id, { method: 'DELETE' })
+    fetch('/api/reportdb/' + id, { method: 'DELETE', headers: apiHeaders() })
         .then(res => res.json())
         .then(data => {
             if (data.error) { alert(t('error_server') + data.error); return; }
@@ -532,7 +880,7 @@ document.getElementById('btn-delete-db').addEventListener('click', function() {
 // Delete all reports
 document.getElementById('btn-delete-all-db').addEventListener('click', function() {
     if (!confirm(t('confirm_delete_all'))) return;
-    fetch('/api/reports', { method: 'DELETE' })
+    fetch('/api/reports', { method: 'DELETE', headers: apiHeaders() })
         .then(res => res.json())
         .then(data => {
             if (data.error) { alert(t('error_server') + data.error); return; }
@@ -839,3 +1187,383 @@ function initTableEnhancements(container) {
         run();
     });
 }
+
+function initHostAlertFilters(container) {
+    var panel = container.querySelector('#host-focus-panel');
+    if (!panel) return;
+
+    var table = panel.querySelector('#host-alerts-table');
+    var select = panel.querySelector('#host-alert-type-select');
+    var rows = table ? Array.from(table.querySelectorAll('tbody tr')) : [];
+    var filterBtns = panel.querySelectorAll('[data-alert-filter]');
+    var exportBtn = panel.querySelector('#host-alerts-export-csv');
+
+    function applyFilter(type) {
+        var active = type || 'all';
+        rows.forEach(function(row) {
+            var rowType = row.getAttribute('data-alert-type') || 'other';
+            row.style.display = (active === 'all' || rowType === active) ? '' : 'none';
+        });
+        filterBtns.forEach(function(btn) {
+            btn.classList.toggle('is-active', btn.getAttribute('data-alert-filter') === active);
+        });
+        if (select) select.value = active;
+    }
+
+    filterBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            applyFilter(btn.getAttribute('data-alert-filter') || 'all');
+        });
+    });
+    if (select) {
+        select.addEventListener('change', function() {
+            applyFilter(select.value || 'all');
+        });
+    }
+
+    if (exportBtn && table) {
+        exportBtn.addEventListener('click', function() {
+            var visible = rows.filter(function(r) { return r.style.display !== 'none'; });
+            var lines = ['Data e hora,Duração,Tipo,Descrição'];
+            visible.forEach(function(row) {
+                var cells = row.querySelectorAll('td');
+                if (cells.length < 4) return;
+                var vals = [];
+                for (var i = 0; i < 4; i++) {
+                    var text = (cells[i].innerText || cells[i].textContent || '').trim().replace(/"/g, '""');
+                    vals.push('"' + text + '"');
+                }
+                lines.push(vals.join(','));
+            });
+            var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'host-alerts.csv';
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Host analysis charts — shared theme for professional, readable visuals
+// ---------------------------------------------------------------------------
+(function() {
+    window.zbxQueueHostChart = window.zbxQueueHostChart || [];
+    window._zbx_host_charts_flushed = false;
+
+    function isLightTheme() {
+        return document.body.classList.contains('theme-light');
+    }
+
+    function chartTheme() {
+        if (isLightTheme()) {
+            return {
+                TEXT: '#64748b',
+                GRID: 'rgba(100,116,139,0.18)',
+                TOOLTIP_BG: 'rgba(255,255,255,0.98)',
+                TOOLTIP_TITLE: '#0f172a',
+                TOOLTIP_BODY: '#334155',
+                TOOLTIP_BORDER: 'rgba(148,163,184,0.35)',
+                LEGEND: '#475569'
+            };
+        }
+        return {
+            TEXT: '#94a3b8',
+            GRID: 'rgba(148,163,184,0.10)',
+            TOOLTIP_BG: 'rgba(15,23,42,0.94)',
+            TOOLTIP_TITLE: '#f8fafc',
+            TOOLTIP_BODY: '#cbd5e1',
+            TOOLTIP_BORDER: 'rgba(148,163,184,0.22)',
+            LEGEND: '#cbd5e1'
+        };
+    }
+
+    function lbl(key, fallback) {
+        try { return (typeof t === 'function' && t(key)) || fallback; } catch(e) { return fallback; }
+    }
+
+    function tooltipTheme() {
+        var theme = chartTheme();
+        return {
+            backgroundColor: theme.TOOLTIP_BG,
+            titleColor: theme.TOOLTIP_TITLE,
+            bodyColor: theme.TOOLTIP_BODY,
+            borderColor: theme.TOOLTIP_BORDER,
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 10,
+            displayColors: true,
+            boxPadding: 4
+        };
+    }
+
+    function legendTheme() {
+        var theme = chartTheme();
+        return {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+                color: theme.LEGEND,
+                boxWidth: 10,
+                boxHeight: 10,
+                padding: 14,
+                usePointStyle: true,
+                pointStyle: 'rectRounded',
+                font: { size: 11, weight: '600' }
+            }
+        };
+    }
+
+    function axisTicks(maxTicks) {
+        var theme = chartTheme();
+        return {
+            color: theme.TEXT,
+            maxRotation: 0,
+            minRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: maxTicks || 7,
+            font: { size: 11 }
+        };
+    }
+
+    var metricStyles = {
+        cpu:    { line: '#60a5fa', fill: 'rgba(96,165,250,0.14)',  marker: '#f87171' },
+        memory: { line: '#a78bfa', fill: 'rgba(167,139,250,0.14)', marker: '#fb923c' },
+        net:    { line: '#34d399', fill: 'rgba(52,211,153,0.14)',  marker: '#f472b6' }
+    };
+
+    window.zbxResizeChartsIn = function(container) {
+        if (!container) return;
+        container.querySelectorAll('canvas').forEach(function(canvas) {
+            if (canvas._chartInstance && typeof canvas._chartInstance.resize === 'function') {
+                try { canvas._chartInstance.resize(); } catch(e) {}
+            }
+        });
+    };
+
+    window.zbxFlushHostCharts = function(container) {
+        if (!container || typeof Chart === 'undefined') return;
+        var queue = window.zbxQueueHostChart || [];
+        if (!queue.length) return;
+        window.zbxQueueHostChart = [];
+        queue.forEach(function(cfg) {
+            if (!cfg || !cfg.id) return;
+            if (cfg.type === 'alert') {
+                window.zbxInitHostAlertChart(cfg.id, cfg.labels, cfg.problems, cfg.resolved);
+            } else if (cfg.type === 'metric') {
+                window.zbxInitHostMetricChart(cfg.id, cfg.metric, cfg.labels, cfg.values, cfg.timestamps, cfg.alerts);
+            }
+        });
+        window._zbx_host_charts_flushed = true;
+        setTimeout(function() { window.zbxResizeChartsIn(container); }, 20);
+    };
+
+    window.zbxInitHostAlertChart = function(canvasId, labels, problems, resolved) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas || typeof Chart === 'undefined') return;
+        if (canvas._chartInstance) { try { canvas._chartInstance.destroy(); } catch(e) {} }
+
+        var theme = chartTheme();
+        var barCount = labels ? labels.length : 0;
+        var categoryPct = barCount <= 6 ? 0.92 : 0.82;
+        var barPct = barCount <= 6 ? 0.92 : 0.85;
+
+        canvas._chartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: lbl('host_focus.problems', 'Problemas'),
+                        data: problems,
+                        backgroundColor: 'rgba(251,146,60,0.88)',
+                        hoverBackgroundColor: 'rgba(251,146,60,1)',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        categoryPercentage: categoryPct,
+                        barPercentage: barPct
+                    },
+                    {
+                        label: lbl('host_focus.resolved', 'Resolvidos'),
+                        data: resolved,
+                        backgroundColor: 'rgba(52,211,153,0.88)',
+                        hoverBackgroundColor: 'rgba(52,211,153,1)',
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        categoryPercentage: categoryPct,
+                        barPercentage: barPct
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 4, right: 8, bottom: 0, left: 4 } },
+                plugins: {
+                    legend: legendTheme(),
+                    tooltip: tooltipTheme()
+                },
+                scales: {
+                    x: {
+                        offset: true,
+                        grid: { display: false, drawBorder: false },
+                        ticks: axisTicks(12)
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: theme.TEXT, precision: 0, font: { size: 11 } },
+                        grid: { color: theme.GRID, drawBorder: false },
+                        title: {
+                            display: true,
+                            text: lbl('chart.events_count', 'Quantidade de eventos'),
+                            color: theme.TEXT,
+                            font: { size: 11, weight: '500' }
+                        }
+                    }
+                }
+            }
+        });
+
+        window._zbx_charts = window._zbx_charts || {};
+        window._zbx_charts[canvasId] = canvas._chartInstance;
+
+        requestAnimationFrame(function() {
+            try { canvas._chartInstance.resize(); } catch(e) {}
+        });
+    };
+
+    window.zbxInitHostMetricChart = function(canvasId, metricKey, labels, data, timestamps, alerts) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas || typeof Chart === 'undefined') return;
+        if (canvas._chartInstance) { try { canvas._chartInstance.destroy(); } catch(e) {} }
+
+        var style = metricStyles[metricKey] || metricStyles.cpu;
+        var theme = chartTheme();
+        var metricLabel = lbl('chart.metric.' + metricKey, metricKey);
+        var alertLabel = lbl('chart.alert_markers', 'Alertas');
+
+        var alertMarkers = new Array(labels.length).fill(null);
+        var alertLookup = new Array(labels.length).fill(null);
+        if (alerts && alerts.length > 0 && timestamps && timestamps.length > 0) {
+            for (var a = 0; a < alerts.length; a++) {
+                var clk = alerts[a].Clock || alerts[a].clock || 0;
+                var bestIdx = -1, bestDiff = Infinity;
+                for (var j = 0; j < timestamps.length; j++) {
+                    var diff = Math.abs(timestamps[j] - clk);
+                    if (diff < bestDiff) { bestDiff = diff; bestIdx = j; }
+                }
+                if (bestIdx >= 0 && data[bestIdx] !== null && data[bestIdx] !== undefined) {
+                    alertMarkers[bestIdx] = data[bestIdx];
+                    alertLookup[bestIdx] = alerts[a];
+                }
+            }
+        }
+
+        var datasets = [{
+            label: metricLabel,
+            data: data,
+            borderColor: style.line,
+            backgroundColor: style.fill,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2.5,
+            spanGaps: true
+        }];
+
+        var hasAlerts = alertMarkers.some(function(v) { return v !== null; });
+        if (hasAlerts) {
+            datasets.push({
+                label: alertLabel,
+                data: alertMarkers,
+                type: 'scatter',
+                showLine: false,
+                pointStyle: 'circle',
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                backgroundColor: style.marker,
+                borderColor: '#fff',
+                borderWidth: 1.5
+            });
+            window._zbx_event_lookup = window._zbx_event_lookup || {};
+            window._zbx_event_lookup[canvasId] = alertLookup;
+        }
+
+        canvas._chartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'nearest', intersect: false },
+                layout: { padding: { top: 4, right: 8, bottom: 0, left: 4 } },
+                plugins: {
+                    legend: legendTheme(),
+                    tooltip: Object.assign({}, tooltipTheme(), {
+                        callbacks: {
+                            label: function(context) {
+                                try {
+                                    if (context.dataset.label === alertLabel) {
+                                        var ev = (window._zbx_event_lookup && window._zbx_event_lookup[canvasId] && window._zbx_event_lookup[canvasId][context.dataIndex]) || null;
+                                        if (ev) {
+                                            var name = ev.Name || ev.name || lbl('chart.alert_unknown', 'Alerta');
+                                            var tclk = ev.Clock || ev.clock || 0;
+                                            return name + ' · ' + new Date(tclk * 1000).toLocaleString();
+                                        }
+                                    }
+                                } catch(e) {}
+                                return context.dataset.label + ': ' + context.formattedValue;
+                            }
+                        }
+                    })
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: axisTicks(6)
+                    },
+                    y: {
+                        beginAtZero: false,
+                        ticks: { color: theme.TEXT, font: { size: 11 } },
+                        grid: { color: theme.GRID, drawBorder: false }
+                    }
+                }
+            }
+        });
+
+        window._zbx_charts = window._zbx_charts || {};
+        window._zbx_charts[canvasId] = canvas._chartInstance;
+
+        requestAnimationFrame(function() {
+            try { canvas._chartInstance.resize(); } catch(e) {}
+        });
+    };
+
+    if (!window.zbx_downloadChart) {
+        window.zbx_downloadChart = function(id, filename) {
+            window._zbx_charts = window._zbx_charts || {};
+            var c = window._zbx_charts[id];
+            if (!c) return;
+            var url = c.toBase64Image();
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename || (id + '.png');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+    }
+
+    window.zbx_downloadAllCharts = function(prefix) {
+        window._zbx_charts = window._zbx_charts || {};
+        Object.keys(window._zbx_charts).forEach(function(id) {
+            if (!prefix || id.indexOf(prefix) === 0) {
+                window.zbx_downloadChart(id, id + '.png');
+            }
+        });
+    };
+})();
