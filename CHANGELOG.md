@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Fixed
+- `trend.get` was being called with `time_to`, which is not a valid parameter of the method (it accepts `time_from`/`time_till`). Behaviour differs by version, verified against live servers:
+  - **Zabbix 8.0** rejects it with `-32602 Invalid parameter "/": unexpected parameter "time_to"`. Every trend lookup fails and falls back to `history.get`, pulling up to 20.000 raw history rows per call — the report stalls on "Collecting Pollers and Processes information".
+  - **Zabbix 7.0.28 and earlier** accept the request and silently ignore the unknown parameter, leaving the trend window without an upper bound. Results are practically the same (the upper bound is "now" anyway), so this went unnoticed — no error was ever logged.
+
+  (code: `app/cmd/app/main.go` — `getLastTrend`, `getTrendsBulkStats`)
+
+### Added
+- CI workflow running `go build`, `go vet` and `go test -race` on pushes and pull requests touching `app/`. (`.github/workflows/go-test.yml`)
+- Regression tests locking the `trend.get` time-range parameter names. (`app/cmd/app/trend_test.go`)
+
 ## [0.1.1] - 2026-04-23
 
 ### Added

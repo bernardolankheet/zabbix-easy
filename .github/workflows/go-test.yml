@@ -1,0 +1,39 @@
+name: Go Build and Test
+
+on:
+  push:
+    branches: [ dev, main ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/go-test.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - '.github/workflows/go-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: app/go.mod
+
+      # O Dockerfile roda `go mod tidy` no build; o repositório não versiona
+      # go.sum, então fazemos o mesmo aqui antes de compilar.
+      - name: Resolve dependencies
+        run: go mod tidy
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...

@@ -42,7 +42,7 @@ var checkTrendDurationSeconds int64 = 15 * 24 * 60 * 60
 //	"3600" → sem sufixo = minutos (3600 minutos)
 //
 // checkTrendDurationSeconds é usado por getLastTrend, getTrendsBulkStats e
-// getHistoryStats para determinar o intervalo time_from/time_to nas chamadas
+// getHistoryStats para determinar o intervalo time_from/time_till nas chamadas
 // à API do Zabbix.
 //
 // ─── Como alterar o padrão ────────────────────────────────────────────────
@@ -451,7 +451,7 @@ func getLastTrend(apiUrl, token, itemid string, days int) (map[string]interface{
 		"output":    []string{"itemid", "clock", "value_min", "value_avg", "value_max"},
 		"itemids":   []string{itemid},
 		"time_from": from,
-		"time_to":   now,
+		"time_till": now, // trend.get usa time_till — "time_to" não é um parâmetro válido da API
 	}
 	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
@@ -533,7 +533,7 @@ func getTrendsBulkStats(apiUrl, token string, itemids []string) (map[string]map[
 		"output":    []string{"itemid", "value_min", "value_avg", "value_max"},
 		"itemids":   itemids,
 		"time_from": from,
-		"time_to":   now,
+		"time_till": now, // trend.get usa time_till — "time_to" não é um parâmetro válido da API
 	}
 	arr, err := collector.CollectRawList(apiUrl, token, "trend.get", params, zabbixApiRequest)
 	if err != nil { return nil, err }
